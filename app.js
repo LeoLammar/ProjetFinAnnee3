@@ -15,6 +15,9 @@ app.get('/', (req, res) => {
 app.get('/emploidutemps', (req, res) => {
     res.render('emploidutemps');
   });
+  app.get('/classement', (req, res) => {
+    res.render('classement');
+  });
   
 // Démarrer le serveur
 app.listen(3000, () => {
