@@ -3,20 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <%- include('partials/header.ejs') %>
+  <%- include('partials/head.ejs') %>
+  <br>
+  <br>
+  <br>
   <title>Transformations Intégrales</title>
-  <link href="/css/output.css" rel="stylesheet">
+  <link href="/stylesheets/style.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100">
   <main class="p-4">
     <h1 class="text-2xl font-bold mb-4">Transformations Intégrales</h1>
     <p>Bienvenue sur la page des transformations intégrales.</p>
+    <br>
     <div class="space-y-2 text-lg font-medium text-gray-800">
-        <p class="flex items-center gap-2"><span>📘</span>Le cours:</p>
+        <!-- Bouton pour afficher les cours disponibles -->
+        <button onclick="toggleContent('cours-disponibles')" 
+                class="flex items-center gap-2 hover:text-blue-600 cursor-pointer">
+          <span>📘</span>Le cours
+        </button>
+        <div id="cours-disponibles" class="hidden pl-5">
+          <ul class="list-disc">
+            <% if (cours && cours.length > 0) { %>
+              <% cours.forEach(function(coursItem) { %>
+                <li>
+                  <a href="<%= coursItem.link %>" class="text-blue-500 hover:underline">
+                    <%= coursItem.name %>
+                  </a>
+                </li>
+              <% }); %>
+            <% } else { %>
+              <li>Aucun cours disponible.</li>
+            <% } %>
+          </ul>
+        </div>
+        
         <p class="flex items-center gap-2"><span>📝</span>Les Tds:</p>
         <p class="flex items-center gap-2"><span>🔬</span>Les Tps:</p>
         <p class="flex items-center gap-2"><span>📂</span>Les annales:</p>
         <p class="flex items-center gap-2"><span>💬</span>Forum:</p>
-      </div>      
+    </div>
   </main>
+  <%- include("partials/footer.ejs") %>
+  <script>
+    function toggleContent(id) {
+      const content = document.getElementById(id);
+      if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+      } else {
+        content.classList.add('hidden');
+      }
+    }
+  </script>
 </body>
 </html>
