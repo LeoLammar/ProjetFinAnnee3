@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Argos</title>
+  <link href="/css/output.css" rel="stylesheet">
+  <style>
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <main class="p-4">
+    <h2 class="text-2xl font-bold mb-4">Ressources éducatives :</h2>
+    <section class="mb-4">
+      <h3 class="text-xl font-bold">Semestre 1 :</h3>
+      <ul class="list-disc pl-5">
+        <li>
+          <button onclick="toggleContent('signaux-systemes')" class="text-blue-500 hover:underline">Signaux, Systèmes</button>
+          <div id="signaux-systemes" class="hidden pl-5">
+            <p><a href="/transformations-integrales" class="text-blue-500 hover:underline">Transformations intégrales</a></p>
+            <p><a href="/mecanique-du-solide" class="text-blue-500 hover:underline">Mécanique du solide</a></p>
+            <p><a href="/probabilites-statistiques" class="text-blue-500 hover:underline">Probabilités, statistiques</a></p>
+          </div>
+        </li>
+        <li><a href="#" class="text-blue-500 hover:underline">Physique, Électronique</a></li>
+        <li><a href="#" class="text-blue-500 hover:underline">Informatique</a></li>
+        <li><a href="#" class="text-blue-500 hover:underline">Humanités</a></li>
+        <li><a href="#" class="text-blue-500 hover:underline">Responsabilité Sociale et Environnementale</a></li>
+        <li><a href="#" class="text-blue-500 hover:underline">Interculturel</a></li>
+      </ul>
+    </section>
+    <section>
+      <h3 class="text-xl font-bold">Semestre 2 :</h3>
+      <ul class="list-disc pl-5">
+        <li><a href="#" class="text-blue-500 hover:underline">Signaux, Systèmes</a></li>
+        <li><a href="#" class="text-blue-500 hover:underline">Physique, Électronique</a></li>
+        <li><a href="#" class="text-blue-500 hover:underline">Informatique</a></li>
+        <li><a href="#" class="text-blue-500 hover:underline">Humanités</a></li>
+        <li><a href="#" class="text-blue-500 hover:underline">Responsabilité Sociale et Environnementale</a></li>
+        <li><a href="#" class="text-blue-500 hover:underline">Interculturel</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    function toggleContent(id) {
+      const content = document.getElementById(id);
+      if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+      } else {
+        content.classList.add('hidden');
+      }
+    }
+  </script>
+</body>
+</html>
