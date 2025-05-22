@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Emploi du temps</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <%- include('partials/head.ejs') %>
+  <%- include('partials/header.ejs') %>
+
+  <main class="flex flex-col items-center p-4 pt-20">
+    <!-- Tabs -->
+    <div class="flex rounded-full border border-black overflow-hidden mb-6">
+      <button id="tab-cours" class="px-4 py-1 bg-[#5C83BA] text-white rounded-l-full focus:outline-none">Cours</button>
+      <button id="tab-associations" class="px-4 py-1 text-black bg-white rounded-r-full focus:outline-none">Associations</button>
+    </div>
+
+    <h1 class="text-[#5C83BA] font-bold text-3xl mb-4 text-center">EMPLOI DU TEMPS</h1>
+
+    <!-- Grille emploi du temps -->
+    <div class="flex w-full max-w-7xl">
+      <!-- Colonne heures -->
+      <div class="w-16 relative">
+        <div class="h-10"></div> <!-- espace pour aligner avec entêtes -->
+        <% for (let hour = 8; hour <= 18; hour++) { %>
+          <div class="h-[100px] text-xs text-gray-600 border-t text-right pr-1 pt-1"><%= hour %>h</div>
+        <% } %>
+      </div>
+
+      <!-- Jours de la semaine -->
+      <% const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']; %>
+      <% for (let i = 0; i < days.length; i++) { %>
+        <div class="flex-1 border-l relative">
+          <!-- Entête jour -->
+          <div class="h-10 bg-[#5C83BA] text-white text-center font-semibold leading-10 border-b sticky top-0 z-10">
+            <%= days[i] %>
+          </div>
+          <!-- Zone des cours -->
+          <div class="relative h-[1100px]" id="day-<%= i %>">
+            <!-- Les cours seront ajoutés ici dynamiquement -->
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </main>
+
+  <script>
+    const pixelsPerHour = 100;
+    const startHour = 8;
+
+    function addCourse(day, start, end, name) {
+      const container = document.getElementById(`day-${day}`);
+      const courseDiv = document.createElement('div');
+      courseDiv.className = "absolute left-1 right-1 bg-[#5C83BA] text-white text-sm rounded p-1 shadow";
+
+      const top = (start - startHour) * pixelsPerHour;
+      const height = (end - start) * pixelsPerHour;
+      courseDiv.style.top = `${top}px`;
+      courseDiv.style.height = `${height}px`;
+      courseDiv.innerText = name;
+
+      container.appendChild(courseDiv);
+    }
+
+    // Exemple de cours
+    document.addEventListener('DOMContentLoaded', () => {
+      addCourse(0, 8, 10, 'Mathématiques');       // Lundi 8h - 10h
+      addCourse(1, 9.5, 11.5, 'Physique');         // Mardi 9h30 - 11h30
+      addCourse(2, 10.33, 12.33, 'Chimie');        // Mercredi 10h20 - 12h20
+      addCourse(3, 11.75, 13.25, 'Biologie');      // Jeudi 11h45 - 13h15
+      addCourse(4, 12, 14, 'Histoire');            // Vendredi 12h - 14h
+      addCourse(5, 13, 15, 'Géographie');          // Samedi 13h - 15h
+    });
+
+    // Tab switch (inchangé)
+    const tabCours = document.getElementById('tab-cours');
+    const tabAssociations = document.getElementById('tab-associations');
+
+    tabCours.addEventListener('click', () => {
+      tabCours.classList.add('bg-[#5C83BA]', 'text-white');
+      tabCours.classList.remove('bg-white', 'text-black');
+      tabAssociations.classList.add('bg-white', 'text-black');
+      tabAssociations.classList.remove('bg-[#5C83BA]', 'text-white');
+    });
+
+    tabAssociations.addEventListener('click', () => {
+      tabAssociations.classList.add('bg-[#5C83BA]', 'text-white');
+      tabAssociations.classList.remove('bg-white', 'text-black');
+      tabCours.classList.add('bg-white', 'text-black');
+      tabCours.classList.remove('bg-[#5C83BA]', 'text-white');
+    });
+  </script>
+
+  <%- include("partials/footer.ejs") %>
+</body>
+</html>
