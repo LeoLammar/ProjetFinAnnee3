@@ -15,6 +15,12 @@ app.get('/', (req, res) => {
 app.get('/emploidutemps', (req, res) => {
     res.render('emploidutemps');
   });
+
+app.get('/messagerie', (req, res) => {
+    res.render('messagerie');
+});
+  
+app.use('/icons', express.static(path.join(__dirname, 'icons')));
   
 // Démarrer le serveur
 app.listen(3000, () => {
