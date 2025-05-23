@@ -1,0 +1,102 @@
+<div class="space-y-2 text-lg font-medium text-gray-800">
+    <!-- Bouton pour afficher les cours disponibles -->
+    <button onclick="toggleContent('cours-disponibles')" 
+            class="flex items-center gap-2 hover:text-blue-600 cursor-pointer">
+      <span>📘</span>Le cours:
+    </button>
+    <div id="cours-disponibles" class="hidden pl-5">
+      <ul class="list-disc">
+        <% if (cours && cours.length > 0) { %>
+          <% cours.forEach(function(coursItem) { %>
+            <li>
+              <a href="<%= coursItem.link %>" class="text-blue-500 hover:underline">
+                <%= coursItem.name %>
+              </a>
+            </li>
+          <% }); %>
+        <% } else { %>
+          <li>Aucun cours disponible.</li>
+        <% } %>
+      </ul>
+    </div>
+    <!-- Bouton pour afficher les tds disponibles -->
+    <button onclick="toggleContent('tds-disponibles')" 
+            class="flex items-center gap-2 hover:text-blue-600 cursor-pointer">
+      <span>📝</span>Les Tds:
+    </button>
+    <div id="tds-disponibles" class="hidden pl-5">
+      <ul class="list-disc">
+        <% if (tds && tds.length > 0) { %>
+          <% tds.forEach(function(tdsItem) { %>
+            <li>
+              <a href="<%= tdsItem.link %>" class="text-blue-500 hover:underline">
+                <%= tdsItem.name %>
+              </a>
+            </li>
+          <% }); %>
+        <% } else { %>
+          <li>Aucun Tds disponible.</li>
+        <% } %>
+      </ul>
+    </div>
+    <!-- Bouton pour afficher les tps disponibles -->
+    <button onclick="toggleContent('tps-disponibles')" 
+            class="flex items-center gap-2 hover:text-blue-600 cursor-pointer">
+      <span>🔬</span>Les Tps:
+    </button>
+    <div id="tps-disponibles" class="hidden pl-5">
+      <ul class="list-disc">
+        <% if (tps && tps.length > 0) { %>
+          <% tps.forEach(function(tpsItem) { %>
+            <li>
+              <a href="<%= tpsItem.link %>" class="text-blue-500 hover:underline">
+                <%= tpsItem.name %>
+              </a>
+            </li>
+          <% }); %>
+        <% } else { %>
+          <li>Aucun Tps disponible.</li>
+        <% } %>
+      </ul>
+    </div>
+    <!-- Bouton pour afficher les annales disponibles -->   
+    <button onclick="toggleContent('annales-disponibles')" 
+            class="flex items-center gap-2 hover:text-blue-600 cursor-pointer">
+      <span>📂</span>Les annales:
+    </button>
+    <div id="annales-disponibles" class="hidden pl-5">
+      <ul class="list-disc">
+        <% if (annales && annales.length > 0) { %>
+          <% annales.forEach(function(annalesItem) { %>
+            <li>
+              <a href="<%= annalesItem.link %>" class="text-blue-500 hover:underline">
+                <%= annalesItem.name %>
+              </a>
+            </li>
+          <% }); %>
+        <% } else { %>
+          <li>Aucune annale disponible.</li>
+        <% } %>
+      </ul>
+    </div>
+    <!-- Bouton pour afficher le forum -->
+    <button onclick="toggleContent('forum-disponible')" 
+            class="flex items-center gap-2 hover:text-blue-600 cursor-pointer">
+      <span>💬</span>Forum:
+    </button>
+    <div id="forum-disponible" class="hidden pl-5">
+      <ul class="list-disc">
+        <% if (forum && forum.length > 0) { %>
+          <% forum.forEach(function(forumItem) { %>
+            <li>
+              <a href="<%= forumItem.link %>" class="text-blue-500 hover:underline">
+                <%= forumItem.name %>
+              </a>
+            </li>
+          <% }); %>
+        <% } else { %>
+          <li>Aucun forum disponible.</li>
+        <% } %>
+      </ul>
+    </div>
+</div>

@@ -8,49 +8,71 @@
   <br>
   <br>
   <br>
-  <title>Transformations Intégrales</title>
+  <br>
+  <title>Argos</title>
   <link href="/stylesheets/style.css" rel="stylesheet">
+  <style>
+    .hidden {
+      display: none;
+    }
+  </style>
 </head>
 <body class="bg-gray-100">
   <main class="p-4">
-    <h1 class="text-2xl font-bold mb-4">Transformations Intégrales</h1>
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">Transformations Intégrales</h1>
+      <button onclick="openModal()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        + Ajouter un fichier
+      </button>
+    </div>
     <p>Bienvenue sur la page des transformations intégrales.</p>
     <br>
-    <div class="space-y-2 text-lg font-medium text-gray-800">
-        <!-- Bouton pour afficher les cours disponibles -->
-        <button onclick="toggleContent('cours-disponibles')" 
-                class="flex items-center gap-2 hover:text-blue-600 cursor-pointer">
-          <span>📘</span>Le cours
-        </button>
-        <div id="cours-disponibles" class="hidden pl-5">
-          <ul class="list-disc">
-            <% if (cours && cours.length > 0) { %>
-              <% cours.forEach(function(coursItem) { %>
-                <li>
-                  <a href="<%= coursItem.link %>" class="text-blue-500 hover:underline">
-                    <%= coursItem.name %>
-                  </a>
-                </li>
-              <% }); %>
-            <% } else { %>
-              <li>Aucun cours disponible.</li>
-            <% } %>
-          </ul>
-        </div>
-        
-        <p class="flex items-center gap-2"><span>📝</span>Les Tds:</p>
-        <p class="flex items-center gap-2"><span>🔬</span>Les Tps:</p>
-        <p class="flex items-center gap-2"><span>📂</span>Les annales:</p>
-        <p class="flex items-center gap-2"><span>💬</span>Forum:</p>
-    </div>
+    <%- include('partials/ressources-matiere.ejs') %>
   </main>
+  <!-- Modal d'ajout de fichier -->
+  <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
+    <div class="bg-white p-6 rounded shadow-lg w-full max-w-md">
+      <h2 class="text-xl font-bold mb-4">Ajouter un fichier</h2>
+      <form action="/upload/transformations-integrales" method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label class="block mb-1 font-medium">Fichier PDF</label>
+          <input type="file" name="pdfFile" accept=".pdf" required class="w-full"/>
+        </div>
+        <div class="mb-3">
+          <label class="block mb-1 font-medium">Nom du fichier</label>
+          <input type="text" name="customName" placeholder="Nom affiché (optionnel)" class="w-full border px-2 py-1 rounded"/>
+        </div>
+        <div class="mb-3">
+          <label class="block mb-1 font-medium">Catégorie</label>
+          <select name="categorie" required class="w-full border px-2 py-1 rounded">
+            <option value="cours">Cours</option>
+            <option value="tds">Tds</option>
+            <option value="tps">Tps</option>
+            <option value="annales">Annales</option>
+          </select>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Annuler</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Ajouter</button>
+        </div>
+      </form>
+    </div>
+  </div>
   <%- include("partials/footer.ejs") %>
   <script>
+    function openModal() {
+      document.getElementById('uploadModal').style.display = 'flex';
+    }
+    function closeModal() {
+      document.getElementById('uploadModal').style.display = 'none';
+    }
     function toggleContent(id) {
       const content = document.getElementById(id);
-      if (content.classList.contains('hidden')) {
+      if (content.style.display === 'none' || content.classList.contains('hidden')) {
+        content.style.display = '';
         content.classList.remove('hidden');
       } else {
+        content.style.display = 'none';
         content.classList.add('hidden');
       }
     }

@@ -3,8 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <%- include('partials/header.ejs') %>
+  <%- include('partials/head.ejs') %>
+  <br>
+  <br>
+  <br>
+  <br>
   <title>Argos</title>
-  <link href="/css/output.css" rel="stylesheet">
+  <link href="/stylesheets/style.css" rel="stylesheet">
   <style>
     .hidden {
       display: none;
@@ -19,32 +25,101 @@
       <ul class="list-disc pl-5">
         <li>
           <button onclick="toggleContent('signaux-systemes')" class="text-blue-500 hover:underline">Signaux, Systèmes</button>
-          <div id="signaux-systemes" class="hidden pl-5">
+          <div id="signaux-systemes" class="hidden pl-5" style="padding-left: 30px;">
             <p><a href="/transformations-integrales" class="text-blue-500 hover:underline">Transformations intégrales</a></p>
             <p><a href="/mecanique-du-solide" class="text-blue-500 hover:underline">Mécanique du solide</a></p>
             <p><a href="/probabilites-statistiques" class="text-blue-500 hover:underline">Probabilités, statistiques</a></p>
           </div>
         </li>
-        <li><a href="#" class="text-blue-500 hover:underline">Physique, Électronique</a></li>
-        <li><a href="#" class="text-blue-500 hover:underline">Informatique</a></li>
-        <li><a href="#" class="text-blue-500 hover:underline">Humanités</a></li>
-        <li><a href="#" class="text-blue-500 hover:underline">Responsabilité Sociale et Environnementale</a></li>
-        <li><a href="#" class="text-blue-500 hover:underline">Interculturel</a></li>
+        <li>
+          <button onclick="toggleContent('physique-electronique')" class="text-blue-500 hover:underline">Physique, Électronique</button>
+          <div id="physique-electronique" class="hidden pl-5" style="padding-left: 30px;">
+            <p><a href="/electronique-numerique" class="text-blue-500 hover:underline">Electronique Numérique</a></p>
+            <p><a href="/mecanique-quantique" class="text-blue-500 hover:underline">Mécanique Quantique</a></p>
+          </div>
+        </li>
+        <li>
+          <button onclick="toggleContent('informatique')" class="text-blue-500 hover:underline">Informatique</button>
+          <div id="informatique" class="hidden pl-5" style="padding-left: 30px;">
+            <p><a href="/programmation-java" class="text-blue-500 hover:underline">Programmation Java</a></p>
+            <p><a href="/infographie" class="text-blue-500 hover:underline">Infographie</a></p>
+          </div>
+        </li>
+        <li>
+          <button onclick="toggleContent('humanites')" class="text-blue-500 hover:underline">Humanités</button>
+          <div id="humanites" class="hidden pl-5" style="padding-left: 30px;">
+            <p><a href="/anglais" class="text-blue-500 hover:underline">Anglais</a></p>
+            <p><a href="/gestion-de-projet" class="text-blue-500 hover:underline">Gestion de Projet</a></p>
+          </div>
+        </li>
+        <li>
+          <button onclick="toggleContent('rse')" class="text-blue-500 hover:underline">Responsabilité Sociale et Environnementale</button>
+          <div id="rse" class="hidden pl-5" style="padding-left: 30px;">
+            <p><a href="/ethique-de-lingenieur" class="text-blue-500 hover:underline">Ethique de l'ingénieur</a></p>
+            <p><a href="/decryptage-de-linformation" class="text-blue-500 hover:underline">Décryptage de l'information</a></p>
+            <p><a href="/enjeu-du-developpement-durable" class="text-blue-500 hover:underline">Enjeu du développement durable</a></p>
+          </div>
+        </li>
+        <li>
+          <button onclick="toggleContent('interculturel')" class="text-blue-500 hover:underline">Interculturel</button>
+          <div id="interculturel" class="hidden pl-5" style="padding-left: 30px;">
+            <p><a href="/international-break" class="text-blue-500 hover:underline">International Break</a></p>
+          </div>
+        </li>
       </ul>
     </section>
     <section>
       <h3 class="text-xl font-bold">Semestre 2 :</h3>
       <ul class="list-disc pl-5">
-        <li><a href="#" class="text-blue-500 hover:underline">Signaux, Systèmes</a></li>
-        <li><a href="#" class="text-blue-500 hover:underline">Physique, Électronique</a></li>
-        <li><a href="#" class="text-blue-500 hover:underline">Informatique</a></li>
-        <li><a href="#" class="text-blue-500 hover:underline">Humanités</a></li>
-        <li><a href="#" class="text-blue-500 hover:underline">Responsabilité Sociale et Environnementale</a></li>
-        <li><a href="#" class="text-blue-500 hover:underline">Interculturel</a></li>
+        <li>
+          <button onclick="toggleContent('signaux-systemes1')" class="text-blue-500 hover:underline">Signaux, Systèmes</button>
+          <div id="signaux-systemes1" class="hidden pl-5" style="padding-left: 30px;">
+            <p><a href="/analyse-des-signaux" class="text-blue-500 hover:underline">Analyse des Signaux</a></p>
+            <p><a href="/automatique" class="text-blue-500 hover:underline">Automatique</a></p>
+          </div>
+        </li>
+        <li>
+          <button onclick="toggleContent('physique-electronique1')" class="text-blue-500 hover:underline">Physique, Électronique</button>
+          <div id="physique-electronique1" class="hidden pl-5" style="padding-left: 30px;">
+            <p><a href="/projet-delectronique-numerique" class="text-blue-500 hover:underline">Projet d'électronique numérique</a></p>
+            <p><a href="/electronique-analogique" class="text-blue-500 hover:underline">Electronique Analogique</a></p>
+            <p><a href="/physique-du-solide" class="text-blue-500 hover:underline">Physique du Solide</a></p>
+          </div>
+        </li>
+        <li>
+          <button onclick="toggleContent('informatique1')" class="text-blue-500 hover:underline">Informatique</button>
+          <div id="informatique1" class="hidden pl-5" style="padding-left: 30px;">
+            <p><a href="/projet-dinformatique" class="text-blue-500 hover:underline">Projet d'informatique</a></p>
+            <p><a href="/devops" class="text-blue-500 hover:underline">DevOps</a></p>
+            <p><a href="/base-de-donnees" class="text-blue-500 hover:underline">Base de Données</a></p>
+            <p><a href="/reseaux" class="text-blue-500 hover:underline">Réseaux</a></p>
+          </div>
+        </li>
+        <li>
+          <button onclick="toggleContent('humanites1')" class="text-blue-500 hover:underline">Humanités</button>
+          <div id="humanites1" class="hidden pl-5" style="padding-left: 30px;">
+            <p><a href="/anglais" class="text-blue-500 hover:underline">Anglais</a></p>
+            <p><a href="/competences-en-travail-dequipe" class="text-blue-500 hover:underline">Compétences en travail d'équipe</a></p>
+          </div>
+        </li>
+        <li>
+          <button onclick="toggleContent('organisation-et-management-des-entreprises')" class="text-blue-500 hover:underline">Organisation et Management des Entreprises</button>
+          <div id="organisation-et-management-des-entreprises" class="hidden pl-5" style="padding-left: 30px;">
+            <p><a href="/comptabilite" class="text-blue-500 hover:underline">Comptabilité</a></p>
+            <p><a href="/economie-dentreprise" class="text-blue-500 hover:underline">Economie d'entreprise</a></p>
+            <p><a href="/marketing" class="text-blue-500 hover:underline">Marketing</a></p>
+          </div>
+        </li>
+        <li>
+          <button onclick="toggleContent('projet')" class="text-blue-500 hover:underline">Projet</button>
+          <div id="projet" class="hidden pl-5" style="padding-left: 30px;">
+            <p><a href="/projet" class="text-blue-500 hover:underline">Projet</a></p>
+          </div>
+        </li>
       </ul>
     </section>
   </main>
-
+  <%- include("partials/footer.ejs") %>
   <script>
     function toggleContent(id) {
       const content = document.getElementById(id);
