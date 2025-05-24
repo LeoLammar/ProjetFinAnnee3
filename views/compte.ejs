@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compte</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-[#FAF3E5]">
+    <%- include('partials/head.ejs') %>
+    <%- include('partials/header.ejs') %>
+    <div class="flex items-center justify-center min-h-screen">
+        <div class="bg-white p-8 rounded shadow-md w-full max-w-md">
+            <div class="flex flex-col items-center mb-6">
+                <img src="logoargos.png" alt="Image de profil" class="w-24 h-24 rounded-full mb-4 object-cover border-2 border-gray-300">
+                <h1 class="text-2xl font-bold text-gray-800">Bienvenue sur votre compte</h1>
+            </div>
+            <div class="mb-4">
+                <div class="flex items-center mb-2">
+                    <span class="font-semibold text-gray-700 w-40">Nom :</span>
+                    <span class="text-gray-900">Dupont</span>
+                </div>
+                <div class="flex items-center mb-2">
+                    <span class="font-semibold text-gray-700 w-40">Prénom :</span>
+                    <span class="text-gray-900">Jean</span>
+                </div>
+                <div class="flex items-center mb-2">
+                    <span class="font-semibold text-gray-700 w-40">Email :</span>
+                    <span class="text-gray-900">jean.dupont@email.com</span>
+                </div>
+                <div class="flex items-center mb-2">
+                    <span class="font-semibold text-gray-700 w-40">Pseudo :</span>
+                    <span class="text-gray-900">jdupont</span>
+                </div>
+                <div class="flex items-center mb-2">
+                    <span class="font-semibold text-gray-700 w-40">Date de naissance :</span>
+                    <span class="text-gray-900">1990-05-15</span>
+                </div>
+            </div>
+            <div class="flex justify-between mt-6">
+                <a href="/modifier" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition">Modifier</a>
+                <a href="/logout" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition">Déconnexion</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

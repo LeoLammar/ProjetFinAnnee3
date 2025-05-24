@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscription</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+    
+<body class="bg-[#FAF3E5]">
+    <%- include('partials/head.ejs') %>
+    <%- include('partials/header.ejs') %>
+
+    <div class="flex flex-col items-center justify-center min-h-screen pt-24">
+        <h1 class="text-center text-3xl font-bold mb-8">Inscription</h1>
+        <form id="inscriptionForm" action="/inscription" method="post" class="flex flex-col items-center bg-[#eaf4fb] p-8 rounded-lg shadow-md max-w-md w-full">
+            <div class="flex w-full gap-4 mb-4">
+            <input type="text" name="nom" placeholder="Nom"
+                   class="border border-gray-300 rounded-lg p-2 w-1/2" required>
+            <input type="text" name="prenom" placeholder="Prénom"
+                   class="border border-gray-300 rounded-lg p-2 w-1/2" required>
+            </div>
+            <input type="email" name="email" placeholder="Adresse e-mail"
+               class="border border-gray-300 rounded-lg p-2 mb-4 w-full" required>
+            <input type="text" name="username" placeholder="Pseudo"
+               class="border border-gray-300 rounded-lg p-2 mb-4 w-full" required>
+            <input type="date" name="date_naissance" placeholder="Date de naissance"
+               class="border border-gray-300 rounded-lg p-2 mb-4 w-full" required>
+            <input type="password" id="password" name="password" placeholder="Mot de passe"
+               class="border border-gray-300 rounded-lg p-2 mb-4 w-full" required>
+            <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirmer le mot de passe"
+               class="border border-gray-300 rounded-lg p-2 mb-4 w-full" required>
+            <div id="passwordError" class="text-red-600 text-sm mb-2 hidden">Les mots de passe ne correspondent pas.</div>
+            <button type="submit"
+                    class="px-8 py-3 rounded-full border-2 border-[#5C83BA] text-[#5C83BA] bg-transparent hover:bg-[#5C83BA] hover:text-white transition-colors duration-200">
+                S'inscrire
+            </button>
+            <p class="mt-4 text-sm text-gray-600">
+                Vous avez déjà un compte ?
+                <a href="/connexion" class="text-[#5C83BA] hover:underline">Se connecter</a>
+            </p>
+            <% if (typeof error !== 'undefined') { %>
+                <div class="mt-4 text-red-600 text-sm"><%= error %></div>
+            <% } %>
+            <% if (typeof success !== 'undefined') { %>
+                <div class="mt-4 text-green-600 text-sm"><%= success %></div>
+                <script>
+                    setTimeout(function() {
+                        window.location.href = '/';
+                    }, 1500);
+                </script>
+            <% } %>
+        </form>
+    </div>
+    <script>
+        document.getElementById('inscriptionForm').addEventListener('submit', function(e) {
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+            const errorDiv = document.getElementById('passwordError');
+            if (password !== confirmPassword) {
+                errorDiv.classList.remove('hidden');
+                e.preventDefault();
+            } else {
+                errorDiv.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

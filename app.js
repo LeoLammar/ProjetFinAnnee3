@@ -10,12 +10,32 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Définir une route
 app.get('/', (req, res) => {
-    res.render('index'); // index.ejs dans le dossier "views"
+    res.render('accueil'); // index.ejs dans le dossier "views"
 });
 app.get('/emploidutemps', (req, res) => {
     res.render('emploidutemps');
   });
-  
+
+app.get('/inscription', (req, res) => {
+  res.render('inscription');
+});
+
+app.post('/inscription', (req, res) => {
+  res.redirect('/');
+});
+
+app.get('/connexion', (req, res) => {
+    res.render('connexion');
+  });
+
+app.post('/connexion', (req, res) => {
+  res.redirect('/');
+});
+
+app.get('/compte', (req, res) => {
+  res.render('compte');
+});
+
 // Démarrer le serveur
 app.listen(3000, () => {
     console.log('Serveur démarré sur http://localhost:3000');

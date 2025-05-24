@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-[#FAF3E5]">
+    <%- include('partials/head.ejs') %>
+    <%- include('partials/header.ejs') %>
+    <div class="flex flex-col items-center justify-center min-h-screen">
+        <img src="logoargos.png" alt="Logo Argos"
+             class="mt-[10px] mb-6 w-full max-w-xs object-contain" style="transition: transform 0.2s;">
+        <form id="loginForm" action="/connexion" method="post" class="flex flex-col items-center">
+            <input type="text" name="username" placeholder="Nom d'utilisateur"
+                   class="border border-gray-300 rounded-lg p-2 mb-4 w-64">
+            <input type="password" name="password" placeholder="Mot de passe"
+                   class="border border-gray-300 rounded-lg p-2 mb-4 w-64">
+            <button type="submit"
+                    class="px-8 py-3 rounded-full border-2 border-[#5C83BA] text-[#5C83BA] bg-transparent hover:bg-[#5C83BA] hover:text-white transition-colors duration-200">
+                Se connecter
+            </button>
+        </form>
+        <p class="mt-6 text-gray-700">
+            Pas de compte ?
+            <a href="/inscription" class="text-[#5C83BA] underline hover:text-[#3b5a7a]">Inscrivez-vous ici</a>
+        </p>
+    </div>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: form.method,
+                body: formData,
+            });
+            if (response.redirected) {
+                window.location.href = response.url;
+            } else if (response.ok) {
+                window.location.href = "/";
+            } else {
+                alert("Erreur de connexion");
+            }
+        });
+    </script>
+</body>
+</html>
