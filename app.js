@@ -26,7 +26,7 @@ app.post('/inscription', (req, res) => {
 
 app.get('/connexion', (req, res) => {
     res.render('connexion');
-  });
+});
 
 app.post('/connexion', (req, res) => {
   res.redirect('/');
@@ -46,6 +46,10 @@ app.get('/salles', (req, res) => {
 
 app.get('/messagerie', (req, res) => {
     res.render('messagerie');
+});
+
+app.get('/classement', (req, res) => {
+    res.render('classement');
 });
   
 app.use('/icons', express.static(path.join(__dirname, 'icons')));

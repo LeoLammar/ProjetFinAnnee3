@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Classement</title>
+</head>
+<body>
+    <%- include('partials/head.ejs') %>
+    <%- include('partials/header.ejs') %>
+
+    <main class="pt-24 px-4 bg-white min-h-screen">
+        <div class="max-w-4xl mx-auto">
+          <h1 class="text-3xl font-bold text-[#5C83BA] mb-8 text-center">Classement des Contributeurs</h1>
+          <div class="overflow-x-auto shadow rounded-lg">
+            <table class="min-w-full bg-white border border-gray-200 rounded-lg">
+              <thead class="bg-[#5C83BA] text-white">
+                <tr>
+                  <th class="px-6 py-3 text-left text-sm font-semibold">#</th>
+                  <th class="px-6 py-3 text-left text-sm font-semibold">Nom</th>
+                  <th class="px-6 py-3 text-left text-sm font-semibold">Contributions</th>
+                </tr>
+              </thead>
+              <tbody id="ranking-body" class="text-gray-700">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+      <script>
+        const contributors = [
+          { nom: "Dupont", prenom: "Alice", contributions: 32 },
+          { nom: "Martin", prenom: "Jean", contributions: 28 },
+          { nom: "Durand", prenom: "Sophie", contributions: 24 },
+          { nom: "Moreau", prenom: "Pierre", contributions: 19 },
+          { nom: "Leroy", prenom: "Claire", contributions: 14 },
+        ];
+      
+        const tbody = document.getElementById('ranking-body');
+      
+        contributors
+          .sort((a, b) => b.contributions - a.contributions)
+          .forEach((contrib, index) => {
+            const row = document.createElement('tr');
+            row.className = index % 2 === 0 ? "bg-gray-50" : "bg-white";
+            row.innerHTML = `
+              <td class="px-6 py-4 font-medium text-gray-900">${index + 1}</td>
+              <td class="px-6 py-4">${contrib.prenom} ${contrib.nom}</td>
+              <td class="px-6 py-4">${contrib.contributions}</td>
+            `;
+            tbody.appendChild(row);
+          });
+      </script>
+            
+  <%- include("partials/footer.ejs") %>
+</body>
+</html>
