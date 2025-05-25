@@ -36,6 +36,14 @@ app.get('/compte', (req, res) => {
   res.render('compte');
 });
 
+app.get('/mentorat', (req, res) => {
+    res.render('mentorat');
+});
+
+app.get('/salles', (req, res) => {
+    res.render('salleDeClasse');
+});
+
 // Démarrer le serveur
 app.listen(3000, () => {
     console.log('Serveur démarré sur http://localhost:3000');
