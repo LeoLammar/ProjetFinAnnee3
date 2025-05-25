@@ -14,7 +14,7 @@ app.get('/', (req, res) => {
 });
 app.get('/emploidutemps', (req, res) => {
     res.render('emploidutemps');
-  });
+});
 
 app.get('/inscription', (req, res) => {
   res.render('inscription');
@@ -43,6 +43,13 @@ app.get('/mentorat', (req, res) => {
 app.get('/salles', (req, res) => {
     res.render('salleDeClasse');
 });
+
+app.get('/messagerie', (req, res) => {
+    res.render('messagerie');
+});
+  
+app.use('/icons', express.static(path.join(__dirname, 'icons')));
+  
 
 // Démarrer le serveur
 app.listen(3000, () => {
