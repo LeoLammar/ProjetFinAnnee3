@@ -14,7 +14,15 @@ app.get('/', (req, res) => {
 });
 app.get('/emploidutemps', (req, res) => {
     res.render('emploidutemps');
-  });
+});
+
+app.get('/mentorat', (req, res) => {
+    res.render('mentorat');
+});
+
+app.get('/salles', (req, res) => {
+    res.render('salleDeClasse');
+});
   
 // Démarrer le serveur
 app.listen(3000, () => {
