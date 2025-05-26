@@ -1,36 +1,37 @@
 const fs = require('fs');
 const path = require('path');
 
-// Table de correspondance pour les titres avec accents et majuscules corrects
+// Table de correspondance pour les titres et les sections à afficher
+// Format : titre, cours, tds, tps, annales, forum (true = afficher, false = masquer)
 const titres = {
-    'transformations-integrales': "Transformations d'Intégrales",
-    'mecanique-du-solide': 'Mécanique du Solide',
-    'probabilites-statistiques': 'Probabilités Statistiques',
-    'anglais': 'Anglais',
-    'decryptage-de-linformation': "Décryptage de l'information",
-    'electronique-numerique': 'Électronique Numérique',
-    'enjeu-du-developpement-durable': 'Enjeu du Développement Durable',
-    'ethique-de-lingenieur': "Éthique de l'Ingénieur",
-    'gestion-de-projet': 'Gestion de Projet',
-    'infographie': 'Infographie',
-    'international-break': 'International Break',
-    'mecanique-quantique': 'Mécanique Quantique',
-    'programmation-java': 'Programmation Java',
-    'analyse-des-signaux': 'Analyse des Signaux',
-    'automatique': 'Automatique',
-    'base-de-donnees': 'Base de Données',
-    'competences-en-travail-dequipe': "Compétences en Travail d'Équipe",
-    'comptabilite': 'Comptabilité',
-    'devops': 'DevOps',
-    'economie-dentreprise': "Économie d'Entreprise",
-    'electronique-analogique': 'Électronique Analogique',
-    'marketing': 'Marketing',
-    'physique-du-solide': 'Physique du Solide',
-    'projet-de-fin-dannee': "Projet de Fin d'Année",
-    'projet-delectronique-numerique': "Projet d'Électronique Numérique",
-    'reseaux': 'Réseaux',
-    'projet-dinformatique': "Projet d'Informatique",
-    'projet': 'Projet'
+    'transformations-integrales': ["Transformations d'Intégrales", true, true, true, true, true],
+    'mecanique-du-solide': ['Mécanique du Solide', true, true, true, true, true],
+    'probabilites-statistiques': ['Probabilités Statistiques', true, true, true, true, true],
+    'anglais': ['Anglais', true, true, false, true, true],
+    'decryptage-de-linformation': ["Décryptage de l'information", true, false, false, true, true],
+    'electronique-numerique': ['Électronique Numérique', true, true, true, true, true],
+    'enjeu-du-developpement-durable': ['Enjeu du Développement Durable', true, false, true, true, true],
+    'ethique-de-lingenieur': ["Éthique de l'Ingénieur", true, false, false, true, true],
+    'gestion-de-projet': ['Gestion de Projet', true, false, false, true, true],
+    'infographie': ['Infographie', true, true, true, true, true],
+    'international-break': ['International Break', true, false, false, true, true],
+    'mecanique-quantique': ['Mécanique Quantique', true, true, false, true, true],
+    'programmation-java': ['Programmation Java', true, true, true, true, true],
+    'analyse-des-signaux': ['Analyse des Signaux', true, true, true, true, true],
+    'automatique': ['Automatique', true, true, true, true, true],
+    'base-de-donnees': ['Base de Données', true, true, true, true, true],
+    'competences-en-travail-dequipe': ["Compétences en Travail d'Équipe", true, false, false, false, true],
+    'comptabilite': ['Comptabilité', true, true, false, true, true],
+    'devops': ['DevOps', true, true, true, true, true],
+    'economie-dentreprise': ["Économie d'Entreprise", true, false, false, true, true],
+    'electronique-analogique': ['Électronique Analogique', true, true, true, true, true],
+    'marketing': ['Marketing', true, true, false, true, true],
+    'physique-du-solide': ['Physique du Solide', true, true, true, true, true],
+    'projet-de-fin-dannee': ["Projet de Fin d'Année", true, false, false, true, true],
+    'projet-delectronique-numerique': ["Projet d'Électronique Numérique", true, false, false, true, true],
+    'reseaux': ['Réseaux', true, true, true, true, true],
+    'projet-dinformatique': ["Projet d'Informatique", true, false, false, true, true],
+    'projet': ['Projet', true, false, false, false, true]
 };
 
 const matieres = Object.keys(titres);
@@ -44,10 +45,94 @@ function deOuD(titre) {
 }
 
 matieres.forEach(matiere => {
-    const titre = titres[matiere];
+    const [titre, showCours, showTds, showTps, showAnnales, showForum] = titres[matiere];
     const titreMin = titre.toLowerCase();
     const deOuDStr = deOuD(titreMin);
     const phraseAccueil = `Bienvenue sur la page ${deOuDStr}${titreMin}.`;
+
+    // Génération du contenu des sections selon les booléens
+    let sections = '';
+    if (showCours) {
+        sections += `
+        <section class="mb-6">
+          <h3 class="text-lg font-semibold mb-2">Cours</h3>
+          <% if (cours && cours.length > 0) { %>
+            <ul>
+              <% cours.forEach(function(file) { %>
+                <li><a href="<%= file.link %>" target="_blank"><%= file.name %></a></li>
+              <% }); %>
+            </ul>
+          <% } else { %>
+            <p class="text-gray-500">Aucun cours disponible.</p>
+          <% } %>
+        </section>
+        `;
+    }
+    if (showTds) {
+        sections += `
+        <section class="mb-6">
+          <h3 class="text-lg font-semibold mb-2">TDs</h3>
+          <% if (tds && tds.length > 0) { %>
+            <ul>
+              <% tds.forEach(function(file) { %>
+                <li><a href="<%= file.link %>" target="_blank"><%= file.name %></a></li>
+              <% }); %>
+            </ul>
+          <% } else { %>
+            <p class="text-gray-500">Aucun TD disponible.</p>
+          <% } %>
+        </section>
+        `;
+    }
+    if (showTps) {
+        sections += `
+        <section class="mb-6">
+          <h3 class="text-lg font-semibold mb-2">TPs</h3>
+          <% if (tps && tps.length > 0) { %>
+            <ul>
+              <% tps.forEach(function(file) { %>
+                <li><a href="<%= file.link %>" target="_blank"><%= file.name %></a></li>
+              <% }); %>
+            </ul>
+          <% } else { %>
+            <p class="text-gray-500">Aucun TP disponible.</p>
+          <% } %>
+        </section>
+        `;
+    }
+    if (showAnnales) {
+        sections += `
+        <section class="mb-6">
+          <h3 class="text-lg font-semibold mb-2">Annales</h3>
+          <% if (annales && annales.length > 0) { %>
+            <ul>
+              <% annales.forEach(function(file) { %>
+                <li><a href="<%= file.link %>" target="_blank"><%= file.name %></a></li>
+              <% }); %>
+            </ul>
+          <% } else { %>
+            <p class="text-gray-500">Aucune annale disponible.</p>
+          <% } %>
+        </section>
+        `;
+    }
+    if (showForum) {
+        sections += `
+        <section class="mb-6">
+          <h3 class="text-lg font-semibold mb-2">Forum</h3>
+          <% if (forum && forum.length > 0) { %>
+            <ul>
+              <% forum.forEach(function(file) { %>
+                <li><a href="<%= file.link %>" target="_blank"><%= file.name %></a></li>
+              <% }); %>
+            </ul>
+          <% } else { %>
+            <p class="text-gray-500">Aucun document forum disponible.</p>
+          <% } %>
+        </section>
+        `;
+    }
+
     const content = `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -110,7 +195,6 @@ matieres.forEach(matiere => {
       border-color: #5C83BA;
       outline: none;
     }
-    /* Masquer le texte natif de l'input file */
     input[type="file"]::-webkit-file-upload-button {
       visibility: hidden;
       display: none;
@@ -181,6 +265,7 @@ matieres.forEach(matiere => {
     </div>
     <p class="text-base sm:text-lg text-center sm:text-left">${phraseAccueil}</p>
     <br>
+    ${sections}
     <%- include('partials/ressources-matiere.ejs') %>
   </main>
   <!-- Modal d'ajout de fichier -->

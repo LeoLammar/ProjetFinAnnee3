@@ -10,9 +10,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "crypt": "^0.0.2",
+    "dotenv": "^16.5.0",
     "ejs": "^3.1.10",
     "express": "^5.1.0",
     "i": "^0.3.7",
+    "mongodb": "^6.16.0",
     "multer": "^2.0.0",
     "pdf": "^0.1.0"
   }

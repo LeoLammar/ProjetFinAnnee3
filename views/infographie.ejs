@@ -60,7 +60,6 @@
       border-color: #5C83BA;
       outline: none;
     }
-    /* Masquer le texte natif de l'input file */
     input[type="file"]::-webkit-file-upload-button {
       visibility: hidden;
       display: none;
@@ -131,6 +130,72 @@
     </div>
     <p class="text-base sm:text-lg text-center sm:text-left">Bienvenue sur la page d'infographie.</p>
     <br>
+    
+        <section class="mb-6">
+          <h3 class="text-lg font-semibold mb-2">Cours</h3>
+          <% if (cours && cours.length > 0) { %>
+            <ul>
+              <% cours.forEach(function(file) { %>
+                <li><a href="<%= file.link %>" target="_blank"><%= file.name %></a></li>
+              <% }); %>
+            </ul>
+          <% } else { %>
+            <p class="text-gray-500">Aucun cours disponible.</p>
+          <% } %>
+        </section>
+        
+        <section class="mb-6">
+          <h3 class="text-lg font-semibold mb-2">TDs</h3>
+          <% if (tds && tds.length > 0) { %>
+            <ul>
+              <% tds.forEach(function(file) { %>
+                <li><a href="<%= file.link %>" target="_blank"><%= file.name %></a></li>
+              <% }); %>
+            </ul>
+          <% } else { %>
+            <p class="text-gray-500">Aucun TD disponible.</p>
+          <% } %>
+        </section>
+        
+        <section class="mb-6">
+          <h3 class="text-lg font-semibold mb-2">TPs</h3>
+          <% if (tps && tps.length > 0) { %>
+            <ul>
+              <% tps.forEach(function(file) { %>
+                <li><a href="<%= file.link %>" target="_blank"><%= file.name %></a></li>
+              <% }); %>
+            </ul>
+          <% } else { %>
+            <p class="text-gray-500">Aucun TP disponible.</p>
+          <% } %>
+        </section>
+        
+        <section class="mb-6">
+          <h3 class="text-lg font-semibold mb-2">Annales</h3>
+          <% if (annales && annales.length > 0) { %>
+            <ul>
+              <% annales.forEach(function(file) { %>
+                <li><a href="<%= file.link %>" target="_blank"><%= file.name %></a></li>
+              <% }); %>
+            </ul>
+          <% } else { %>
+            <p class="text-gray-500">Aucune annale disponible.</p>
+          <% } %>
+        </section>
+        
+        <section class="mb-6">
+          <h3 class="text-lg font-semibold mb-2">Forum</h3>
+          <% if (forum && forum.length > 0) { %>
+            <ul>
+              <% forum.forEach(function(file) { %>
+                <li><a href="<%= file.link %>" target="_blank"><%= file.name %></a></li>
+              <% }); %>
+            </ul>
+          <% } else { %>
+            <p class="text-gray-500">Aucun document forum disponible.</p>
+          <% } %>
+        </section>
+        
     <%- include('partials/ressources-matiere.ejs') %>
   </main>
   <!-- Modal d'ajout de fichier -->
