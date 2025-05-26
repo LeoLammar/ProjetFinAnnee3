@@ -4,6 +4,17 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 
+const uri = `mongodb+srv://${process.env.DB_ID}:${process.env.DB_PASSWORD}@cluster0.rphccsl.mongodb.net
+`;
+
+const DATABASE_NAME = "Argos";
+const DATABASE_COLLECTION = "Compte";
+
+let database = null;
+let compte = null;
+
+initDB();
+
 // Fonction utilitaire pour lister les fichiers PDF d'un dossier
 function getPdfFilesFromDir(dirPath) {
     try {
