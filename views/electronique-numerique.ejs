@@ -13,28 +13,141 @@
   <link href="/stylesheets/style.css" rel="stylesheet">
   <style>
     .hidden { display: none; }
+    #uploadModal {
+      animation: fadeIn 0.2s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .custom-modal {
+      border-top: 6px solid #5C83BA;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      position: relative;
+      padding-top: 2.5rem;
+      width: 100%;
+    }
+    .close-btn {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: transparent;
+      border: none;
+      font-size: 1.5rem;
+      color: #5C83BA;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .close-btn:hover {
+      color: #466a99;
+    }
+    .custom-modal h2 {
+      margin-top: 0;
+      color: #5C83BA;
+      text-align: center;
+    }
+    .custom-modal form label {
+      color: #1e293b;
+    }
+    .custom-modal form input,
+    .custom-modal form select {
+      border: 1px solid #cbd5e1;
+      margin-bottom: 0.5rem;
+    }
+    .custom-modal form input:focus,
+    .custom-modal form select:focus {
+      border-color: #5C83BA;
+      outline: none;
+    }
+    /* Masquer le texte natif de l'input file */
+    input[type="file"]::-webkit-file-upload-button {
+      visibility: hidden;
+      display: none;
+    }
+    input[type="file"]::file-selector-button {
+      visibility: hidden;
+      display: none;
+    }
+    input[type="file"] {
+      color: transparent;
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      width: 1px;
+      min-width: 0;
+      max-width: 0;
+      height: 1px;
+      overflow: hidden;
+      position: absolute;
+    }
+    .file-label {
+      position: relative;
+    }
+    .custom-file-btn {
+      display: inline-block;
+      background: #5C83BA;
+      color: #fff;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: background 0.2s;
+      margin-right: 0.5rem;
+    }
+    .custom-file-btn:hover {
+      background: #466a99;
+    }
+    .file-chosen {
+      font-weight: 500;
+      color: #5C83BA;
+      margin-left: 0.5rem;
+    }
+    .file-none {
+      color: #64748b;
+      font-style: italic;
+      margin-left: 0.5rem;
+    }
+    @media (max-width: 640px) {
+      .custom-modal {
+        padding: 1rem !important;
+        border-radius: 10px;
+        font-size: 0.97rem;
+      }
+      .custom-modal h2 {
+        font-size: 1.1rem;
+      }
+    }
   </style>
 </head>
-<body class="bg-gray-100">
-  <main class="p-4">
-    <div class="flex justify-between items-center mb-4">
-      <h1 class="text-2xl font-bold mb-4">Électronique Numérique</h1>
-      <button onclick="openModal()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+<body class="bg-gray-100 min-h-screen">
+  <main class="p-2 sm:p-4 md:p-8 max-w-4xl mx-auto">
+    <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
+      <h1 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-4 text-center sm:text-left">Électronique Numérique</h1>
+      <button onclick="openModal()" class="w-full sm:w-auto bg-[#5C83BA] text-white px-4 py-2 rounded hover:bg-[#466a99] transition">
         + Ajouter un fichier
       </button>
     </div>
-    <p>Bienvenue sur la page d'électronique numérique.</p>
+    <p class="text-base sm:text-lg text-center sm:text-left">Bienvenue sur la page d'électronique numérique.</p>
     <br>
     <%- include('partials/ressources-matiere.ejs') %>
   </main>
   <!-- Modal d'ajout de fichier -->
   <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
-    <div class="bg-white p-6 rounded shadow-lg w-full max-w-md">
-      <h2 class="text-xl font-bold mb-4">Ajouter un fichier</h2>
+    <div class="bg-white custom-modal p-3 sm:p-6 shadow-lg w-full max-w-sm sm:max-w-md md:max-w-lg">
+      <button type="button" class="close-btn" onclick="closeModal()" title="Fermer">&times;</button>
+      <h2 class="text-lg sm:text-xl font-bold mb-4">Ajouter un fichier</h2>
       <form action="/upload/electronique-numerique" method="POST" enctype="multipart/form-data">
         <div class="mb-3">
           <label class="block mb-1 font-medium">Fichier PDF</label>
-          <input type="file" name="pdfFile" accept=".pdf" required class="w-full"/>
+          <div class="file-label">
+            <label class="custom-file-btn">
+              Choisir un fichier
+              <input type="file" name="pdfFile" accept=".pdf" required onchange="updateFileName(this)"/>
+            </label>
+            <span id="file-chosen" class="file-none">Aucun fichier choisi</span>
+          </div>
         </div>
         <div class="mb-3">
           <label class="block mb-1 font-medium">Nom du fichier</label>
@@ -49,9 +162,9 @@
             <option value="annales">Annales</option>
           </select>
         </div>
-        <div class="flex justify-end gap-2">
-          <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Annuler</button>
-          <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Ajouter</button>
+        <div class="flex flex-col sm:flex-row justify-end gap-2">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 w-full sm:w-auto">Annuler</button>
+          <button type="submit" class="px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] w-full sm:w-auto">Ajouter</button>
         </div>
       </form>
     </div>
@@ -70,6 +183,16 @@
         content.classList.remove('hidden');
       } else {
         content.classList.add('hidden');
+      }
+    }
+    function updateFileName(input) {
+      const fileChosen = document.getElementById('file-chosen');
+      if (input.files && input.files.length > 0) {
+        fileChosen.textContent = input.files[0].name;
+        fileChosen.className = 'file-chosen';
+      } else {
+        fileChosen.textContent = 'Aucun fichier choisi';
+        fileChosen.className = 'file-none';
       }
     }
   </script>
