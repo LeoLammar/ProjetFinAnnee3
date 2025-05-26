@@ -9,23 +9,21 @@
   <br>
   <br>
   <br>
-  <title>Argos</title>
+  <title>Transformations d'Intégrales</title>
   <link href="/stylesheets/style.css" rel="stylesheet">
   <style>
-    .hidden {
-      display: none;
-    }
+    .hidden { display: none; }
   </style>
 </head>
 <body class="bg-gray-100">
   <main class="p-4">
     <div class="flex justify-between items-center mb-4">
-      <h1 class="text-2xl font-bold">Transformations Intégrales</h1>
+      <h1 class="text-2xl font-bold mb-4">Transformations d'Intégrales</h1>
       <button onclick="openModal()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
         + Ajouter un fichier
       </button>
     </div>
-    <p>Bienvenue sur la page des transformations intégrales.</p>
+    <p>Bienvenue sur la page de transformations d'intégrales.</p>
     <br>
     <%- include('partials/ressources-matiere.ejs') %>
   </main>
@@ -68,11 +66,9 @@
     }
     function toggleContent(id) {
       const content = document.getElementById(id);
-      if (content.style.display === 'none' || content.classList.contains('hidden')) {
-        content.style.display = '';
+      if (content.classList.contains('hidden')) {
         content.classList.remove('hidden');
       } else {
-        content.style.display = 'none';
         content.classList.add('hidden');
       }
     }

@@ -9,27 +9,25 @@
   <br>
   <br>
   <br>
-  <title>Electronique numérique</title>
+  <title>Électronique Numérique</title>
   <link href="/stylesheets/style.css" rel="stylesheet">
   <style>
-    .hidden {
-      display: none;
-    }
+    .hidden { display: none; }
   </style>
 </head>
 <body class="bg-gray-100">
   <main class="p-4">
     <div class="flex justify-between items-center mb-4">
-      <h1 class="text-2xl font-bold mb-4">Electronique numérique</h1>
+      <h1 class="text-2xl font-bold mb-4">Électronique Numérique</h1>
       <button onclick="openModal()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
         + Ajouter un fichier
       </button>
     </div>
     <p>Bienvenue sur la page d'électronique numérique.</p>
-    <p>Ici, vous pouvez ajouter tout le contenu que vous souhaitez afficher concernant le cours d'électronique numérique.</p>
     <br>
     <%- include('partials/ressources-matiere.ejs') %>
   </main>
+  <!-- Modal d'ajout de fichier -->
   <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
     <div class="bg-white p-6 rounded shadow-lg w-full max-w-md">
       <h2 class="text-xl font-bold mb-4">Ajouter un fichier</h2>
