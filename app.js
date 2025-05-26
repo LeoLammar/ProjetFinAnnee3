@@ -3,15 +3,35 @@ const app = express();
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const { MongoClient } = require('mongodb');
+const bcrypt = require('bcrypt');
+const crypt = require('crypt');
+require('dotenv').config();
 
-const uri = `mongodb+srv://${process.env.DB_ID}:${process.env.DB_PASSWORD}@cluster0.rphccsl.mongodb.net
-`;
+async function initDB() {
+    try {
+        const client = new MongoClient(uri, { useUnifiedTopology: true });
+        await client.connect();
+        database = client.db(DATABASE_NAME);
+        compte = database.collection(DATABASE_COLLECTION);
+        console.log('Connexion à MongoDB réussie');
+    } catch (err) {
+        console.error('Erreur de connexion à MongoDB:', err);
+    }
+}
+const uri = `mongodb+srv://${process.env.DB_ID}:${process.env.DB_PASSWORD}@cluster0.rphccsl.mongodb.net`;
 
 const DATABASE_NAME = "Argos";
 const DATABASE_COLLECTION = "Compte";
 
+let data_to_send = {
+    msg: "",
+    data: null,
+    user: null
+};
 let database = null;
 let compte = null;
+let current_treated_file = null;
 
 initDB();
 
@@ -111,17 +131,83 @@ app.get('/inscription', (req, res) => {
   res.render('inscription');
 });
 
-app.post('/inscription', (req, res) => {
-  res.redirect('/');
+app.post('/inscription', async (req, res) => {
+    const { nom, prenom, email, username, date_naissance, password, confirm_password } = req.body;
+
+    if (!nom || !prenom || !email || !username || !date_naissance || !password || !confirm_password) {
+        return res.render('inscription', { error: "Tous les champs sont obligatoires." });
+    }
+    if (password !== confirm_password) {
+        return res.render('inscription', { error: "Les mots de passe ne correspondent pas." });
+    }
+
+    try {
+        const existingUser = await compte.findOne({ $or: [{ email }, { username }] });
+        if (existingUser) {
+            return res.render('inscription', { error: "Email ou pseudo déjà utilisé." });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        await compte.insertOne({
+            nom,
+            prenom,
+            email,
+            username,
+            date_naissance,
+            password: hashedPassword,
+            date_inscription: new Date()
+        });
+
+        res.render('inscription', { success: "Inscription réussie !" });
+    } catch (err) {
+        console.error(err);
+        res.render('inscription', { error: "Erreur lors de l'inscription." });
+    }
 });
 
 app.get('/connexion', (req, res) => {
     res.render('connexion');
 });
 
-app.post('/connexion', (req, res) => {
-  res.redirect('/');
-});
+app.post('/connexion', async (req, res) => {
+
+    const body = req.body;
+
+    // Check fields
+    if (!body.email || !body.password) {
+        return res.redirect("/inscription");
+    }
+
+    // Hashing password using md5
+    const clearPass = body.password;
+    const hashedPass = crypto.createHash('md5').update(clearPass).digest("hex");
+
+    // Find user by username
+    let query = { username: body.email, password: hashedPass };
+    let findUser = await clients.findOne(query);
+
+    // Find user by email
+    query = { email: body.email, password: hashedPass };
+    if (!findUser)
+        findUser = await clients.findOne(query);
+
+
+    // User doesn't exist
+    if (!findUser) {
+        updateDataToSend(req, "Les identifiants sont incorrects");
+        return res.redirect('/connexion');
+    }
+
+    req.session.user = findUser;
+
+    data_to_send.connected = true;
+
+    updateDataToSend(req, "");
+
+    return res.redirect("/");
+
+})
 
 app.get('/compte', (req, res) => {
   res.render('compte');
