@@ -3,7 +3,7 @@ const app = express();
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const crypt = require('crypt');
 require('dotenv').config();
@@ -34,6 +34,20 @@ let compte = null;
 let current_treated_file = null;
 
 initDB();
+
+const session = require('express-session');
+
+
+app.use(session({
+    secret: 'votre_secret', // Mets une vraie valeur secrète en production
+    resave: false,
+    saveUninitialized: false
+}));
+
+app.use((req, res, next) => {
+    res.locals.user = req.session.user || null;
+    next();
+});
 
 // Fonction utilitaire pour lister les fichiers PDF d'un dossier
 function getPdfFilesFromDir(dirPath) {
@@ -171,46 +185,50 @@ app.get('/connexion', (req, res) => {
 });
 
 app.post('/connexion', async (req, res) => {
+    const { username, password } = req.body;
 
-    const body = req.body;
-
-    // Check fields
-    if (!body.email || !body.password) {
-        return res.redirect("/inscription");
+    if (!username || !password) {
+        return res.render('connexion', { error: "Tous les champs sont obligatoires." });
     }
 
-    // Hashing password using md5
-    const clearPass = body.password;
-    const hashedPass = crypto.createHash('md5').update(clearPass).digest("hex");
+    // Recherche par username ou email
+    const user = await compte.findOne({
+        $or: [{ username }, { email: username }]
+    });
 
-    // Find user by username
-    let query = { username: body.email, password: hashedPass };
-    let findUser = await clients.findOne(query);
-
-    // Find user by email
-    query = { email: body.email, password: hashedPass };
-    if (!findUser)
-        findUser = await clients.findOne(query);
-
-
-    // User doesn't exist
-    if (!findUser) {
-        updateDataToSend(req, "Les identifiants sont incorrects");
-        return res.redirect('/connexion');
+    if (!user) {
+        return res.render('connexion', { error: "Identifiants incorrects." });
     }
 
-    req.session.user = findUser;
+    const passwordMatch = await bcrypt.compare(password, user.password);
 
-    data_to_send.connected = true;
+    if (!passwordMatch) {
+        return res.render('connexion', { error: "Identifiants incorrects." });
+    }
 
-    updateDataToSend(req, "");
+    req.session.user = {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        nom: user.nom,
+        prenom: user.prenom,
+        date_naissance: user.date_naissance
+    };
 
-    return res.redirect("/");
-
-})
+    res.redirect('/');
+});
 
 app.get('/compte', (req, res) => {
-  res.render('compte');
+    if (!req.session.user) {
+        return res.redirect('/connexion');
+    }
+    res.render('compte', { user: req.session.user });
+});
+
+app.get('/logout', (req, res) => {
+    req.session.destroy(() => {
+        res.redirect('/');
+    });
 });
 
 app.get('/mentorat', (req, res) => {
@@ -249,6 +267,75 @@ app.post('/upload/:matiere', upload.single('pdfFile'), (req, res) => {
     const destPath = path.join(destDir, req.file.filename);
     fs.renameSync(tmpPath, destPath);
     res.redirect('/' + matiere);
+});
+
+// Affichage du formulaire de modification
+app.get('/modifier', async (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/connexion');
+    }
+    // On récupère les infos les plus à jour depuis la base
+    const user = await compte.findOne({ _id: req.session.user._id });
+    res.render('modifier', { user, error: null, success: null });
+});
+
+// Traitement du formulaire de modification
+app.post('/modifier', async (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/connexion');
+    }
+    const { nom, prenom, email, username, date_naissance } = req.body;
+
+    // On récupère l'utilisateur actuel
+    const userActuel = await compte.findOne({ _id: new ObjectId(req.session.user._id) });
+
+    // On construit dynamiquement l'objet de mise à jour
+    let updateFields = {};
+    if (nom && nom !== userActuel.nom) updateFields.nom = nom;
+    if (prenom && prenom !== userActuel.prenom) updateFields.prenom = prenom;
+    if (email && email !== userActuel.email) updateFields.email = email;
+    if (username && username !== userActuel.username) updateFields.username = username;
+    if (date_naissance && date_naissance !== userActuel.date_naissance) updateFields.date_naissance = date_naissance;
+
+    // Vérifier si email ou username déjà utilisé par un autre utilisateur
+    if ((email && email !== userActuel.email) || (username && username !== userActuel.username)) {
+        const existing = await compte.findOne({
+            $and: [
+                { _id: { $ne: new ObjectId(req.session.user._id) } },
+                { $or: [
+                    ...(email && email !== userActuel.email ? [{ email }] : []),
+                    ...(username && username !== userActuel.username ? [{ username }] : [])
+                ]}
+            ]
+        });
+        if (existing) {
+            return res.render('modifier', { user: req.body, error: "Email ou pseudo déjà utilisé.", success: null });
+        }
+    }
+
+    // Si rien à modifier
+    if (Object.keys(updateFields).length === 0) {
+        return res.render('modifier', { user: userActuel, error: "Aucune modification détectée.", success: null });
+    }
+
+    // Mise à jour dans la base
+    await compte.updateOne(
+        { _id: new ObjectId(req.session.user._id) },
+        { $set: updateFields }
+    );
+
+    // Mettre à jour la session avec les nouvelles valeurs
+    const userMaj = { ...userActuel, ...updateFields };
+    req.session.user = {
+        _id: userMaj._id,
+        nom: userMaj.nom,
+        prenom: userMaj.prenom,
+        email: userMaj.email,
+        username: userMaj.username,
+        date_naissance: userMaj.date_naissance
+    };
+
+    res.redirect('/compte');
 });
 
 // Démarrer le serveur

@@ -7,9 +7,17 @@
                 <p class="font-wide text-2xl text-white" id="pc"><a href="/">Argos</a></p>
             </div>
         </div>
-        <a href="/compte" style="position:absolute;top:50%;right:70px;transform:translateY(-50%);z-index:10;">
-            <img src="logoargos.png" alt="Profil" style="width:40px;height:40px;border-radius:50%;border:2px solid #fff;object-fit:cover;">
-        </a>
+        <% if (user) { %>
+            <a href="/compte" style="position:absolute;top:50%;right:70px;transform:translateY(-50%);z-index:10;">
+                <img src="logoargos.png" alt="Profil" style="width:40px;height:40px;border-radius:50%;border:2px solid #fff;object-fit:cover;">
+            </a>
+        <% } else { %>
+            <a href="/connexion" style="position:absolute;top:50%;right:70px;transform:translateY(-50%);z-index:10;">
+                <button class="px-4 py-2 rounded-full border-2 border-white text-white bg-[#5C83BA] hover:bg-white hover:text-[#5C83BA] transition-colors duration-200">
+                    Connexion
+                </button>
+            </a>
+        <% } %>
         <label class="hamburger-menu" for="nav-check">
             <div class="bar" id="bar1"></div>
             <div class="bar" id="bar2"></div>

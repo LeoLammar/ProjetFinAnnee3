@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modifier mon compte</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-[#FAF3E5]">
+    <%- include('partials/head.ejs') %>
+    <%- include('partials/header.ejs') %>
+    <div class="flex items-center justify-center min-h-screen">
+        <div class="bg-white p-8 rounded shadow-md w-full max-w-md">
+            <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Modifier mon compte</h1>
+            <% if (typeof error !== 'undefined' && error) { %>
+                <div class="mb-4 text-red-600"><%= error %></div>
+            <% } %>
+            <% if (typeof success !== 'undefined' && success) { %>
+                <div class="mb-4 text-green-600"><%= success %></div>
+            <% } %>
+            <form action="/modifier" method="post" class="flex flex-col gap-4">
+                <input type="text" name="nom" placeholder="Nom" value="<%= user ? user.nom : '' %>" class="border border-gray-300 rounded-lg p-2">
+                <input type="text" name="prenom" placeholder="Prénom" value="<%= user ? user.prenom : '' %>" class="border border-gray-300 rounded-lg p-2">
+                <input type="email" name="email" placeholder="Email" value="<%= user ? user.email : '' %>" class="border border-gray-300 rounded-lg p-2">
+                <input type="text" name="username" placeholder="Pseudo" value="<%= user ? user.username : '' %>" class="border border-gray-300 rounded-lg p-2">
+                <input type="date" name="date_naissance" placeholder="Date de naissance" value="<%= user ? user.date_naissance : '' %>" class="border border-gray-300 rounded-lg p-2">
+                <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition">Enregistrer</button>
+            </form>
+            <div class="mt-4 text-center">
+                <a href="/compte" class="text-[#5C83BA] underline hover:text-[#3b5a7a]">Retour à mon compte</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

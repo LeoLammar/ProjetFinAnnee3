@@ -18,23 +18,23 @@
             <div class="mb-4">
                 <div class="flex items-center mb-2">
                     <span class="font-semibold text-gray-700 w-40">Nom :</span>
-                    <span class="text-gray-900">HUBERT</span>
+                    <span class="text-gray-900"><%= user ? user.nom : '' %></span>
                 </div>
                 <div class="flex items-center mb-2">
                     <span class="font-semibold text-gray-700 w-40">Prénom :</span>
-                    <span class="text-gray-900">Matthieu</span>
+                    <span class="text-gray-900"><%= user ? user.prenom : '' %></span>
                 </div>
                 <div class="flex items-center mb-2">
                     <span class="font-semibold text-gray-700 w-40">Email :</span>
-                    <span class="text-gray-900">matthieu.hubert@gmail.com</span>
+                    <span class="text-gray-900"><%= user ? user.email : '' %></span>
                 </div>
                 <div class="flex items-center mb-2">
                     <span class="font-semibold text-gray-700 w-40">Pseudo :</span>
-                    <span class="text-gray-900">matt44</span>
+                    <span class="text-gray-900"><%= user ? user.username : '' %></span>
                 </div>
                 <div class="flex items-center mb-2">
                     <span class="font-semibold text-gray-700 w-40">Date de naissance :</span>
-                    <span class="text-gray-900">2004-11-09</span>
+                    <span class="text-gray-900"><%= user ? user.date_naissance : '' %></span>
                 </div>
             </div>
             <div class="flex justify-between mt-6">
