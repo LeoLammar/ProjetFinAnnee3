@@ -6,34 +6,50 @@ const multer = require('multer');
 const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const crypt = require('crypt');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+const crypto = require('crypto');
 require('dotenv').config();
 
+// Connexion à MongoDB
+const uri = `mongodb+srv://${process.env.DB_ID}:${process.env.DB_PASSWORD}@cluster0.rphccsl.mongodb.net`;
+const DATABASE_NAME = "Argos";
+const DATABASE_COLLECTION = "Compte";
+const DOCUMENTS_COLLECTION = "Documents"; // Nouvelle collection pour les fichiers
+
+let database = null;
+let compte = null;
+let documents = null;
+
+// Initialisation de la connexion MongoDB
 async function initDB() {
     try {
         const client = new MongoClient(uri, { useUnifiedTopology: true });
         await client.connect();
         database = client.db(DATABASE_NAME);
         compte = database.collection(DATABASE_COLLECTION);
+        documents = database.collection(DOCUMENTS_COLLECTION); // Ajout
         console.log('Connexion à MongoDB réussie');
     } catch (err) {
         console.error('Erreur de connexion à MongoDB:', err);
     }
 }
-const uri = `mongodb+srv://${process.env.DB_ID}:${process.env.DB_PASSWORD}@cluster0.rphccsl.mongodb.net`;
+initDB();
 
-const DATABASE_NAME = "Argos";
-const DATABASE_COLLECTION = "Compte";
+// Sessions utilisateurs stockées dans MongoDB
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'argos_secret',
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({ mongoUrl: uri, dbName: DATABASE_NAME }),
+    cookie: { maxAge: 1000 * 60 * 60 * 24 } // 1 jour
+}));
 
 let data_to_send = {
     msg: "",
     data: null,
     user: null
 };
-let database = null;
-let compte = null;
-let current_treated_file = null;
-
-initDB();
 
 const session = require('express-session');
 
@@ -62,6 +78,16 @@ function getPdfFilesFromDir(dirPath) {
     } catch (e) {
         return [];
     }
+}
+
+// Fonction utilitaire pour lister les fichiers PDF d'une matière/catégorie depuis la BDD
+async function getPdfFilesFromDB(matiere, categorie) {
+    if (!documents) return [];
+    const docs = await documents.find({ matiere, categorie }).toArray();
+    return docs.map(doc => ({
+        name: doc.name,
+        link: `/download/${doc._id}` // Route de téléchargement
+    }));
 }
 
 // Liste des matières à gérer dynamiquement
@@ -120,17 +146,47 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+// Supprimer la route d'upload qui stocke dans le filesystem (gardez uniquement la BDD)
+app.post('/upload/:matiere', upload.single('pdfFile'), async (req, res) => {
+    const matiere = req.params.matiere;
+    if (!matieres.includes(matiere)) {
+        return res.status(400).send('Matière inconnue');
+    }
+    const categorie = req.body.categorie;
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const doc = {
+        matiere,
+        categorie,
+        name: req.body.customName && req.body.customName.trim() !== '' ? req.body.customName.trim() : req.file.originalname,
+        file: { buffer: fileBuffer },
+        uploadedAt: new Date()
+    };
+    await documents.insertOne(doc);
+    fs.unlinkSync(req.file.path); // Nettoyage du fichier temporaire
+    res.redirect('/' + matiere);
+});
+
 // Génération dynamique des routes pour chaque matière
 matieres.forEach(matiere => {
-    app.get(`/${matiere}`, (req, res) => {
-        const baseDir = path.join(__dirname, 'public', 'documents', matiere);
-        const cours = getPdfFilesFromDir(path.join(baseDir, 'cours'));
-        const tds = getPdfFilesFromDir(path.join(baseDir, 'tds'));
-        const tps = getPdfFilesFromDir(path.join(baseDir, 'tps'));
-        const annales = getPdfFilesFromDir(path.join(baseDir, 'annales'));
-        const forum = getPdfFilesFromDir(path.join(baseDir, 'forum'));
+    app.get(`/${matiere}`, async (req, res) => {
+        // Les fichiers sont récupérés depuis la BDD, pas depuis le filesystem
+        const cours = await getPdfFilesFromDB(matiere, 'cours');
+        const tds = await getPdfFilesFromDB(matiere, 'tds');
+        const tps = await getPdfFilesFromDB(matiere, 'tps');
+        const annales = await getPdfFilesFromDB(matiere, 'annales');
+        const forum = await getPdfFilesFromDB(matiere, 'forum');
         res.render(matiere, { cours, tds, tps, annales, forum });
     });
+});
+
+// Route pour télécharger un fichier depuis la BDD
+app.get('/download/:id', async (req, res) => {
+    if (!documents) return res.status(500).send('DB non connectée');
+    const doc = await documents.findOne({ _id: new require('mongodb').ObjectId(req.params.id) });
+    if (!doc) return res.status(404).send('Fichier non trouvé');
+    res.setHeader('Content-Disposition', `attachment; filename="${doc.name}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(doc.file.buffer);
 });
 
 // Définir une route
@@ -254,19 +310,12 @@ app.get('/ressources-educatives', (req, res) => {
     res.render('ressources-educatives');
 });
 
-// Route POST générique pour l'upload de fichiers pour toutes les matières
-app.post('/upload/:matiere', upload.single('pdfFile'), (req, res) => {
-    const matiere = req.params.matiere;
-    if (!matieres.includes(matiere)) {
-        return res.status(400).send('Matière inconnue');
-    }
-    const categorie = req.body.categorie;
-    const tmpPath = req.file.path;
-    const destDir = path.join(__dirname, 'public', 'documents', matiere, categorie);
-    fs.mkdirSync(destDir, { recursive: true });
-    const destPath = path.join(destDir, req.file.filename);
-    fs.renameSync(tmpPath, destPath);
-    res.redirect('/' + matiere);
+// Exemple d'utilisation de la base pour une route front/back
+app.get('/api/user/:username', async (req, res) => {
+    if (!compte) return res.status(500).json({ error: 'DB non connectée' });
+    const user = await compte.findOne({ username: req.params.username });
+    if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    res.json({ username: user.username, email: user.email });
 });
 
 // Affichage du formulaire de modification
