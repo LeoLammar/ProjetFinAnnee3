@@ -10,6 +10,7 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const crypto = require('crypto');
 require('dotenv').config();
+const axios = require('axios');
 
 // Connexion à MongoDB
 const uri = `mongodb+srv://${process.env.DB_ID}:${process.env.DB_PASSWORD}@cluster0.rphccsl.mongodb.net`;
@@ -51,7 +52,6 @@ let data_to_send = {
     user: null
 };
 
-const session = require('express-session');
 
 
 app.use(session({
@@ -193,8 +193,63 @@ app.get('/download/:id', async (req, res) => {
 app.get('/', (req, res) => {
     res.render('accueil'); // index.ejs dans le dossier "views"
 });
-app.get('/emploidutemps', (req, res) => {
-    res.render('emploidutemps');
+
+
+app.get('/emploidutemps', async (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/connexion');
+    }
+    // Affiche juste le formulaire, pas d'appel API ici
+    res.render('emploidutemps', { planning: [], error: null });
+});
+
+app.post('/emploidutemps', async (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/connexion');
+    }
+    const password_mauria = req.body.password_mauria;
+    if (!password_mauria) {
+        return res.render('emploidutemps', { planning: [], error: "Veuillez saisir votre mot de passe Aurion pour accéder à l'emploi du temps." });
+    }
+
+    const email = req.session.user.email;
+
+    // Récupère la date de début de semaine depuis le formulaire ou prend la semaine courante
+    let start = req.body.start ? new Date(req.body.start) : new Date();
+    // Si la date n'est pas valide, prend aujourd'hui
+    if (isNaN(start)) start = new Date();
+    // Calcule le lundi de la semaine
+    start.setDate(start.getDate() - start.getDay() + 1);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 5); // Samedi
+
+    const startStr = start.toISOString().slice(0, 10);
+    const endStr = end.toISOString().slice(0, 10);
+
+    let planning = [];
+    let error = null;
+
+    try {
+        const response = await axios.post(
+            `https://mauriaapi.fly.dev/exactPlanning?start=${startStr}&end=${endStr}`,
+            {
+                username: email,
+                password: password_mauria
+            },
+            {
+                headers: {
+                    'accept': '/',
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        planning = response.data;
+    } catch (err) {
+        error = "Mot de passe aurion incorrect.";
+    }
+
+    // Passe la date de début à la vue pour la navigation
+    res.render('emploidutemps', { planning, error, start: startStr, password_mauria });
 });
 
 app.get('/inscription', (req, res) => {
@@ -268,7 +323,7 @@ app.post('/connexion', async (req, res) => {
         email: user.email,
         nom: user.nom,
         prenom: user.prenom,
-        date_naissance: user.date_naissance
+        date_naissance: user.date_naissance,
     };
 
     res.redirect('/');
@@ -376,13 +431,14 @@ app.post('/modifier', async (req, res) => {
     // Mettre à jour la session avec les nouvelles valeurs
     const userMaj = { ...userActuel, ...updateFields };
     req.session.user = {
-        _id: userMaj._id,
-        nom: userMaj.nom,
-        prenom: userMaj.prenom,
-        email: userMaj.email,
-        username: userMaj.username,
-        date_naissance: userMaj.date_naissance
-    };
+    _id: userMaj._id,
+    nom: userMaj.nom,
+    prenom: userMaj.prenom,
+    email: userMaj.email,
+    username: userMaj.username,
+    date_naissance: userMaj.date_naissance,
+    password_mauria: req.session.user.password_mauria // <-- garde le mot de passe Mauria !
+};
 
     res.redirect('/compte');
 });
