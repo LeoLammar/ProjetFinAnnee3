@@ -12,7 +12,7 @@
     <div class="flex items-center justify-center min-h-screen">
         <div class="bg-white p-8 rounded shadow-md w-full max-w-md">
             <div class="flex flex-col items-center mb-6">
-                <img src="logoargos.png" alt="Image de profil" class="w-24 h-24 rounded-full mb-4 object-cover border-2 border-gray-300">
+                <img src="<%= user && user.photo ? user.photo : '/default.png' %>" alt="Profil" class="w-24 h-24 rounded-full mb-4 object-cover border-2 border-gray-300">
                 <h1 class="text-2xl font-bold text-gray-800">Bienvenue sur votre compte</h1>
             </div>
             <div class="mb-4">

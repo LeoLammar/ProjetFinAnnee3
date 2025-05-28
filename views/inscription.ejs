@@ -13,7 +13,7 @@
 
     <div class="flex flex-col items-center justify-center min-h-screen pt-24">
         <h1 class="text-center text-3xl font-bold mb-8">Inscription</h1>
-        <form id="inscriptionForm" action="/inscription" method="post" class="flex flex-col items-center bg-[#eaf4fb] p-8 rounded-lg shadow-md max-w-md w-full">
+        <form id="inscriptionForm" action="/inscription" method="post" class="flex flex-col items-center bg-[#eaf4fb] p-8 rounded-lg shadow-md max-w-md w-full" enctype="multipart/form-data">
             <div class="flex w-full gap-4 mb-4">
             <input type="text" name="nom" placeholder="Nom"
                    class="border border-gray-300 rounded-lg p-2 w-1/2" required>
@@ -30,6 +30,17 @@
                class="border border-gray-300 rounded-lg p-2 mb-4 w-full" required>
             <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirmer le mot de passe"
                class="border border-gray-300 rounded-lg p-2 mb-4 w-full" required>
+            <div class="flex flex-col items-center mb-6">
+                <label for="photo" class="relative cursor-pointer group">
+                    <img id="preview" src="/default.png" alt="Photo de profil"
+                        class="w-24 h-24 rounded-full object-cover border-2 border-gray-300 transition group-hover:brightness-75 shadow">
+                    <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/40 rounded-full">
+                        <span class="text-white font-semibold">Ajouter une photo</span>
+                    </div>
+                    <input type="file" id="photo" name="photo" accept="image/*" class="hidden" onchange="previewPhoto(event)">
+                </label>
+                <p class="text-xs text-gray-500 mt-2">Formats acceptés : JPG, PNG, GIF</p>
+            </div>
             <div id="passwordError" class="text-red-600 text-sm mb-2 hidden">Les mots de passe ne correspondent pas.</div>
             <button type="submit"
                     class="px-8 py-3 rounded-full border-2 border-[#5C83BA] text-[#5C83BA] bg-transparent hover:bg-[#5C83BA] hover:text-white transition-colors duration-200">
@@ -64,6 +75,13 @@
                 errorDiv.classList.add('hidden');
             }
         });
+
+        function previewPhoto(event) {
+            const [file] = event.target.files;
+            if (file) {
+                document.getElementById('preview').src = URL.createObjectURL(file);
+            }
+        }
     </script>
 </body>
 </html>

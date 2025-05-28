@@ -9,7 +9,7 @@
         </div>
         <% if (user) { %>
             <a href="/compte" style="position:absolute;top:50%;right:70px;transform:translateY(-50%);z-index:10;">
-                <img src="logoargos.png" alt="Profil" style="width:40px;height:40px;border-radius:50%;border:2px solid #fff;object-fit:cover;">
+                <img src="<%= user && user.photo ? user.photo : '/default.png' %>" alt="Profil" style="width:40px;height:40px;border-radius:50%;border:2px solid #fff;object-fit:cover;">
             </a>
         <% } else { %>
             <a href="/connexion" style="position:absolute;top:50%;right:70px;transform:translateY(-50%);z-index:10;">

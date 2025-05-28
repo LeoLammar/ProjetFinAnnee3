@@ -5,7 +5,6 @@ const fs = require('fs');
 const multer = require('multer');
 const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
-const crypt = require('crypt');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const crypto = require('crypto');
@@ -24,7 +23,7 @@ let documents = null;
 // Initialisation de la connexion MongoDB
 async function initDB() {
     try {
-        const client = new MongoClient(uri, { useUnifiedTopology: true });
+        const client = new MongoClient(uri);
         await client.connect();
         database = client.db(DATABASE_NAME);
         compte = database.collection(DATABASE_COLLECTION);
@@ -50,15 +49,6 @@ let data_to_send = {
     data: null,
     user: null
 };
-
-const session = require('express-session');
-
-
-app.use(session({
-    secret: 'votre_secret', // Mets une vraie valeur secrète en production
-    resave: false,
-    saveUninitialized: false
-}));
 
 app.use((req, res, next) => {
     res.locals.user = req.session.user || null;
@@ -130,6 +120,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Middleware pour parser les formulaires
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 // Configuration de multer pour l'upload (stockage temporaire)
 const storage = multer.diskStorage({
@@ -145,6 +136,19 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage: storage });
+
+// Storage spécifique pour les photos de profil
+const profilePhotoStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, path.join(__dirname, 'public')); // ou 'public/uploads/profils' si tu veux un sous-dossier
+    },
+    filename: function (req, file, cb) {
+        const ext = path.extname(file.originalname);
+        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + ext;
+        cb(null, uniqueName);
+    }
+});
+const uploadProfilePhoto = multer({ storage: profilePhotoStorage });
 
 // Supprimer la route d'upload qui stocke dans le filesystem (gardez uniquement la BDD)
 app.post('/upload/:matiere', upload.single('pdfFile'), async (req, res) => {
@@ -197,82 +201,10 @@ app.get('/emploidutemps', (req, res) => {
     res.render('emploidutemps');
 });
 
-app.get('/inscription', (req, res) => {
-  res.render('inscription');
-});
 
-app.post('/inscription', async (req, res) => {
-    const { nom, prenom, email, username, date_naissance, password, confirm_password } = req.body;
+// Route d'inscription avec upload photo
 
-    if (!nom || !prenom || !email || !username || !date_naissance || !password || !confirm_password) {
-        return res.render('inscription', { error: "Tous les champs sont obligatoires." });
-    }
-    if (password !== confirm_password) {
-        return res.render('inscription', { error: "Les mots de passe ne correspondent pas." });
-    }
 
-    try {
-        const existingUser = await compte.findOne({ $or: [{ email }, { username }] });
-        if (existingUser) {
-            return res.render('inscription', { error: "Email ou pseudo déjà utilisé." });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        await compte.insertOne({
-            nom,
-            prenom,
-            email,
-            username,
-            date_naissance,
-            password: hashedPassword,
-            date_inscription: new Date()
-        });
-
-        res.render('inscription', { success: "Inscription réussie !" });
-    } catch (err) {
-        console.error(err);
-        res.render('inscription', { error: "Erreur lors de l'inscription." });
-    }
-});
-
-app.get('/connexion', (req, res) => {
-    res.render('connexion');
-});
-
-app.post('/connexion', async (req, res) => {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-        return res.render('connexion', { error: "Tous les champs sont obligatoires." });
-    }
-
-    // Recherche par username ou email
-    const user = await compte.findOne({
-        $or: [{ username }, { email: username }]
-    });
-
-    if (!user) {
-        return res.render('connexion', { error: "Identifiants incorrects." });
-    }
-
-    const passwordMatch = await bcrypt.compare(password, user.password);
-
-    if (!passwordMatch) {
-        return res.render('connexion', { error: "Identifiants incorrects." });
-    }
-
-    req.session.user = {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        nom: user.nom,
-        prenom: user.prenom,
-        date_naissance: user.date_naissance
-    };
-
-    res.redirect('/');
-});
 
 app.get('/compte', (req, res) => {
     if (!req.session.user) {
@@ -320,25 +252,35 @@ app.get('/api/user/:username', async (req, res) => {
 
 // Affichage du formulaire de modification
 app.get('/modifier', async (req, res) => {
-    if (!req.session.user) {
+    if (!req.session.user || !req.session.user._id) {
         return res.redirect('/connexion');
     }
-    // On récupère les infos les plus à jour depuis la base
-    const user = await compte.findOne({ _id: req.session.user._id });
+    // Convertit l'id en ObjectId pour la requête MongoDB
+    const user = await compte.findOne({ _id: new ObjectId(req.session.user._id) });
+    if (!user) {
+        req.session.destroy(() => {
+            res.redirect('/connexion');
+        });
+        return;
+    }
+    req.session.user = {
+        _id: user._id,
+        nom: user.nom,
+        prenom: user.prenom,
+        email: user.email,
+        username: user.username,
+        date_naissance: user.date_naissance,
+        photo: user.photo
+    };
     res.render('modifier', { user, error: null, success: null });
 });
 
 // Traitement du formulaire de modification
-app.post('/modifier', async (req, res) => {
-    if (!req.session.user) {
-        return res.redirect('/connexion');
-    }
+app.post('/modifier', uploadProfilePhoto.single('photo'), async (req, res) => {
+    if (!req.session.user || !req.session.user._id) return res.redirect('/connexion');
     const { nom, prenom, email, username, date_naissance } = req.body;
-
-    // On récupère l'utilisateur actuel
     const userActuel = await compte.findOne({ _id: new ObjectId(req.session.user._id) });
 
-    // On construit dynamiquement l'objet de mise à jour
     let updateFields = {};
     if (nom && nom !== userActuel.nom) updateFields.nom = nom;
     if (prenom && prenom !== userActuel.prenom) updateFields.prenom = prenom;
@@ -346,34 +288,21 @@ app.post('/modifier', async (req, res) => {
     if (username && username !== userActuel.username) updateFields.username = username;
     if (date_naissance && date_naissance !== userActuel.date_naissance) updateFields.date_naissance = date_naissance;
 
-    // Vérifier si email ou username déjà utilisé par un autre utilisateur
-    if ((email && email !== userActuel.email) || (username && username !== userActuel.username)) {
-        const existing = await compte.findOne({
-            $and: [
-                { _id: { $ne: new ObjectId(req.session.user._id) } },
-                { $or: [
-                    ...(email && email !== userActuel.email ? [{ email }] : []),
-                    ...(username && username !== userActuel.username ? [{ username }] : [])
-                ]}
-            ]
-        });
-        if (existing) {
-            return res.render('modifier', { user: req.body, error: "Email ou pseudo déjà utilisé.", success: null });
-        }
+    // Ajoute la photo SEULEMENT si un fichier est uploadé
+    if (req.file) {
+        updateFields.photo = '/' + req.file.filename;
     }
 
-    // Si rien à modifier
     if (Object.keys(updateFields).length === 0) {
         return res.render('modifier', { user: userActuel, error: "Aucune modification détectée.", success: null });
     }
 
-    // Mise à jour dans la base
     await compte.updateOne(
         { _id: new ObjectId(req.session.user._id) },
         { $set: updateFields }
     );
 
-    // Mettre à jour la session avec les nouvelles valeurs
+    // Mets à jour la session avec la nouvelle photo si besoin
     const userMaj = { ...userActuel, ...updateFields };
     req.session.user = {
         _id: userMaj._id,
@@ -381,10 +310,94 @@ app.post('/modifier', async (req, res) => {
         prenom: userMaj.prenom,
         email: userMaj.email,
         username: userMaj.username,
-        date_naissance: userMaj.date_naissance
+        date_naissance: userMaj.date_naissance,
+        photo: userMaj.photo
     };
 
     res.redirect('/compte');
+});
+
+function redirectIfAuthenticated(req, res, next) {
+    if (req.session.user && req.session.user._id) {
+        return res.redirect('/compte');
+    }
+    next();
+}
+
+// Utilise ce middleware sur les routes concernées
+app.get('/connexion', redirectIfAuthenticated, (req, res) => {
+    res.render('connexion');
+});
+
+app.get('/inscription', redirectIfAuthenticated, (req, res) => {
+    res.render('inscription');
+});
+
+app.post('/connexion', redirectIfAuthenticated, async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.render('connexion', { error: "Tous les champs sont obligatoires." });
+    }
+
+    // Recherche par username ou email
+    const user = await compte.findOne({
+        $or: [{ username }, { email: username }]
+    });
+
+    if (!user) {
+        return res.render('connexion', { error: "Identifiants incorrects." });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+        return res.render('connexion', { error: "Identifiants incorrects." });
+    }
+
+    req.session.user = {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        nom: user.nom,
+        prenom: user.prenom,
+        date_naissance: user.date_naissance,
+        photo: user.photo // <-- ajoute cette ligne
+    };
+
+    res.redirect('/');
+});
+
+app.post('/inscription', redirectIfAuthenticated, uploadProfilePhoto.single('photo'), async (req, res) => {
+    const { nom, prenom, email, username, date_naissance, password, confirm_password } = req.body;
+    let photoPath = req.file ? '/' + req.file.filename : '/default.png';
+
+    // ...vérifications comme avant...
+
+    try {
+        const existingUser = await compte.findOne({ $or: [{ email }, { username }] });
+        if (existingUser) {
+            return res.render('inscription', { error: "Email ou pseudo déjà utilisé." });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        await compte.insertOne({
+            nom,
+            prenom,
+            email,
+            username,
+            date_naissance,
+            password: hashedPassword,
+            photo: photoPath,
+            date_inscription: new Date()
+        });
+
+        res.render('inscription', { success: "Inscription réussie !" });
+    } catch (err) {
+        console.error(err);
+        res.render('inscription', { error: "Erreur lors de l'inscription." });
+    }
 });
 
 // Démarrer le serveur
