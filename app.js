@@ -21,20 +21,51 @@ let database = null;
 let compte = null;
 let documents = null;
 
-// Initialisation de la connexion MongoDB
+// On ne garde plus une seule collection "Documents" mais une collection par matière
+let matiereCollections = {};
+
+// Utiliser la collection "Ressources" pour tous les documents
+let Ressources = null;
+
+// Correction : attendre que la connexion MongoDB soit prête avant d'accepter les requêtes
+let mongoReady = false;
+async function ensureIndexes() {
+    if (!Ressources) return;
+    try {
+        await Ressources.createIndex({ matiere: 1, categorie: 1 });
+        await Ressources.createIndex({ _id: 1 });
+        console.log('Indexes créés sur la collection Ressources');
+    } catch (e) {
+        console.error('Erreur lors de la création des indexes:', e);
+    }
+}
+
 async function initDB() {
     try {
         const client = new MongoClient(uri, { useUnifiedTopology: true });
         await client.connect();
         database = client.db(DATABASE_NAME);
         compte = database.collection(DATABASE_COLLECTION);
-        documents = database.collection(DOCUMENTS_COLLECTION); // Ajout
+        Ressources = database.collection("Ressources");
+        matieres.forEach(matiere => {
+            matiereCollections[matiere] = database.collection(matiere);
+        });
+        mongoReady = true;
         console.log('Connexion à MongoDB réussie');
+        await ensureIndexes(); // Ajoute cette ligne
     } catch (err) {
         console.error('Erreur de connexion à MongoDB:', err);
     }
 }
 initDB();
+
+// Middleware pour attendre la connexion MongoDB avant de traiter les requêtes
+app.use((req, res, next) => {
+    if (!mongoReady) {
+        return res.status(503).send('Base de données non prête, réessayez dans quelques secondes.');
+    }
+    next();
+});
 
 // Sessions utilisateurs stockées dans MongoDB
 app.use(session({
@@ -50,9 +81,6 @@ let data_to_send = {
     data: null,
     user: null
 };
-
-const session = require('express-session');
-
 
 app.use(session({
     secret: 'votre_secret', // Mets une vraie valeur secrète en production
@@ -80,10 +108,10 @@ function getPdfFilesFromDir(dirPath) {
     }
 }
 
-// Fonction utilitaire pour lister les fichiers PDF d'une matière/catégorie depuis la BDD
+// Fonction utilitaire pour lister les fichiers PDF d'une matière/catégorie depuis la BDD (collection "Ressources")
 async function getPdfFilesFromDB(matiere, categorie) {
-    if (!documents) return [];
-    const docs = await documents.find({ matiere, categorie }).toArray();
+    if (!Ressources) return [];
+    const docs = await Ressources.find({ matiere, categorie }).toArray();
     return docs.map(doc => ({
         name: doc.name,
         link: `/download/${doc._id}` // Route de téléchargement
@@ -146,30 +174,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Supprimer la route d'upload qui stocke dans le filesystem (gardez uniquement la BDD)
-app.post('/upload/:matiere', upload.single('pdfFile'), async (req, res) => {
-    const matiere = req.params.matiere;
-    if (!matieres.includes(matiere)) {
-        return res.status(400).send('Matière inconnue');
-    }
-    const categorie = req.body.categorie;
-    const fileBuffer = fs.readFileSync(req.file.path);
-    const doc = {
-        matiere,
-        categorie,
-        name: req.body.customName && req.body.customName.trim() !== '' ? req.body.customName.trim() : req.file.originalname,
-        file: { buffer: fileBuffer },
-        uploadedAt: new Date()
-    };
-    await documents.insertOne(doc);
-    fs.unlinkSync(req.file.path); // Nettoyage du fichier temporaire
-    res.redirect('/' + matiere);
-});
-
 // Génération dynamique des routes pour chaque matière
 matieres.forEach(matiere => {
     app.get(`/${matiere}`, async (req, res) => {
-        // Les fichiers sont récupérés depuis la BDD, pas depuis le filesystem
         const cours = await getPdfFilesFromDB(matiere, 'cours');
         const tds = await getPdfFilesFromDB(matiere, 'tds');
         const tps = await getPdfFilesFromDB(matiere, 'tps');
@@ -179,14 +186,97 @@ matieres.forEach(matiere => {
     });
 });
 
-// Route pour télécharger un fichier depuis la BDD
+// Route pour télécharger un fichier depuis la BDD (collection "Ressources")
 app.get('/download/:id', async (req, res) => {
-    if (!documents) return res.status(500).send('DB non connectée');
-    const doc = await documents.findOne({ _id: new require('mongodb').ObjectId(req.params.id) });
+    if (!Ressources) return res.status(500).send('DB non connectée');
+    let doc;
+    try {
+        const id = req.params.id;
+        if (!id || typeof id !== 'string' || id.length !== 24 || !/^[a-fA-F0-9]{24}$/.test(id)) {
+            return res.status(400).send('ID invalide');
+        }
+        doc = await Ressources.findOne({ _id: ObjectId(id) });
+    } catch (e) {
+        return res.status(400).send('ID invalide');
+    }
     if (!doc) return res.status(404).send('Fichier non trouvé');
+    // Correction : pour GridFS/Binary, il faut utiliser doc.file.buffer.buffer si c'est un Buffer dans un objet BSON Binary
+    let fileBuffer = doc.file && doc.file.buffer
+        ? (Buffer.isBuffer(doc.file.buffer) ? doc.file.buffer : Buffer.from(doc.file.buffer))
+        : null;
+    if (!fileBuffer) return res.status(500).send('Fichier corrompu');
     res.setHeader('Content-Disposition', `attachment; filename="${doc.name}"`);
     res.setHeader('Content-Type', 'application/pdf');
-    res.send(doc.file.buffer);
+    res.send(fileBuffer);
+});
+
+app.get('/view/:id', async (req, res) => {
+    if (!Ressources) return res.status(500).send('DB non connectée');
+    let doc;
+    try {
+        const id = req.params.id && typeof req.params.id === 'string' ? req.params.id.trim() : '';
+        if (!ObjectId.isValid(id)) {
+            console.error('ID non valide pour MongoDB:', id);
+            return res.status(400).send('ID invalide');
+        }
+        doc = await Ressources.findOne({ _id: new ObjectId(id) });
+    } catch (e) {
+        console.error('Erreur lors de la recherche MongoDB:', e);
+        return res.status(400).send('ID invalide');
+    }
+    if (!doc) {
+        console.error('Aucun document trouvé pour cet ID:', req.params.id);
+        return res.status(404).send('Fichier non trouvé');
+    }
+    // Correction : gestion BSON Binary (cas MongoDB Compass/Node.js)
+    let fileBuffer = null;
+    if (doc.file && doc.file.buffer) {
+        if (Buffer.isBuffer(doc.file.buffer)) {
+            fileBuffer = doc.file.buffer;
+        } else if (doc.file.buffer._bsontype === 'Binary' && doc.file.buffer.buffer) {
+            // Cas BSON Binary (driver MongoDB)
+            fileBuffer = Buffer.from(doc.file.buffer.buffer);
+        } else if (doc.file.buffer instanceof Uint8Array) {
+            fileBuffer = Buffer.from(doc.file.buffer);
+        } else {
+            try {
+                fileBuffer = Buffer.from(doc.file.buffer);
+            } catch (e) {
+                fileBuffer = null;
+            }
+        }
+    }
+    if (!fileBuffer) {
+        console.error('Fichier corrompu pour l\'ID:', req.params.id, doc.file);
+        return res.status(500).send('Fichier corrompu');
+    }
+    let filename = doc.name && !doc.name.toLowerCase().endsWith('.pdf') ? doc.name + '.pdf' : doc.name;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.send(fileBuffer);
+});
+
+// Route pour servir le PDF dans un <iframe> (affichage direct, pas téléchargement)
+app.get('/pdf/:id', async (req, res) => {
+    if (!Ressources) return res.status(500).send('DB non connectée');
+    let doc;
+    try {
+        const id = req.params.id;
+        if (!id || typeof id !== 'string' || id.length !== 24 || !/^[a-fA-F0-9]{24}$/.test(id)) {
+            return res.status(400).send('ID invalide');
+        }
+        doc = await Ressources.findOne({ _id: ObjectId(id) });
+    } catch (e) {
+        return res.status(400).send('ID invalide');
+    }
+    if (!doc) return res.status(404).send('Fichier non trouvé');
+    let fileBuffer = doc.file && doc.file.buffer
+        ? (Buffer.isBuffer(doc.file.buffer) ? doc.file.buffer : Buffer.from(doc.file.buffer))
+        : null;
+    if (!fileBuffer) return res.status(500).send('Fichier corrompu');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${doc.name}"`);
+    res.send(fileBuffer);
 });
 
 // Définir une route
@@ -241,50 +331,46 @@ app.get('/connexion', (req, res) => {
 });
 
 app.post('/connexion', async (req, res) => {
-    const { username, password } = req.body;
 
-    if (!username || !password) {
-        return res.render('connexion', { error: "Tous les champs sont obligatoires." });
+    const body = req.body;
+
+    // Check fields
+    if (!body.email || !body.password) {
+        return res.redirect("/inscription");
     }
 
-    // Recherche par username ou email
-    const user = await compte.findOne({
-        $or: [{ username }, { email: username }]
-    });
+    // Hashing password using md5
+    const clearPass = body.password;
+    const hashedPass = crypto.createHash('md5').update(clearPass).digest("hex");
 
-    if (!user) {
-        return res.render('connexion', { error: "Identifiants incorrects." });
-    }
+    // Find user by username
+    let query = { username: body.email, password: hashedPass };
+    let findUser = await clients.findOne(query);
 
-    const passwordMatch = await bcrypt.compare(password, user.password);
+    // Find user by email
+    query = { email: body.email, password: hashedPass };
+    if (!findUser)
+        findUser = await clients.findOne(query);
 
-    if (!passwordMatch) {
-        return res.render('connexion', { error: "Identifiants incorrects." });
-    }
 
-    req.session.user = {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        nom: user.nom,
-        prenom: user.prenom,
-        date_naissance: user.date_naissance
-    };
-
-    res.redirect('/');
-});
-
-app.get('/compte', (req, res) => {
-    if (!req.session.user) {
+    // User doesn't exist
+    if (!findUser) {
+        updateDataToSend(req, "Les identifiants sont incorrects");
         return res.redirect('/connexion');
     }
-    res.render('compte', { user: req.session.user });
-});
 
-app.get('/logout', (req, res) => {
-    req.session.destroy(() => {
-        res.redirect('/');
-    });
+    req.session.user = findUser;
+
+    data_to_send.connected = true;
+
+    updateDataToSend(req, "");
+
+    return res.redirect("/");
+
+})
+
+app.get('/compte', (req, res) => {
+  res.render('compte');
 });
 
 app.get('/mentorat', (req, res) => {
@@ -306,8 +392,43 @@ app.get('/classement', (req, res) => {
 app.use('/icons', express.static(path.join(__dirname, 'icons')));
   
 
-app.get('/ressources-educatives', (req, res) => {
-    res.render('ressources-educatives');
+app.get('/Ressources-educatives', (req, res) => {
+    res.render('Ressources-educatives');
+});
+
+// Route POST générique pour l'upload de fichiers pour toutes les matières (stockage BDD, collection "Ressources" avec champ matiere)
+app.post('/upload/:matiere', upload.array('pdfFile', 10), async (req, res) => {
+    if (!Ressources) {
+        console.error('Collection Ressources non initialisée');
+        return res.status(500).send('DB non connectée');
+    }
+    try {
+        const matiere = req.params.matiere;
+        if (!matieres.includes(matiere)) {
+            return res.status(400).send('Matière inconnue');
+        }
+        const categorie = req.body.categorie;
+        // req.files est un tableau de fichiers
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).send('Aucun fichier envoyé');
+        }
+        for (const file of req.files) {
+            const fileBuffer = fs.readFileSync(file.path);
+            const doc = {
+                matiere,
+                categorie,
+                name: req.body.customName && req.body.customName.trim() !== '' ? req.body.customName.trim() : file.originalname,
+                file: { buffer: fileBuffer },
+                uploadedAt: new Date()
+            };
+            await Ressources.insertOne(doc);
+            fs.unlinkSync(file.path);
+        }
+        res.redirect('/' + matiere);
+    } catch (err) {
+        console.error('Erreur upload:', err);
+        res.status(500).send('Erreur lors de l\'upload');
+    }
 });
 
 // Exemple d'utilisation de la base pour une route front/back
@@ -316,75 +437,6 @@ app.get('/api/user/:username', async (req, res) => {
     const user = await compte.findOne({ username: req.params.username });
     if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
     res.json({ username: user.username, email: user.email });
-});
-
-// Affichage du formulaire de modification
-app.get('/modifier', async (req, res) => {
-    if (!req.session.user) {
-        return res.redirect('/connexion');
-    }
-    // On récupère les infos les plus à jour depuis la base
-    const user = await compte.findOne({ _id: req.session.user._id });
-    res.render('modifier', { user, error: null, success: null });
-});
-
-// Traitement du formulaire de modification
-app.post('/modifier', async (req, res) => {
-    if (!req.session.user) {
-        return res.redirect('/connexion');
-    }
-    const { nom, prenom, email, username, date_naissance } = req.body;
-
-    // On récupère l'utilisateur actuel
-    const userActuel = await compte.findOne({ _id: new ObjectId(req.session.user._id) });
-
-    // On construit dynamiquement l'objet de mise à jour
-    let updateFields = {};
-    if (nom && nom !== userActuel.nom) updateFields.nom = nom;
-    if (prenom && prenom !== userActuel.prenom) updateFields.prenom = prenom;
-    if (email && email !== userActuel.email) updateFields.email = email;
-    if (username && username !== userActuel.username) updateFields.username = username;
-    if (date_naissance && date_naissance !== userActuel.date_naissance) updateFields.date_naissance = date_naissance;
-
-    // Vérifier si email ou username déjà utilisé par un autre utilisateur
-    if ((email && email !== userActuel.email) || (username && username !== userActuel.username)) {
-        const existing = await compte.findOne({
-            $and: [
-                { _id: { $ne: new ObjectId(req.session.user._id) } },
-                { $or: [
-                    ...(email && email !== userActuel.email ? [{ email }] : []),
-                    ...(username && username !== userActuel.username ? [{ username }] : [])
-                ]}
-            ]
-        });
-        if (existing) {
-            return res.render('modifier', { user: req.body, error: "Email ou pseudo déjà utilisé.", success: null });
-        }
-    }
-
-    // Si rien à modifier
-    if (Object.keys(updateFields).length === 0) {
-        return res.render('modifier', { user: userActuel, error: "Aucune modification détectée.", success: null });
-    }
-
-    // Mise à jour dans la base
-    await compte.updateOne(
-        { _id: new ObjectId(req.session.user._id) },
-        { $set: updateFields }
-    );
-
-    // Mettre à jour la session avec les nouvelles valeurs
-    const userMaj = { ...userActuel, ...updateFields };
-    req.session.user = {
-        _id: userMaj._id,
-        nom: userMaj.nom,
-        prenom: userMaj.prenom,
-        email: userMaj.email,
-        username: userMaj.username,
-        date_naissance: userMaj.date_naissance
-    };
-
-    res.redirect('/compte');
 });
 
 // Démarrer le serveur
