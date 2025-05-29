@@ -108,13 +108,41 @@ function getPdfFilesFromDir(dirPath) {
     }
 }
 
+// Fonction utilitaire pour corriger l'encodage des noms de fichiers (si besoin)
+function toUtf8(str) {
+    if (!str) return '';
+    try {
+        // Si la chaîne contient des caractères mal encodés, corrige
+        if (/Ã|Ã©|Ã¨|Ãª|Ã«|Ã¢|Ã¤|Ã®|Ã¯|Ã´|Ã¶|Ã»|Ã¼|Ã§/.test(str)) {
+            return Buffer.from(str, 'latin1').toString('utf8');
+        }
+        // Si la chaîne contient des points d'interrogation suspects, tente la correction
+        if (str.includes('?')) {
+            const test = Buffer.from(str, 'latin1').toString('utf8');
+            if (!test.includes('?')) return test;
+        }
+        return str;
+    } catch (e) {
+        return str;
+    }
+}
+
+// Fonction utilitaire pour encoder le nom de fichier dans l'en-tête Content-Disposition (RFC 5987)
+function contentDispositionFilename(filename) {
+    // Pour compatibilité, on met filename et filename* (UTF-8)
+    const fallback = filename.replace(/[^\x20-\x7E]/g, '_');
+    const encoded = encodeURIComponent(filename).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29');
+    return `filename="${fallback}"; filename*=UTF-8''${encoded}`;
+}
+
 // Fonction utilitaire pour lister les fichiers PDF d'une matière/catégorie depuis la BDD (collection "Ressources")
 async function getPdfFilesFromDB(matiere, categorie) {
     if (!Ressources) return [];
-    const docs = await Ressources.find({ matiere, categorie }).toArray();
+    // Trie les résultats par nom (ordre alphabétique, insensible à la casse)
+    const docs = await Ressources.find({ matiere, categorie }).sort({ name: 1 }).toArray();
     return docs.map(doc => ({
-        name: doc.name,
-        link: `/download/${doc._id}` // Route de téléchargement
+        name: toUtf8(doc.name),
+        link: `/download/${doc._id}`
     }));
 }
 
@@ -165,9 +193,11 @@ const storage = multer.diskStorage({
         cb(null, path.join(__dirname, 'tmp_uploads'));
     },
     filename: function (req, file, cb) {
+        // Correction encodage du nom de fichier
+        let originalName = toUtf8(file.originalname);
         let customName = req.body && req.body.customName && req.body.customName.trim() !== ''
-            ? req.body.customName.trim().replace(/[^a-zA-Z0-9_\-\.]/g, '_')
-            : file.originalname.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+            ? toUtf8(req.body.customName.trim().replace(/[^a-zA-Z0-9_\-\.]/g, '_'))
+            : originalName.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
         if (!customName.endsWith('.pdf')) customName += '.pdf';
         cb(null, customName);
     }
@@ -187,27 +217,51 @@ matieres.forEach(matiere => {
 });
 
 // Route pour télécharger un fichier depuis la BDD (collection "Ressources")
+// Correction : assure-toi que le lien de téléchargement est bien de la forme /download/:id (id MongoDB)
+// Ajoute un log pour vérifier l'id reçu et la réponse
 app.get('/download/:id', async (req, res) => {
     if (!Ressources) return res.status(500).send('DB non connectée');
     let doc;
     try {
         const id = req.params.id;
-        if (!id || typeof id !== 'string' || id.length !== 24 || !/^[a-fA-F0-9]{24}$/.test(id)) {
+        if (!id || !ObjectId.isValid(id)) {
             return res.status(400).send('ID invalide');
         }
-        doc = await Ressources.findOne({ _id: ObjectId(id) });
+        doc = await Ressources.findOne({ _id: new ObjectId(id) });
+        if (!doc) {
+            return res.status(404).send('Fichier non trouvé');
+        }
+        if (!doc.file || !doc.file.buffer) {
+            return res.status(500).send('Fichier PDF absent ou corrompu dans la base. Merci de re-téléverser un PDF valide.');
+        }
+        let fileBuffer = null;
+        if (doc.file && doc.file.buffer) {
+            if (Buffer.isBuffer(doc.file.buffer)) {
+                fileBuffer = doc.file.buffer;
+            } else if (doc.file.buffer._bsontype === 'Binary' && doc.file.buffer.buffer) {
+                fileBuffer = Buffer.from(doc.file.buffer.buffer);
+            } else if (doc.file.buffer instanceof Uint8Array) {
+                fileBuffer = Buffer.from(doc.file.buffer);
+            } else {
+                try {
+                    fileBuffer = Buffer.from(doc.file.buffer);
+                } catch (e) {
+                    fileBuffer = null;
+                }
+            }
+        }
+        if (!fileBuffer || !Buffer.isBuffer(fileBuffer) || fileBuffer.length < 100) {
+            return res.status(500).send('Fichier PDF vide ou corrompu. Merci de re-téléverser un PDF valide.');
+        }
+        const safeName = toUtf8(doc.name);
+        res.setHeader('Content-Disposition', `attachment; ${contentDispositionFilename(safeName)}`);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Length', fileBuffer.length);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.send(fileBuffer);
     } catch (e) {
         return res.status(400).send('ID invalide');
     }
-    if (!doc) return res.status(404).send('Fichier non trouvé');
-    // Correction : pour GridFS/Binary, il faut utiliser doc.file.buffer.buffer si c'est un Buffer dans un objet BSON Binary
-    let fileBuffer = doc.file && doc.file.buffer
-        ? (Buffer.isBuffer(doc.file.buffer) ? doc.file.buffer : Buffer.from(doc.file.buffer))
-        : null;
-    if (!fileBuffer) return res.status(500).send('Fichier corrompu');
-    res.setHeader('Content-Disposition', `attachment; filename="${doc.name}"`);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.send(fileBuffer);
 });
 
 app.get('/view/:id', async (req, res) => {
@@ -234,7 +288,6 @@ app.get('/view/:id', async (req, res) => {
         if (Buffer.isBuffer(doc.file.buffer)) {
             fileBuffer = doc.file.buffer;
         } else if (doc.file.buffer._bsontype === 'Binary' && doc.file.buffer.buffer) {
-            // Cas BSON Binary (driver MongoDB)
             fileBuffer = Buffer.from(doc.file.buffer.buffer);
         } else if (doc.file.buffer instanceof Uint8Array) {
             fileBuffer = Buffer.from(doc.file.buffer);
@@ -246,13 +299,15 @@ app.get('/view/:id', async (req, res) => {
             }
         }
     }
-    if (!fileBuffer) {
-        console.error('Fichier corrompu pour l\'ID:', req.params.id, doc.file);
-        return res.status(500).send('Fichier corrompu');
+    // Correction : vérifie si le buffer est vide ou trop petit
+    if (!fileBuffer || !Buffer.isBuffer(fileBuffer) || fileBuffer.length < 100) {
+        return res.status(500).send('Fichier PDF vide ou corrompu. Merci de re-téléverser un PDF valide.');
     }
     let filename = doc.name && !doc.name.toLowerCase().endsWith('.pdf') ? doc.name + '.pdf' : doc.name;
+    filename = toUtf8(filename);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader('Accept-Ranges', 'bytes');
     res.send(fileBuffer);
 });
 
@@ -399,7 +454,6 @@ app.get('/Ressources-educatives', (req, res) => {
 // Route POST générique pour l'upload de fichiers pour toutes les matières (stockage BDD, collection "Ressources" avec champ matiere)
 app.post('/upload/:matiere', upload.array('pdfFile', 10), async (req, res) => {
     if (!Ressources) {
-        console.error('Collection Ressources non initialisée');
         return res.status(500).send('DB non connectée');
     }
     try {
@@ -408,16 +462,19 @@ app.post('/upload/:matiere', upload.array('pdfFile', 10), async (req, res) => {
             return res.status(400).send('Matière inconnue');
         }
         const categorie = req.body.categorie;
-        // req.files est un tableau de fichiers
         if (!req.files || req.files.length === 0) {
             return res.status(400).send('Aucun fichier envoyé');
         }
         for (const file of req.files) {
             const fileBuffer = fs.readFileSync(file.path);
+            if (!fileBuffer || fileBuffer.length < 100) {
+                fs.unlinkSync(file.path);
+                continue;
+            }
             const doc = {
                 matiere,
                 categorie,
-                name: req.body.customName && req.body.customName.trim() !== '' ? req.body.customName.trim() : file.originalname,
+                name: toUtf8(req.body.customName && req.body.customName.trim() !== '' ? req.body.customName.trim() : file.originalname),
                 file: { buffer: fileBuffer },
                 uploadedAt: new Date()
             };
@@ -426,7 +483,6 @@ app.post('/upload/:matiere', upload.array('pdfFile', 10), async (req, res) => {
         }
         res.redirect('/' + matiere);
     } catch (err) {
-        console.error('Erreur upload:', err);
         res.status(500).send('Erreur lors de l\'upload');
     }
 });
