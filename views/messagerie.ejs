@@ -6,24 +6,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Messagerie</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/socket.io/socket.io.js"></script> 
   <style>
     .tab-active {
       filter: brightness(0) saturate(100%) invert(36%) sepia(41%) saturate(408%) hue-rotate(174deg) brightness(88%) contrast(86%);
     }
-  </style>
+  </style>  
 </head>
 <body class="bg-[#EAF5FF] font-sans">
   <%- include('partials/header.ejs') %>
   <div class="pt-20 md:pt-24 min-h-screen">
     <div class="flex flex-col md:flex-row gap-8 p-4 md:p-8 max-w-7xl w-full mx-auto">
 
-      <!-- MOBILE LISTE (visible uniquement en mobile) -->
 <!-- MOBILE LISTE (visible uniquement en mobile) -->
 <div id="mobile-list" class="block md:hidden w-full px-4">
-  <!-- SEARCH -->
-  <div class="bg-white rounded-xl shadow px-4 py-3 flex items-center border border-[#E3E9F3] mb-4">
-    <img src="/icons/search.svg" class="w-5 h-5 mr-3" />
-    <input type="text" placeholder="Search" class="w-full outline-none text-sm text-gray-700 bg-transparent" />
+  <!-- SEARCH MOBILE (avec résultats dynamiques) -->
+  <div class="relative mb-4">
+    <div class="bg-white rounded-xl shadow px-4 py-3 flex items-center border border-[#E3E9F3]">
+      <img src="/icons/search.svg" class="w-5 h-5 mr-3" />
+      <input
+        id="user-search-mobile"
+        type="text"
+        placeholder="Search"
+        class="w-full outline-none text-sm text-gray-700 bg-transparent"
+      />
+    </div>
+    <div id="search-results-mobile"
+         class="absolute w-full bg-white shadow rounded-lg mt-1 z-50 hidden max-h-64 overflow-y-auto border border-[#E3E9F3]">
+    </div>
   </div>
 
   <!-- GROUPS (scrollable bloc) -->
@@ -43,7 +53,6 @@
           <span class="text-xs text-white bg-red-500 w-5 h-5 rounded-full flex items-center justify-center ml-auto mt-1">4</span>
         </div>
       </li>
-      <!-- Ajoute d'autres groupes ici si nécessaire -->
     </ul>
   </div>
 
@@ -56,7 +65,7 @@
           <img src="/icons/anil.jpg" class="w-8 h-8 rounded-full" />
           <div>
             <p class="font-semibold leading-4">Anil</p>
-            <p class="text-xs text-gray-500 leading-4">April fool’s day</p>
+            <p class="text-xs text-gray-500 leading-4">April fool's day</p>
           </div>
         </div>
         <div class="flex flex-col items-end gap-1">
@@ -64,135 +73,387 @@
           <img src="/icons/double-check.svg" class="w-4 h-4 text-purple-500" />
         </div>
       </li>
-      <!-- Ajoute d'autres contacts ici si nécessaire -->
     </ul>
   </div>
 </div>
 
-
-      <!-- MOBILE CHAT (caché par défaut, visible quand on clique sur une conversation) -->
-      <main id="mobile-chat" class="hidden md:hidden w-full flex-col bg-white rounded-xl shadow border border-[#E3E9F3] px-2 py-2 h-[80vh]">
-        <!-- Header utilisateur avec bouton retour -->
-        <div class="flex items-center gap-3 pb-3 border-b border-gray-200 mb-2">
-          <button onclick="closeMobileChat()" class="mr-1">
-            <svg class="w-7 h-7 text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <img src="/icons/tykouz.jpg" class="w-10 h-10 rounded-full" />
-          <div>
-            <h3 class="font-bold text-md">Tykouz</h3>
-            <p class="text-xs text-gray-500">Online - Last seen, y a pas longtemps wola</p>
-          </div>
-        </div>
-        <!-- Conversation scrollable -->
-        <div class="flex-1 overflow-y-auto flex flex-col gap-3 mb-2 px-1">
-          <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[80%] text-sm">Guten tag</div>
-          <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[80%] text-sm">Comment qu’y va?</div>
-          <div class="text-xs text-gray-500 self-start pl-2">Today, 8.30pm</div>
-          <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[80%] text-sm">Hello!</div>
-          <div class="text-xs text-gray-500 self-end pr-2">Today, 8.33pm</div>
-          <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[80%] text-sm">I am fine and how are you?</div>
-          <div class="text-xs text-gray-500 self-end pr-2">Today, 8.34pm</div>
-          <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[80%] text-sm">Je vais bien ! Petite réunion demain à 9h?</div>
-          <div class="text-xs text-gray-500 self-start pl-2">Today, 8.36pm</div>
-          <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[80%] text-sm">Ok noté !</div>
-          <div class="text-xs text-gray-500 self-end pr-2">Today, 8.58pm</div>
-        </div>
-        <!-- Barre de saisie -->
-        <div class="flex items-center gap-3 px-4 py-3 bg-[#F1F7FD] rounded-full shadow mt-2">
-          <input type="text" placeholder="Type your message here..." class="flex-1 text-sm bg-transparent outline-none text-gray-700" />
-          <img src="/icons/send.svg" class="w-6 h-6" />
-        </div>
-      </main>
-
-      <!-- DESKTOP (inchangé) -->
-      <aside class="hidden md:flex w-1/3 flex-col gap-5">
-        <!-- SEARCH -->
-        <div class="bg-white rounded-xl shadow px-4 py-3 flex items-center border border-[#E3E9F3]">
-          <img src="/icons/search.svg" class="w-5 h-5 mr-3" />
-          <input type="text" placeholder="Search" class="w-full outline-none text-sm md:text-base text-gray-700 bg-transparent" />
-        </div>
-        <!-- GROUPS -->
-        <div class="bg-white rounded-xl shadow border border-[#E3E9F3] px-4 py-4 h-64 md:h-72 overflow-y-auto flex flex-col">
-          <h2 class="font-bold text-md md:text-lg mb-2">Groups</h2>
-          <ul class="flex flex-col gap-3">
-            <li class="flex items-center justify-between hover:bg-[#f2f6fa] rounded-lg px-2 py-1 cursor-pointer transition">
-              <div class="flex items-center gap-3">
-                <img src="/icons/groupe1.jpg" class="w-8 h-8 rounded-full" />
-                <div>
-                  <p class="font-semibold leading-4">Friends Forever</p>
-                  <p class="text-xs text-gray-500 leading-4">Hahahahah!</p>
-                </div>
-              </div>
-              <div class="flex flex-col items-end gap-1">
-                <span class="text-xs text-gray-500">Today, 9.52pm</span>
-                <span class="text-xs text-white bg-red-500 w-5 h-5 rounded-full flex items-center justify-center ml-auto mt-1">4</span>
-              </div>
-            </li>
-          </ul>
-        </div>
-        <!-- PRIVATE -->
-        <div class="bg-white rounded-xl shadow border border-[#E3E9F3] px-4 py-4 h-64 md:h-72 overflow-y-auto flex flex-col">
-          <h2 class="font-bold text-md md:text-lg mb-2">Private</h2>
-          <ul class="flex flex-col gap-3">
-            <li class="flex items-center justify-between hover:bg-[#f2f6fa] rounded-lg px-2 py-1 cursor-pointer transition">
-              <div class="flex items-center gap-3">
-                <img src="/icons/anil.jpg" class="w-8 h-8 rounded-full" />
-                <div>
-                  <p class="font-semibold leading-4">Anil</p>
-                  <p class="text-xs text-gray-500 leading-4">April fool’s day</p>
-                </div>
-              </div>
-              <div class="flex flex-col items-end gap-1">
-                <span class="text-xs text-gray-500">Today, 9.52pm</span>
-                <img src="/icons/double-check.svg" class="w-4 h-4 text-purple-500" />
-              </div>
-            </li>            
-          </ul>
-        </div>
-      </aside>
-      <main id="chat" class="hidden md:flex w-2/3 flex-col bg-white rounded-xl shadow border border-[#E3E9F3] px-4 md:px-8 py-6">
-        <!-- Header utilisateur -->
-        <div class="flex items-center gap-4 pb-3 border-b border-gray-200 mb-4">
-          <img src="/icons/tykouz.jpg" class="w-12 h-12 rounded-full" />
-          <div>
-            <h3 class="font-bold text-md md:text-lg">Tykouz</h3>
-            <p class="text-xs md:text-sm text-gray-500">Online - Last seen, y a pas longtemps wola</p>
-          </div>
-        </div>
-        <!-- Conversation scrollable -->
-        <div class="flex-1 overflow-y-auto flex flex-col gap-3 mb-4">
-          <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[70%] text-sm">Guten tag</div>
-          <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[70%] text-sm">Comment qu’y va?</div>
-          <div class="text-xs text-gray-500 self-start pl-2">Today, 8.30pm</div>
-          <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[70%] text-sm">Hello!</div>
-          <div class="text-xs text-gray-500 self-end pr-2">Today, 8.33pm</div>
-          <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[70%] text-sm">I am fine and how are you?</div>
-          <div class="text-xs text-gray-500 self-end pr-2">Today, 8.34pm</div>
-          <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[70%] text-sm">Je vais bien ! Petite réunion demain à 9h?</div>
-          <div class="text-xs text-gray-500 self-start pl-2">Today, 8.36pm</div>
-          <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[70%] text-sm">Ok noté !</div>
-          <div class="text-xs text-gray-500 self-end pr-2">Today, 8.58pm</div>
-        </div>
-        <!-- Barre de saisie -->
-        <div class="flex items-center gap-3 px-4 py-3 bg-[#F1F7FD] rounded-full shadow">
-          <input type="text" placeholder="Type your message here..." class="flex-1 text-sm bg-transparent outline-none text-gray-700" />
-          <img src="/icons/send.svg" class="w-6 h-6" />
-        </div>
-      </main>
+<!-- MOBILE CHAT (caché par défaut, visible quand on clique sur une conversation) -->
+<main id="mobile-chat" class="hidden md:hidden w-full flex-col bg-white rounded-xl shadow border border-[#E3E9F3] px-2 py-2 h-[80vh]">
+  <!-- Header utilisateur avec bouton retour -->
+  <div class="flex items-center gap-3 pb-3 border-b border-gray-200 mb-2">
+    <button onclick="closeMobileChat()" class="mr-1">
+      <svg class="w-7 h-7 text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+      </svg>
+    </button>
+    <img src="/icons/tykouz.jpg" class="w-10 h-10 rounded-full" />
+    <div>
+      <h3 class="font-bold text-md">Tykouz</h3>
+      <p class="text-xs text-gray-500">Online - Last seen, y a pas longtemps wola</p>
     </div>
   </div>
-  <script>
-    function openMobileChat() {
-      document.getElementById('mobile-list').classList.add('hidden');
-      document.getElementById('mobile-chat').classList.remove('hidden');
+  <!-- Conversation scrollable -->
+  <div class="flex-1 overflow-y-auto flex flex-col gap-3 mb-2 px-1">
+    <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[80%] text-sm">Guten tag</div>
+    <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[80%] text-sm">Comment qu'y va?</div>
+    <div class="text-xs text-gray-500 self-start pl-2">Today, 8.30pm</div>
+    <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[80%] text-sm">Hello!</div>
+    <div class="text-xs text-gray-500 self-end pr-2">Today, 8.33pm</div>
+    <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[80%] text-sm">I am fine and how are you?</div>
+    <div class="text-xs text-gray-500 self-end pr-2">Today, 8.34pm</div>
+    <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[80%] text-sm">Je vais bien ! Petite réunion demain à 9h?</div>
+    <div class="text-xs text-gray-500 self-start pl-2">Today, 8.36pm</div>
+    <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[80%] text-sm">Ok noté !</div>
+    <div class="text-xs text-gray-500 self-end pr-2">Today, 8.58pm</div>
+  </div>
+  <!-- Barre de saisie -->
+  <div class="flex items-center gap-3 px-4 py-3 bg-[#F1F7FD] rounded-full shadow mt-2">
+    <input type="text" placeholder="Type your message here..." class="flex-1 text-sm bg-transparent outline-none text-gray-700" />
+    <img src="/icons/send.svg" class="w-6 h-6" />
+  </div>
+</main>
+
+<!-- DESKTOP -->
+<aside class="hidden md:flex w-1/3 flex-col gap-5">
+  <!-- SEARCH DESKTOP -->
+  <div class="relative">
+    <div class="bg-white rounded-xl shadow px-4 py-3 flex items-center border border-[#E3E9F3]">
+      <img src="/icons/search.svg" class="w-5 h-5 mr-3" />
+      <input
+        id="user-search-desktop"
+        type="text"
+        placeholder="Search"
+        class="w-full outline-none text-sm md:text-base text-gray-700 bg-transparent"
+      />
+    </div>
+    <div id="search-results-desktop"
+         class="absolute w-full bg-white shadow rounded-lg mt-1 z-50 hidden max-h-64 overflow-y-auto border border-[#E3E9F3]">
+    </div>
+  </div>
+
+  <!-- GROUPS -->
+  <div class="bg-white rounded-xl shadow border border-[#E3E9F3] px-4 py-4 h-64 md:h-72 overflow-y-auto flex flex-col">
+    <h2 class="font-bold text-md md:text-lg mb-2">Groups</h2>
+    <ul class="flex flex-col gap-3">
+      <li class="flex items-center justify-between hover:bg-[#f2f6fa] rounded-lg px-2 py-1 cursor-pointer transition">
+        <div class="flex items-center gap-3">
+          <img src="/icons/groupe1.jpg" class="w-8 h-8 rounded-full" />
+          <div>
+            <p class="font-semibold leading-4">Friends Forever</p>
+            <p class="text-xs text-gray-500 leading-4">Hahahahah!</p>
+          </div>
+        </div>
+        <div class="flex flex-col items-end gap-1">
+          <span class="text-xs text-gray-500">Today, 9.52pm</span>
+          <span class="text-xs text-white bg-red-500 w-5 h-5 rounded-full flex items-center justify-center ml-auto mt-1">4</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- PRIVATE -->
+  <div class="bg-white rounded-xl shadow border border-[#E3E9F3] px-4 py-4 h-64 md:h-72 overflow-y-auto flex flex-col">
+    <h2 class="font-bold text-md md:text-lg mb-2">Private</h2>
+    <ul class="flex flex-col gap-3">
+      <% conversations.forEach(conv => { 
+          const other = conv.participants.find(p => p !== currentUser.username);
+          const last = conv.messages && conv.messages.length > 0 ? conv.messages[conv.messages.length - 1].text : "Pas encore de message"; 
+      %>
+        <li onclick="window.location.href='/messagerie?user=<%= other %>'"
+            class="flex items-center justify-between hover:bg-[#f2f6fa] rounded-lg px-2 py-1 cursor-pointer transition user-result"
+            data-username="<%= other %>">
+          <div class="flex items-center gap-3">
+            <img src="/icons/default-avatar.jpg" class="w-8 h-8 rounded-full" />
+            <div>
+              <p class="font-semibold leading-4"><%= other %></p>
+              <p class="text-xs text-gray-500 leading-4"><%= last %></p>
+            </div>
+          </div>
+          <div class="flex flex-col items-end gap-1">
+            <span class="text-xs text-gray-500">Just now</span>
+            <img src="/icons/double-check.svg" class="w-4 h-4 text-purple-500" />
+          </div>
+        </li>
+      <% }); %>
+    </ul>
+
+  </div>
+</aside>
+
+<main id="chat" class="hidden md:flex w-2/3 flex-col bg-white rounded-xl shadow border border-[#E3E9F3] px-4 md:px-8 py-6">
+  <% if (selectedUser) { %>
+    <!-- Header utilisateur -->
+    <div class="flex items-center gap-4 pb-3 border-b border-gray-200 mb-4">
+      <img src="/icons/default-avatar.jpg" class="w-12 h-12 rounded-full" />
+      <div>
+        <h3 class="font-bold text-md md:text-lg"><%= selectedUser.prenom %> <%= selectedUser.nom %></h3>
+        <p class="text-xs md:text-sm text-gray-500">@<%= selectedUser.username %></p>
+      </div>
+    </div>
+
+    <!-- Conversation scrollable -->
+    <div class="flex-1 overflow-y-auto flex flex-col gap-3 mb-4">
+      <% messages.forEach(msg => { %>
+        <% if (msg.from === currentUser.username) { %>
+          <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[70%] text-sm"><%= msg.text %></div>
+        <% } else { %>
+          <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[70%] text-sm"><%= msg.text %></div>
+        <% } %>
+      <% }) %>
+    </div>
+
+    <!-- Barre de saisie -->
+    <form action="/messagerie/send" method="POST" class="flex items-center gap-3 px-4 py-3 bg-[#F1F7FD] rounded-full shadow">
+      <input type="hidden" name="to" value="<%= selectedUser.username %>" />
+      <input type="text" name="message" placeholder="Type your message here..." class="flex-1 text-sm bg-transparent outline-none text-gray-700" required />
+      <button type="submit">
+        <img src="/icons/send.svg" class="w-6 h-6" />
+      </button>
+    </form>
+  <% } else { %>
+    <div class="text-center text-gray-400 text-sm mt-16">Sélectionne un utilisateur pour démarrer une conversation</div>
+  <% } %>
+</main>
+
+
+    </div>
+  </div>
+
+<script>
+  function openMobileChat() {
+    document.getElementById('mobile-list').classList.add('hidden');
+    document.getElementById('mobile-chat').classList.remove('hidden');
+  }
+
+  function closeMobileChat() {
+    document.getElementById('mobile-chat').classList.add('hidden');
+    document.getElementById('mobile-list').classList.remove('hidden');
+  }
+
+  function setupSearch(inputId, resultId) {
+    const input = document.getElementById(inputId);
+    const results = document.getElementById(resultId);
+
+    if (!input || !results) {
+      console.warn(`Éléments non trouvés: ${inputId} ou ${resultId}`);
+      return;
     }
-    function closeMobileChat() {
-      document.getElementById('mobile-chat').classList.add('hidden');
-      document.getElementById('mobile-list').classList.remove('hidden');
+
+    console.log(`Configuration de la recherche pour: ${inputId}`);
+
+    input.addEventListener('input', async () => {
+      const q = input.value.trim();
+      if (!q) {
+        results.classList.add('hidden');
+        results.innerHTML = '';
+        return;
+      }
+
+      console.log(`Recherche pour: "${q}"`);
+
+      try {
+        const res = await fetch(`/search-users?q=${encodeURIComponent(q)}`);
+        const users = await res.json();
+
+        if (!Array.isArray(users)) {
+          console.warn("Résultat inattendu :", users);
+          return;
+        }
+
+        console.log(`${users.length} utilisateurs trouvés`);
+
+        if (users.length === 0) {
+          results.innerHTML = '<div class="p-2 text-sm text-gray-500">Aucun utilisateur trouvé</div>';
+        } else {
+        results.innerHTML = users.map(user => `
+          <div data-username="${user.username}"
+              class="user-result px-4 py-2 hover:bg-gray-100 cursor-pointer border-b text-sm">
+            ${user.prenom} ${user.nom} <span class="text-gray-500">(@${user.username})</span>
+          </div>
+        `).join('');
+        results.querySelectorAll('.user-result').forEach(div => {
+          div.addEventListener('click', () => {
+            const username = div.dataset.username;
+            window.location.href = `/messagerie?user=${encodeURIComponent(username)}`;
+          });
+        });
+        }
+
+        results.classList.remove('hidden');
+      } catch (err) {
+        console.error("Erreur fetch :", err);
+        results.innerHTML = '<div class="p-2 text-sm text-red-500">Erreur de recherche</div>';
+        results.classList.remove('hidden');
+      }
+    });
+
+    // Fermer les résultats en cliquant ailleurs
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest(`#${inputId}`) && !e.target.closest(`#${resultId}`)) {
+        results.classList.add('hidden');
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('Initialisation des barres de recherche...');
+    setupSearch('user-search-mobile', 'search-results-mobile');
+    setupSearch('user-search-desktop', 'search-results-desktop');
+  });
+</script>
+// Dans votre fichier messagerie.ejs, remplacez le script WebSocket existant par ceci :
+
+<script>
+  const socket = io();
+  const currentUser = '<%= currentUser.username %>';
+
+  // Fonction pour recharger la liste des conversations via AJAX
+  async function refreshConversationsList() {
+    try {
+      const response = await fetch('/api/conversations');
+      const conversations = await response.json();
+      
+      const privateSection = document.querySelector('#private-conversations-list');
+      if (privateSection && Array.isArray(conversations)) {
+        privateSection.innerHTML = conversations.map(conv => {
+          const other = conv.participants.find(p => p !== currentUser);
+          const lastMessage = conv.messages && conv.messages.length > 0 
+            ? conv.messages[conv.messages.length - 1].text 
+            : "Pas encore de message";
+          
+          return `
+            <li onclick="window.location.href='/messagerie?user=${encodeURIComponent(other)}'"
+                class="flex items-center justify-between hover:bg-[#f2f6fa] rounded-lg px-2 py-1 cursor-pointer transition user-result"
+                data-username="${other}">
+              <div class="flex items-center gap-3">
+                <img src="/icons/default-avatar.jpg" class="w-8 h-8 rounded-full" />
+                <div>
+                  <p class="font-semibold leading-4">${other}</p>
+                  <p class="text-xs text-gray-500 leading-4">${lastMessage}</p>
+                </div>
+              </div>
+              <div class="flex flex-col items-end gap-1">
+                <span class="text-xs text-gray-500">Just now</span>
+                <img src="/icons/double-check.svg" class="w-4 h-4 text-purple-500" />
+              </div>
+            </li>
+          `;
+        }).join('');
+      }
+    } catch (error) {
+      console.error('Erreur lors du rechargement des conversations:', error);
     }
-  </script>
+  }
+
+  // Écouter les événements WebSocket
+  socket.on('refreshConversations', (data) => {
+    console.log('Nouvelle conversation détectée:', data);
+    refreshConversationsList();
+  });
+
+  // Fonction modifiée pour créer une conversation
+  function createConversationAndRedirect(username) {
+    fetch(`/messagerie/create?user=${encodeURIComponent(username)}`, {
+      method: 'GET'
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Émettre l'événement WebSocket
+        socket.emit('newConversation', {
+          participants: [currentUser, username],
+          initiator: currentUser
+        });
+        
+        // Rediriger vers la conversation
+        window.location.href = `/messagerie?user=${encodeURIComponent(username)}`;
+      } else {
+        console.error('Erreur lors de la création de la conversation');
+      }
+    })
+    .catch(error => {
+      console.error('Erreur:', error);
+    });
+  }
+
+  // Fonction pour gérer les clics sur les résultats de recherche
+  function handleUserResultClick(element) {
+    const username = element.dataset.username;
+    if (username) {
+      createConversationAndRedirect(username);
+    }
+  }
+
+  // Mise à jour de la fonction setupSearch pour utiliser la nouvelle logique
+  function setupSearch(inputId, resultId) {
+    const input = document.getElementById(inputId);
+    const results = document.getElementById(resultId);
+
+    if (!input || !results) {
+      console.warn(`Éléments non trouvés: ${inputId} ou ${resultId}`);
+      return;
+    }
+
+    input.addEventListener('input', async () => {
+      const q = input.value.trim();
+      if (!q) {
+        results.classList.add('hidden');
+        results.innerHTML = '';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/search-users?q=${encodeURIComponent(q)}`);
+        const users = await res.json();
+
+        if (!Array.isArray(users)) {
+          console.warn("Résultat inattendu :", users);
+          return;
+        }
+
+        if (users.length === 0) {
+          results.innerHTML = '<div class="p-2 text-sm text-gray-500">Aucun utilisateur trouvé</div>';
+        } else {
+          results.innerHTML = users.map(user => `
+            <div data-username="${user.username}"
+                class="user-result-search px-4 py-2 hover:bg-gray-100 cursor-pointer border-b text-sm">
+              ${user.prenom} ${user.nom} <span class="text-gray-500">(@${user.username})</span>
+            </div>
+          `).join('');
+          
+          // Ajouter les événements de clic
+          results.querySelectorAll('.user-result-search').forEach(div => {
+            div.addEventListener('click', () => {
+              handleUserResultClick(div);
+            });
+          });
+        }
+
+        results.classList.remove('hidden');
+      } catch (err) {
+        console.error("Erreur fetch :", err);
+        results.innerHTML = '<div class="p-2 text-sm text-red-500">Erreur de recherche</div>';
+        results.classList.remove('hidden');
+      }
+    });
+
+    // Fermer les résultats en cliquant ailleurs
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest(`#${inputId}`) && !e.target.closest(`#${resultId}`)) {
+        results.classList.add('hidden');
+      }
+    });
+  }
+
+  // Initialisation
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('Initialisation de la messagerie WebSocket...');
+    setupSearch('user-search-mobile', 'search-results-mobile');
+    setupSearch('user-search-desktop', 'search-results-desktop');
+  });
+</script>
+
+
   <%- include("partials/footer.ejs") %>
 </body>
 </html>

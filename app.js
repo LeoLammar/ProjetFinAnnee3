@@ -17,6 +17,8 @@ const DATABASE_NAME = "Argos";
 const DATABASE_COLLECTION = "Compte";
 const DOCUMENTS_COLLECTION = "Documents"; // Nouvelle collection pour les fichiers
 
+let conversations = null;
+let messages = null;
 let database = null;
 let compte = null;
 let documents = null;
@@ -29,6 +31,8 @@ async function initDB() {
         database = client.db(DATABASE_NAME);
         compte = database.collection(DATABASE_COLLECTION);
         documents = database.collection(DOCUMENTS_COLLECTION); // Ajout
+        messages = database.collection("Messages"); // Ajout
+        conversations = database.collection("Conversations"); // Ajout
         console.log('Connexion à MongoDB réussie');
     } catch (err) {
         console.error('Erreur de connexion à MongoDB:', err);
@@ -50,15 +54,6 @@ let data_to_send = {
     data: null,
     user: null
 };
-
-const session = require('express-session');
-
-
-app.use(session({
-    secret: 'votre_secret', // Mets une vraie valeur secrète en production
-    resave: false,
-    saveUninitialized: false
-}));
 
 app.use((req, res, next) => {
     res.locals.user = req.session.user || null;
@@ -295,16 +290,11 @@ app.get('/salles', (req, res) => {
     res.render('salleDeClasse');
 });
 
-app.get('/messagerie', (req, res) => {
-    res.render('messagerie');
-});
-
 app.get('/classement', (req, res) => {
     res.render('classement');
 });
   
 app.use('/icons', express.static(path.join(__dirname, 'icons')));
-  
 
 app.get('/ressources-educatives', (req, res) => {
     res.render('ressources-educatives');
@@ -387,7 +377,226 @@ app.post('/modifier', async (req, res) => {
     res.redirect('/compte');
 });
 
-// Démarrer le serveur
-app.listen(3000, () => {
-    console.log('Serveur démarré sur http://localhost:3000');
+//Code pour gérer la messagerie : 
+app.get('/search-users', async (req, res) => {
+    const query = req.query.q;
+
+    if (!query || !compte) return res.json([]);
+
+    try {
+        const users = await compte.find({
+            $or: [
+                { username: { $regex: query, $options: 'i' } },
+                { prenom: { $regex: query, $options: 'i' } },
+                { nom: { $regex: query, $options: 'i' } }
+            ]
+        })
+        .project({ username: 1, nom: 1, prenom: 1 }) // Pas d'email ou mot de passe !
+        .limit(10)
+        .toArray();
+
+        res.json(users);
+    } catch (err) {
+        console.error('Erreur de recherche :', err);
+        res.status(500).json([]);
+    }
+});
+
+// Route API pour récupérer la liste des conversations
+app.get('/api/conversations', async (req, res) => {
+    const currentUser = req.session.user;
+    
+    if (!currentUser) {
+        return res.status(401).json({ error: 'Non connecté' });
+    }
+
+    try {
+        const conversationsCollection = database.collection('Conversations');
+        
+        const conversations = await conversationsCollection.find({
+            participants: currentUser.username
+        }).sort({ 
+            lastActivity: -1,  // Trier par dernière activité
+            createdAt: -1      // Puis par date de création
+        }).toArray();
+
+        res.json(conversations);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des conversations:', error);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// Nouvelle route pour créer une conversation (GET avec réponse JSON)
+app.get('/messagerie/create', async (req, res) => {
+    const currentUser = req.session.user;
+    const targetUsername = req.query.user;
+    
+    if (!currentUser || !targetUsername) {
+        return res.json({ success: false, error: 'Paramètres manquants' });
+    }
+
+    try {
+        const conversationsCollection = database.collection('Conversations');
+        
+        // Vérifier si la conversation existe déjà
+        let conv = await conversationsCollection.findOne({
+            participants: { $all: [currentUser.username, targetUsername] }
+        });
+
+        if (!conv) {
+            // Créer une nouvelle conversation
+            const insertResult = await conversationsCollection.insertOne({
+                participants: [currentUser.username, targetUsername],
+                messages: [],
+                createdAt: new Date(),
+                lastActivity: new Date()
+            });
+            
+            conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
+        }
+
+        res.json({ success: true, conversation: conv });
+    } catch (error) {
+        console.error('Erreur lors de la création de la conversation:', error);
+        res.json({ success: false, error: 'Erreur serveur' });
+    }
+});
+
+app.get('/messagerie', async (req, res) => {
+    const currentUser = req.session.user;
+    if (!currentUser) return res.redirect('/connexion');
+
+    const conversationsCollection = database.collection('Conversations');
+    const selectedUsername = req.query.user;
+
+    let selectedUser = null;
+    let messages = [];
+
+    // Toutes les conversations où l'utilisateur connecté participe
+    const conversations = await conversationsCollection.find({
+        participants: currentUser.username
+    }).sort({
+        lastActivity: -1,
+        createdAt: -1
+    }).toArray();
+
+    // Si on a cliqué sur un utilisateur
+    if (selectedUsername) {
+        selectedUser = await compte.findOne({ username: selectedUsername });
+
+        if (selectedUser) {
+            let conv = await conversationsCollection.findOne({
+                participants: { $all: [currentUser.username, selectedUsername] }
+            });
+
+            if (!conv) {
+                // Créer une nouvelle conversation vide
+                const insertResult = await conversationsCollection.insertOne({
+                    participants: [currentUser.username, selectedUsername],
+                    messages: [],
+                    createdAt: new Date(),
+                    lastActivity: new Date()
+                });
+                conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
+            }
+
+            if (conv && conv.messages) {
+                messages = conv.messages;
+            }
+        }
+    }
+
+    res.render('messagerie', {
+        currentUser,
+        selectedUser,
+        messages,
+        conversations
+    });
+});
+
+// Modification de la route POST existante pour émettre via WebSocket
+app.post('/messagerie/send', async (req, res) => {
+    const { to, message } = req.body;
+    const currentUser = req.session.user;
+
+    if (!currentUser || !to || !message) {
+        return res.redirect('/messagerie');
+    }
+
+    try {
+        const conversationsCollection = database.collection('Conversations');
+        
+        // Trouver ou créer la conversation
+        let conv = await conversationsCollection.findOne({
+            participants: { $all: [currentUser.username, to] }
+        });
+
+        if (!conv) {
+            const insertResult = await conversationsCollection.insertOne({
+                participants: [currentUser.username, to],
+                messages: [],
+                createdAt: new Date(),
+                lastActivity: new Date()
+            });
+            conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
+        }
+
+        // Ajouter le message
+        const newMessage = {
+            from: currentUser.username,
+            to: to,
+            text: message,
+            timestamp: new Date()
+        };
+
+        await conversationsCollection.updateOne(
+            { _id: conv._id },
+            { 
+                $push: { messages: newMessage },
+                $set: { lastActivity: new Date() }
+            }
+        );
+
+        // Émettre l'événement WebSocket pour notifier tous les clients
+        io.emit('newMessage', {
+            conversationId: conv._id,
+            message: newMessage,
+            participants: conv.participants
+        });
+
+        res.redirect('/messagerie?user=' + encodeURIComponent(to));
+    } catch (error) {
+        console.error('Erreur lors de l\'envoi du message:', error);
+        res.redirect('/messagerie');
+    }
+});
+
+const http = require('http').createServer(app);
+const { Server } = require('socket.io');
+const io = new Server(http);
+
+// Démarre le serveur sur le port 3000 avec WebSocket
+http.listen(3000, () => {
+    console.log('Serveur WebSocket + Express lancé sur http://localhost:3000');
+});
+
+// Modification du gestionnaire WebSocket
+io.on('connection', (socket) => {
+    console.log('Un utilisateur est connecté via WebSocket');
+
+    socket.on('newConversation', (data) => {
+        console.log('Nouvelle conversation créée:', data);
+        // Émettre à tous les clients connectés
+        socket.broadcast.emit('refreshConversations', data);
+    });
+
+    socket.on('joinConversation', (conversationId) => {
+        socket.join(conversationId);
+        console.log(`Utilisateur rejoint la conversation: ${conversationId}`);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Utilisateur déconnecté');
+    });
 });
