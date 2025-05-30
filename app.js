@@ -650,9 +650,7 @@ app.get('/api/user/:username', async (req, res) => {
 });
 
 // Démarrer le serveur
-app.listen(3000, () => {
-    console.log('Serveur démarré sur http://localhost:3000');
-//Code pour gérer la messagerie : 
+ 
 app.get('/search-users', async (req, res) => {
     const query = req.query.q;
 
@@ -860,19 +858,18 @@ http.listen(3000, () => {
 io.on('connection', (socket) => {
     console.log('Un utilisateur est connecté via WebSocket');
 
-        socket.on('newConversation', (data) => {
-            console.log('Nouvelle conversation créée:', data);
-            // Émettre à tous les clients connectés
-            socket.broadcast.emit('refreshConversations', data);
-        });
+    socket.on('newConversation', (data) => {
+        console.log('Nouvelle conversation créée:', data);
+        // Émettre à tous les clients connectés
+        socket.broadcast.emit('refreshConversations', data);
+    });
 
-        socket.on('joinConversation', (conversationId) => {
-            socket.join(conversationId);
-            console.log(`Utilisateur rejoint la conversation: ${conversationId}`);
-        });
+    socket.on('joinConversation', (conversationId) => {
+        socket.join(conversationId);
+        console.log(`Utilisateur rejoint la conversation: ${conversationId}`);
+    });
 
-        socket.on('disconnect', () => {
-            console.log('Utilisateur déconnecté');
-        });
+    socket.on('disconnect', () => {
+        console.log('Utilisateur déconnecté');
     });
 });
