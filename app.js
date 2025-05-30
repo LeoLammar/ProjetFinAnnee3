@@ -9,6 +9,7 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const crypto = require('crypto');
 require('dotenv').config();
+const axios = require('axios');
 
 // Connexion à MongoDB
 const uri = `mongodb+srv://${process.env.DB_ID}:${process.env.DB_PASSWORD}@cluster0.rphccsl.mongodb.net`;
@@ -16,9 +17,30 @@ const DATABASE_NAME = "Argos";
 const DATABASE_COLLECTION = "Compte";
 const DOCUMENTS_COLLECTION = "Documents"; // Nouvelle collection pour les fichiers
 
+let conversations = null;
+let messages = null;
 let database = null;
 let compte = null;
 let documents = null;
+
+// On ne garde plus une seule collection "Documents" mais une collection par matière
+let matiereCollections = {};
+
+// Utiliser la collection "Ressources" pour tous les documents
+let Ressources = null;
+
+// Correction : attendre que la connexion MongoDB soit prête avant d'accepter les requêtes
+let mongoReady = false;
+async function ensureIndexes() {
+    if (!Ressources) return;
+    try {
+        await Ressources.createIndex({ matiere: 1, categorie: 1 });
+        await Ressources.createIndex({ _id: 1 });
+        console.log('Indexes créés sur la collection Ressources');
+    } catch (e) {
+        console.error('Erreur lors de la création des indexes:', e);
+    }
+}
 
 // Initialisation de la connexion MongoDB
 async function initDB() {
@@ -27,13 +49,27 @@ async function initDB() {
         await client.connect();
         database = client.db(DATABASE_NAME);
         compte = database.collection(DATABASE_COLLECTION);
-        documents = database.collection(DOCUMENTS_COLLECTION); // Ajout
+        messages = database.collection("Messages");
+        conversations = database.collection("Conversations");
+        Ressources = database.collection("Ressources");
+        matieres.forEach(matiere => {
+            matiereCollections[matiere] = database.collection(matiere);
+        });
+        mongoReady = true;
         console.log('Connexion à MongoDB réussie');
+        await ensureIndexes();
     } catch (err) {
         console.error('Erreur de connexion à MongoDB:', err);
     }
 }
 initDB();
+
+app.use((req, res, next) => {
+    if (!mongoReady) {
+        return res.status(503).send('Base de données non prête, réessayez dans quelques secondes.');
+    }
+    next();
+});
 
 // Sessions utilisateurs stockées dans MongoDB
 app.use(session({
@@ -70,13 +106,39 @@ function getPdfFilesFromDir(dirPath) {
     }
 }
 
+function toUtf8(str) {
+    if (!str) return '';
+    try {
+        // Si la chaîne contient des caractères mal encodés, corrige
+        if (/Ã|Ã©|Ã¨|Ãª|Ã«|Ã¢|Ã¤|Ã®|Ã¯|Ã´|Ã¶|Ã»|Ã¼|Ã§/.test(str)) {
+            return Buffer.from(str, 'latin1').toString('utf8');
+        }
+        // Si la chaîne contient des points d'interrogation suspects, tente la correction
+        if (str.includes('?')) {
+            const test = Buffer.from(str, 'latin1').toString('utf8');
+            if (!test.includes('?')) return test;
+        }
+        return str;
+    } catch (e) {
+        return str;
+    }
+}
+
+// Fonction utilitaire pour encoder le nom de fichier dans l'en-tête Content-Disposition (RFC 5987)
+function contentDispositionFilename(filename) {
+    // Pour compatibilité, on met filename et filename* (UTF-8)
+    const fallback = filename.replace(/[^\x20-\x7E]/g, '_');
+    const encoded = encodeURIComponent(filename).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29');
+    return `filename="${fallback}"; filename*=UTF-8''${encoded}`;
+}
+
 // Fonction utilitaire pour lister les fichiers PDF d'une matière/catégorie depuis la BDD
 async function getPdfFilesFromDB(matiere, categorie) {
-    if (!documents) return [];
-    const docs = await documents.find({ matiere, categorie }).toArray();
+    if (!Ressources) return [];
+    const docs = await Ressources.find({ matiere, categorie }).sort({ name: 1 }).toArray();
     return docs.map(doc => ({
-        name: doc.name,
-        link: `/download/${doc._id}` // Route de téléchargement
+        name: toUtf8(doc.name),
+        link: `/download/${doc._id}`
     }));
 }
 
@@ -128,9 +190,10 @@ const storage = multer.diskStorage({
         cb(null, path.join(__dirname, 'tmp_uploads'));
     },
     filename: function (req, file, cb) {
+        let originalName = toUtf8(file.originalname)
         let customName = req.body && req.body.customName && req.body.customName.trim() !== ''
-            ? req.body.customName.trim().replace(/[^a-zA-Z0-9_\-\.]/g, '_')
-            : file.originalname.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+            ? toUtf8(req.body.customName.trim().replace(/[^a-zA-Z0-9_\-\.]/g, '_'))
+            : originalName.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
         if (!customName.endsWith('.pdf')) customName += '.pdf';
         cb(null, customName);
     }
@@ -150,26 +213,6 @@ const profilePhotoStorage = multer.diskStorage({
 });
 const uploadProfilePhoto = multer({ storage: profilePhotoStorage });
 
-// Supprimer la route d'upload qui stocke dans le filesystem (gardez uniquement la BDD)
-app.post('/upload/:matiere', upload.single('pdfFile'), async (req, res) => {
-    const matiere = req.params.matiere;
-    if (!matieres.includes(matiere)) {
-        return res.status(400).send('Matière inconnue');
-    }
-    const categorie = req.body.categorie;
-    const fileBuffer = fs.readFileSync(req.file.path);
-    const doc = {
-        matiere,
-        categorie,
-        name: req.body.customName && req.body.customName.trim() !== '' ? req.body.customName.trim() : req.file.originalname,
-        file: { buffer: fileBuffer },
-        uploadedAt: new Date()
-    };
-    await documents.insertOne(doc);
-    fs.unlinkSync(req.file.path); // Nettoyage du fichier temporaire
-    res.redirect('/' + matiere);
-});
-
 // Génération dynamique des routes pour chaque matière
 matieres.forEach(matiere => {
     app.get(`/${matiere}`, async (req, res) => {
@@ -185,24 +228,181 @@ matieres.forEach(matiere => {
 
 // Route pour télécharger un fichier depuis la BDD
 app.get('/download/:id', async (req, res) => {
-    if (!documents) return res.status(500).send('DB non connectée');
-    const doc = await documents.findOne({ _id: new require('mongodb').ObjectId(req.params.id) });
-    if (!doc) return res.status(404).send('Fichier non trouvé');
-    res.setHeader('Content-Disposition', `attachment; filename="${doc.name}"`);
+    if (!Ressources) return res.status(500).send('DB non connectée');
+    let doc;
+    try {
+        const id = req.params.id;
+        if (!id || !ObjectId.isValid(id)) {
+            return res.status(400).send('ID invalide');
+        }
+        doc = await Ressources.findOne({ _id: new ObjectId(id) });
+        if (!doc) {
+            return res.status(404).send('Fichier non trouvé');
+        }
+        if (!doc.file || !doc.file.buffer) {
+            return res.status(500).send('Fichier PDF absent ou corrompu dans la base. Merci de re-téléverser un PDF valide.');
+        }
+        let fileBuffer = null;
+        if (doc.file && doc.file.buffer) {
+            if (Buffer.isBuffer(doc.file.buffer)) {
+                fileBuffer = doc.file.buffer;
+            } else if (doc.file.buffer._bsontype === 'Binary' && doc.file.buffer.buffer) {
+                fileBuffer = Buffer.from(doc.file.buffer.buffer);
+            } else if (doc.file.buffer instanceof Uint8Array) {
+                fileBuffer = Buffer.from(doc.file.buffer);
+            } else {
+                try {
+                    fileBuffer = Buffer.from(doc.file.buffer);
+                } catch (e) {
+                    fileBuffer = null;
+                }
+            }
+        }
+        if (!fileBuffer || !Buffer.isBuffer(fileBuffer) || fileBuffer.length < 100) {
+            return res.status(500).send('Fichier PDF vide ou corrompu. Merci de re-téléverser un PDF valide.');
+        }
+        const safeName = toUtf8(doc.name);
+        res.setHeader('Content-Disposition', `attachment; ${contentDispositionFilename(safeName)}`);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Length', fileBuffer.length);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.send(fileBuffer);
+    } catch (e) {
+        return res.status(400).send('ID invalide');
+    }
+});
+
+app.get('/view/:id', async (req, res) => {
+    if (!Ressources) return res.status(500).send('DB non connectée');
+    let doc;
+    try {
+        const id = req.params.id && typeof req.params.id === 'string' ? req.params.id.trim() : '';
+        if (!ObjectId.isValid(id)) {
+            console.error('ID non valide pour MongoDB:', id);
+            return res.status(400).send('ID invalide');
+        }
+        doc = await Ressources.findOne({ _id: new ObjectId(id) });
+    } catch (e) {
+        console.error('Erreur lors de la recherche MongoDB:', e);
+        return res.status(400).send('ID invalide');
+    }
+    if (!doc) {
+        console.error('Aucun document trouvé pour cet ID:', req.params.id);
+        return res.status(404).send('Fichier non trouvé');
+    }
+    // Correction : gestion BSON Binary (cas MongoDB Compass/Node.js)
+    let fileBuffer = null;
+    if (doc.file && doc.file.buffer) {
+        if (Buffer.isBuffer(doc.file.buffer)) {
+            fileBuffer = doc.file.buffer;
+        } else if (doc.file.buffer._bsontype === 'Binary' && doc.file.buffer.buffer) {
+            // Cas BSON Binary (driver MongoDB)
+            fileBuffer = Buffer.from(doc.file.buffer.buffer);
+        } else if (doc.file.buffer instanceof Uint8Array) {
+            fileBuffer = Buffer.from(doc.file.buffer);
+        } else {
+            try {
+                fileBuffer = Buffer.from(doc.file.buffer);
+            } catch (e) {
+                fileBuffer = null;
+            }
+        }
+    }
+    if (!fileBuffer || !Buffer.isBuffer(fileBuffer) || fileBuffer.length < 100) {
+        return res.status(500).send('Fichier PDF vide ou corrompu. Merci de re-téléverser un PDF valide.');
+    }
+    let filename = doc.name && !doc.name.toLowerCase().endsWith('.pdf') ? doc.name + '.pdf' : doc.name;
+    filename = toUtf8(filename);
     res.setHeader('Content-Type', 'application/pdf');
-    res.send(doc.file.buffer);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.send(fileBuffer);
+});
+
+app.get('/pdf/:id', async (req, res) => {
+    if (!Ressources) return res.status(500).send('DB non connectée');
+    let doc;
+    try {
+        const id = req.params.id;
+        if (!id || typeof id !== 'string' || id.length !== 24 || !/^[a-fA-F0-9]{24}$/.test(id)) {
+            return res.status(400).send('ID invalide');
+        }
+        doc = await Ressources.findOne({ _id: ObjectId(id) });
+    } catch (e) {
+        return res.status(400).send('ID invalide');
+    }
+    if (!doc) return res.status(404).send('Fichier non trouvé');
+    let fileBuffer = doc.file && doc.file.buffer
+        ? (Buffer.isBuffer(doc.file.buffer) ? doc.file.buffer : Buffer.from(doc.file.buffer))
+        : null;
+    if (!fileBuffer) return res.status(500).send('Fichier corrompu');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${doc.name}"`);
+    res.send(fileBuffer);
 });
 
 // Définir une route
 app.get('/', (req, res) => {
     res.render('accueil'); // index.ejs dans le dossier "views"
 });
-app.get('/emploidutemps', (req, res) => {
-    res.render('emploidutemps');
+app.get('/emploidutemps', async (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/connexion');
+    }
+    // Affiche juste le formulaire, pas d'appel API ici
+    res.render('emploidutemps', { planning: [], error: null });
+});
+
+app.post('/emploidutemps', async (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/connexion');
+    }
+    const password_mauria = req.body.password_mauria;
+    if (!password_mauria) {
+        return res.render('emploidutemps', { planning: [], error: "Veuillez saisir votre mot de passe Aurion pour accéder à l'emploi du temps." });
+    }
+
+    const email = req.session.user.email;
+
+    // Récupère la date de début de semaine depuis le formulaire ou prend la semaine courante
+    let start = req.body.start ? new Date(req.body.start) : new Date();
+    // Si la date n'est pas valide, prend aujourd'hui
+    if (isNaN(start)) start = new Date();
+    // Calcule le lundi de la semaine
+    start.setDate(start.getDate() - start.getDay() + 1);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 5); // Samedi
+
+    const startStr = start.toISOString().slice(0, 10);
+    const endStr = end.toISOString().slice(0, 10);
+
+    let planning = [];
+    let error = null;
+    try {
+        const response = await axios.post(
+            `https://mauriaapi.fly.dev/exactPlanning?start=${startStr}&end=${endStr}`,
+            {
+                username: email,
+                password: password_mauria
+            },
+            {
+                headers: {
+                    'accept': '/',
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        planning = response.data;
+    } catch (err) {
+        error = "Mot de passe aurion incorrect.";
+    }
+
+    // Passe la date de début à la vue pour la navigation
+    res.render('emploidutemps', { planning, error, start: startStr, password_mauria });
 });
 
 
-// Route d'inscription avec upload photo
+
 
 
 
@@ -227,10 +427,6 @@ app.get('/salles', (req, res) => {
     res.render('salleDeClasse');
 });
 
-app.get('/messagerie', (req, res) => {
-    res.render('messagerie');
-});
-
 app.get('/classement', (req, res) => {
     res.render('classement');
 });
@@ -238,8 +434,44 @@ app.get('/classement', (req, res) => {
 app.use('/icons', express.static(path.join(__dirname, 'icons')));
   
 
-app.get('/ressources-educatives', (req, res) => {
-    res.render('ressources-educatives');
+app.get('/Ressources-educatives', (req, res) => {
+    res.render('Ressources-educatives');
+});
+
+app.post('/upload/:matiere', upload.array('pdfFile', 10), async (req, res) => {
+    if (!Ressources) {
+        return res.status(500).send('DB non connectée');
+    }
+    try {
+        const matiere = req.params.matiere;
+        if (!matieres.includes(matiere)) {
+            return res.status(400).send('Matière inconnue');
+        }
+        const categorie = req.body.categorie;
+        // req.files est un tableau de fichiers
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).send('Aucun fichier envoyé');
+        }
+        for (const file of req.files) {
+            const fileBuffer = fs.readFileSync(file.path);
+            if (!fileBuffer || fileBuffer.length < 100) {
+                fs.unlinkSync(file.path);
+                continue;
+            }
+            const doc = {
+                matiere,
+                categorie,
+                name: toUtf8(req.body.customName && req.body.customName.trim() !== '' ? req.body.customName.trim() : file.originalname),
+                file: { buffer: fileBuffer },
+                uploadedAt: new Date()
+            };
+            await Ressources.insertOne(doc);
+            fs.unlinkSync(file.path);
+        }
+        res.redirect('/' + matiere);
+    } catch (err) {
+        res.status(500).send('Erreur lors de l\'upload');
+    }
 });
 
 // Exemple d'utilisation de la base pour une route front/back
@@ -362,7 +594,8 @@ app.post('/connexion', redirectIfAuthenticated, async (req, res) => {
         nom: user.nom,
         prenom: user.prenom,
         date_naissance: user.date_naissance,
-        photo: user.photo // <-- ajoute cette ligne
+        photo: user.photo, // <-- ajoute cette ligne
+        password_mauria: req.session.user.password_mauria
     };
 
     res.redirect('/');
@@ -401,6 +634,220 @@ app.post('/inscription', redirectIfAuthenticated, uploadProfilePhoto.single('pho
 });
 
 // Démarrer le serveur
-app.listen(3000, () => {
-    console.log('Serveur démarré sur http://localhost:3000');
+app.get('/search-users', async (req, res) => {
+    const query = req.query.q;
+
+    if (!query || !compte) return res.json([]);
+
+    try {
+        const users = await compte.find({
+            $or: [
+                { username: { $regex: query, $options: 'i' } },
+                { prenom: { $regex: query, $options: 'i' } },
+                { nom: { $regex: query, $options: 'i' } }
+            ]
+        })
+        .project({ username: 1, nom: 1, prenom: 1 }) // Pas d'email ou mot de passe !
+        .limit(10)
+        .toArray();
+
+        res.json(users);
+    } catch (err) {
+        console.error('Erreur de recherche :', err);
+        res.status(500).json([]);
+    }
+});
+
+// Route API pour récupérer la liste des conversations
+app.get('/api/conversations', async (req, res) => {
+    const currentUser = req.session.user;
+    
+    if (!currentUser) {
+        return res.status(401).json({ error: 'Non connecté' });
+    }
+    try {
+        const conversationsCollection = database.collection('Conversations');
+        
+        const conversations = await conversationsCollection.find({
+            participants: currentUser.username
+        }).sort({ 
+            lastActivity: -1,  // Trier par dernière activité
+            createdAt: -1      // Puis par date de création
+        }).toArray();
+
+        res.json(conversations);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des conversations:', error);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// Nouvelle route pour créer une conversation (GET avec réponse JSON)
+app.get('/messagerie/create', async (req, res) => {
+    const currentUser = req.session.user;
+    const targetUsername = req.query.user;
+    
+    if (!currentUser || !targetUsername) {
+        return res.json({ success: false, error: 'Paramètres manquants' });
+    }
+    try {
+        const conversationsCollection = database.collection('Conversations');
+        
+        // Vérifier si la conversation existe déjà
+        let conv = await conversationsCollection.findOne({
+            participants: { $all: [currentUser.username, targetUsername] }
+        });
+
+        if (!conv) {
+            // Créer une nouvelle conversation
+            const insertResult = await conversationsCollection.insertOne({
+                participants: [currentUser.username, targetUsername],
+                messages: [],
+                createdAt: new Date(),
+                lastActivity: new Date()
+            });
+            
+            conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
+        }
+
+        res.json({ success: true, conversation: conv });
+    } catch (error) {
+        console.error('Erreur lors de la création de la conversation:', error);
+        res.json({ success: false, error: 'Erreur serveur' });
+    }
+});
+
+app.get('/messagerie', async (req, res) => {
+    const currentUser = req.session.user;
+    if (!currentUser) return res.redirect('/connexion');
+
+    const conversationsCollection = database.collection('Conversations');
+    const selectedUsername = req.query.user;
+
+    let selectedUser = null;
+    let messages = [];
+
+    // Toutes les conversations où l'utilisateur connecté participe
+    const conversations = await conversationsCollection.find({
+        participants: currentUser.username
+    }).sort({
+        lastActivity: -1,
+        createdAt: -1
+    }).toArray();
+
+    // Si on a cliqué sur un utilisateur
+    if (selectedUsername) {
+        selectedUser = await compte.findOne({ username: selectedUsername });
+
+        if (selectedUser) {
+            let conv = await conversationsCollection.findOne({
+                participants: { $all: [currentUser.username, selectedUsername] }
+            });
+            if (!conv) {
+                // Créer une nouvelle conversation vide
+                const insertResult = await conversationsCollection.insertOne({
+                    participants: [currentUser.username, selectedUsername],
+                    messages: [],
+                    createdAt: new Date(),
+                    lastActivity: new Date()
+                });
+                conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
+            }
+
+            if (conv && conv.messages) {
+                messages = conv.messages;
+            }
+        }
+    }
+
+    res.render('messagerie', {
+        currentUser,
+        selectedUser,
+        messages,
+        conversations
+    });
+});
+
+app.post('/messagerie/send', async (req, res) => {
+    const { to, message } = req.body;
+    const currentUser = req.session.user;
+
+    if (!currentUser || !to || !message) {
+        return res.redirect('/messagerie');
+    }
+
+    try {
+        const conversationsCollection = database.collection('Conversations');
+        
+        // Trouver ou créer la conversation
+        let conv = await conversationsCollection.findOne({
+            participants: { $all: [currentUser.username, to] }
+        });
+
+        if (!conv) {
+            const insertResult = await conversationsCollection.insertOne({
+                participants: [currentUser.username, to],
+                messages: [],
+                createdAt: new Date(),
+                lastActivity: new Date()
+            });
+            conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
+        }
+        // Ajouter le message
+        const newMessage = {
+            from: currentUser.username,
+            to: to,
+            text: message,
+            timestamp: new Date()
+        };
+
+        await conversationsCollection.updateOne(
+            { _id: conv._id },
+            { 
+                $push: { messages: newMessage },
+                $set: { lastActivity: new Date() }
+            }
+        );
+
+        // Émettre l'événement WebSocket pour notifier tous les clients
+        io.emit('newMessage', {
+            conversationId: conv._id,
+            message: newMessage,
+            participants: conv.participants
+        });
+
+        res.redirect('/messagerie?user=' + encodeURIComponent(to));
+    } catch (error) {
+        console.error('Erreur lors de l\'envoi du message:', error);
+        res.redirect('/messagerie');
+    }
+});
+
+const http = require('http').createServer(app);
+const { Server } = require('socket.io');
+const io = new Server(http);
+
+// Démarre le serveur sur le port 3000 avec WebSocket
+http.listen(3000, () => {
+    console.log('Serveur WebSocket + Express lancé sur http://localhost:3000');
+});
+
+// Modification du gestionnaire WebSocket
+io.on('connection', (socket) => {
+    console.log('Un utilisateur est connecté via WebSocket');
+
+    socket.on('newConversation', (data) => {
+        console.log('Nouvelle conversation créée:', data);
+        // Émettre à tous les clients connectés
+        socket.broadcast.emit('refreshConversations', data);
+    });
+
+    socket.on('joinConversation', (conversationId) => {
+        socket.join(conversationId);
+        console.log(`Utilisateur rejoint la conversation: ${conversationId}`);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Utilisateur déconnecté');
+    });
 });
