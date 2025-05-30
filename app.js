@@ -437,7 +437,6 @@ app.post('/modifier', async (req, res) => {
     email: userMaj.email,
     username: userMaj.username,
     date_naissance: userMaj.date_naissance,
-    password_mauria: req.session.user.password_mauria // <-- garde le mot de passe Mauria !
 };
 
     res.redirect('/compte');
