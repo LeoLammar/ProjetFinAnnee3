@@ -17,77 +17,134 @@
 
     <h1 class="text-[#5C83BA] font-bold text-3xl mb-4 text-center">EMPLOI DU TEMPS</h1>
 
-    <!-- Grille emploi du temps -->
-    <div class="flex w-full max-w-7xl">
-      <!-- Colonne heures -->
-      <div class="w-16 relative">
-        <div class="h-10"></div> <!-- espace pour aligner avec entêtes -->
-        <% for (let hour = 8; hour <= 18; hour++) { %>
-          <div class="h-[100px] text-xs text-gray-600 border-t text-right pr-1 pt-1"><%= hour %>h</div>
-        <% } %>
-      </div>
-
-      <!-- Jours de la semaine -->
-      <% const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']; %>
-      <% for (let i = 0; i < days.length; i++) { %>
-        <div class="flex-1 border-l relative">
-          <!-- Entête jour -->
-          <div class="h-10 bg-[#5C83BA] text-white text-center font-semibold leading-10 border-b sticky top-0 z-10">
-            <%= days[i] %>
-          </div>
-          <!-- Zone des cours -->
-          <div class="relative h-[1100px]" id="day-<%= i %>">
-            <!-- Les cours seront ajoutés ici dynamiquement -->
-          </div>
-        </div>
+    <% if (!planning || planning.length === 0 || error) { %>
+      <% if (error) { %>
+        <div class="mb-4 text-red-600 font-semibold"><%= error %></div>
       <% } %>
+      <form method="POST" action="/emploidutemps" class="mb-6 flex flex-col items-center gap-2">
+        <input type="password" name="password_mauria" placeholder="Mot de passe Aurion" class="border rounded px-2 py-1" required>
+        <% if (typeof start !== 'undefined' && start) { %>
+          <input type="hidden" name="start" value="<%= start %>">
+        <% } %>
+        <button type="submit" class="bg-[#5C83BA] text-white px-4 py-1 rounded">Valider</button>
+      </form>
+    <% } %>
+
+    <div id="cours-content" style="width:100%;">
+      <% if (planning && planning.length > 0) { %>
+        <!-- Navigation semaines -->
+        <div class="flex items-center justify-center mb-4 gap-4">
+          <form method="POST" action="/emploidutemps" class="inline">
+            <input type="hidden" name="password_mauria" value="<%= typeof password_mauria !== 'undefined' ? password_mauria : '' %>">
+            <input type="hidden" name="start" value="<%= (() => { const d = new Date(start); d.setDate(d.getDate() - 7); return d.toISOString().slice(0,10); })() %>">
+            <button type="submit" class="text-2xl px-2" title="Semaine précédente" style="color:#5C83BA;">&#8592;</button>
+          </form>
+          <span class="font-semibold text-lg" style="color:#5C83BA;">
+            Semaine du <%= new Date(start).toLocaleDateString('fr-FR') %>
+          </span>
+          <form method="POST" action="/emploidutemps" class="inline">
+            <input type="hidden" name="password_mauria" value="<%= typeof password_mauria !== 'undefined' ? password_mauria : '' %>">
+            <input type="hidden" name="start" value="<%= (() => { const d = new Date(start); d.setDate(d.getDate() + 7); return d.toISOString().slice(0,10); })() %>">
+            <button type="submit" class="text-2xl px-2" title="Semaine suivante" style="color:#5C83BA;">&#8594;</button>
+          </form>
+        </div>
+        <!-- Grille emploi du temps -->
+        <div class="flex w-full max-w-7xl">
+          <!-- Colonne heures -->
+          <div class="w-16 relative">
+            <div class="h-10"></div>
+            <% for (let hour = 8; hour <= 18; hour++) { %>
+              <div class="h-[100px] text-xs text-gray-600 border-t text-right pr-1 pt-1"><%= hour %>h</div>
+            <% } %>
+          </div>
+          <!-- Jours de la semaine -->
+          <% 
+            const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+            function getMonday(d) {
+              d = new Date(d);
+              var day = d.getDay(),
+                  diff = d.getDate() - day + (day === 0 ? -6 : 1);
+              return new Date(d.setDate(diff));
+            }
+            let monday = planning.length > 0 ? getMonday(planning[0].start) : new Date();
+          %>
+          <% for (let i = 0; i < days.length; i++) { %>
+            <div class="flex-1 border-l relative">
+              <div class="h-10 bg-[#5C83BA] text-white text-center font-semibold leading-10 border-b sticky top-0 z-10">
+                <%= days[i] %>
+              </div>
+              <div class="relative h-[1100px]" id="day-<%= i %>"></div>
+            </div>
+          <% } %>
+        </div>
+      <% } else if (!error) { %>
+      <% } %>
+    </div>
+
+    <div id="associations-content" style="display:none; width:100%;">
     </div>
   </main>
 
   <script>
     const pixelsPerHour = 100;
     const startHour = 8;
+    const planning = <%- JSON.stringify(planning || []) %>;
 
-    function addCourse(day, start, end, name) {
-      const container = document.getElementById(`day-${day}`);
-      const courseDiv = document.createElement('div');
-      courseDiv.className = "absolute left-1 right-1 bg-[#5C83BA] text-white text-sm rounded p-1 shadow";
-
-      const top = (start - startHour) * pixelsPerHour;
-      const height = (end - start) * pixelsPerHour;
-      courseDiv.style.top = `${top}px`;
-      courseDiv.style.height = `${height}px`;
-      courseDiv.innerText = name;
-
-      container.appendChild(courseDiv);
+    function getMonday(d) {
+      d = new Date(d);
+      var day = d.getDay(),
+          diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      return new Date(d.setHours(0,0,0,0), d.setDate(diff));
     }
 
-    // Exemple de cours
     document.addEventListener('DOMContentLoaded', () => {
-      addCourse(0, 8, 10, 'Mathématiques');       // Lundi 8h - 10h
-      addCourse(1, 9.5, 11.5, 'Physique');         // Mardi 9h30 - 11h30
-      addCourse(2, 10.33, 12.33, 'Programmation');        // Mercredi 10h20 - 12h20
-      addCourse(3, 11.75, 13.25, 'DevOps');      // Jeudi 11h45 - 13h15
-      addCourse(4, 12, 14, 'Transfo intégrales');            // Vendredi 12h - 14h
-      addCourse(5, 13, 15, 'Mécanique du solide');          // Samedi 13h - 15h
-    });
+      // Tabs gestion
+      const tabCours = document.getElementById('tab-cours');
+      const tabAssociations = document.getElementById('tab-associations');
+      const coursContent = document.getElementById('cours-content');
+      const associationsContent = document.getElementById('associations-content');
 
-    // Tab switch (inchangé)
-    const tabCours = document.getElementById('tab-cours');
-    const tabAssociations = document.getElementById('tab-associations');
+      tabCours.addEventListener('click', () => {
+        tabCours.classList.add('bg-[#5C83BA]', 'text-white');
+        tabCours.classList.remove('bg-white', 'text-black');
+        tabAssociations.classList.add('bg-white', 'text-black');
+        tabAssociations.classList.remove('bg-[#5C83BA]', 'text-white');
+        coursContent.style.display = '';
+        associationsContent.style.display = 'none';
+      });
+      tabAssociations.addEventListener('click', () => {
+        tabAssociations.classList.add('bg-[#5C83BA]', 'text-white');
+        tabAssociations.classList.remove('bg-white', 'text-black');
+        tabCours.classList.add('bg-white', 'text-black');
+        tabCours.classList.remove('bg-[#5C83BA]', 'text-white');
+        coursContent.style.display = 'none';
+        associationsContent.style.display = '';
+      });
 
-    tabCours.addEventListener('click', () => {
-      tabCours.classList.add('bg-[#5C83BA]', 'text-white');
-      tabCours.classList.remove('bg-white', 'text-black');
-      tabAssociations.classList.add('bg-white', 'text-black');
-      tabAssociations.classList.remove('bg-[#5C83BA]', 'text-white');
-    });
-
-    tabAssociations.addEventListener('click', () => {
-      tabAssociations.classList.add('bg-[#5C83BA]', 'text-white');
-      tabAssociations.classList.remove('bg-white', 'text-black');
-      tabCours.classList.add('bg-white', 'text-black');
-      tabCours.classList.remove('bg-[#5C83BA]', 'text-white');
+      // Affichage des cours
+      if (!planning || planning.length === 0) return;
+      planning.forEach(event => {
+        const startDate = new Date(event.start);
+        const endDate = new Date(event.end);
+        let dayIndex = (startDate.getDay() + 6) % 7;
+        if (dayIndex > 5) return;
+        const startHourDecimal = startDate.getHours() + startDate.getMinutes() / 60;
+        const endHourDecimal = endDate.getHours() + endDate.getMinutes() / 60;
+        const container = document.getElementById(`day-${dayIndex}`);
+        if (!container) return;
+        const courseDiv = document.createElement('div');
+        courseDiv.className = "absolute left-1 right-1 bg-[#5C83BA] text-white text-xs rounded p-1 shadow border border-white cursor-pointer overflow-hidden";
+        const top = (startHourDecimal - startHour) * pixelsPerHour;
+        const height = (endHourDecimal - startHourDecimal) * pixelsPerHour;
+        courseDiv.style.top = `${top}px`;
+        courseDiv.style.height = `${height}px`;
+        const lines = event.title.split('\n');
+        courseDiv.innerHTML = `<div class="font-bold">${lines[0]}</div>`;
+        for (let i = 1; i < lines.length; i++) {
+          courseDiv.innerHTML += `<div>${lines[i]}</div>`;
+        }
+        container.appendChild(courseDiv);
+      });
     });
   </script>
 
