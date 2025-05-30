@@ -362,6 +362,9 @@ app.post('/emploidutemps', async (req, res) => {
         return res.render('emploidutemps', { planning: [], error: "Veuillez saisir votre mot de passe Aurion pour accéder à l'emploi du temps." });
     }
 
+    // Stocke le mot de passe Aurion dans la session (si tu en as vraiment besoin)
+    req.session.user.password_mauria = password_mauria;
+
     const email = req.session.user.email;
 
     // Récupère la date de début de semaine depuis le formulaire ou prend la semaine courante
@@ -594,8 +597,7 @@ app.post('/connexion', redirectIfAuthenticated, async (req, res) => {
         nom: user.nom,
         prenom: user.prenom,
         date_naissance: user.date_naissance,
-        photo: user.photo, // <-- ajoute cette ligne
-        password_mauria: req.session.user.password_mauria
+        photo: user.photo,
     };
 
     res.redirect('/');
