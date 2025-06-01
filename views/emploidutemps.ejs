@@ -88,7 +88,7 @@
   <script>
     const pixelsPerHour = 100;
     const startHour = 8;
-    const planning = JSON.parse('<%- JSON.stringify(planning || []) %>');
+    const planning = <%- JSON.stringify(planning || []) %>;
 
     function getMonday(d) {
       d = new Date(d);
