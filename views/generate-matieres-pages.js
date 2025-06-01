@@ -35,15 +35,9 @@ const titres = {
 };
 
 const matieres = Object.keys(titres);
-const viewsDir = __dirname;
+const viewsDir = path.join(__dirname, 'matieres'); // <-- place les fichiers générés dans le dossier "views/matieres"
 
-// Fonction pour choisir "de" ou "d'" selon la première lettre du titre
-function deOuD(titre) {
-    const voyelles = ['a', 'e', 'i', 'o', 'u', 'y', 'é', 'è', 'ê', 'â', 'î', 'ô', 'û', 'ù', 'ë', 'ï', 'ü', 'œ'];
-    const firstLetter = titre.trim().toLowerCase()[0];
-    return voyelles.includes(firstLetter) ? "d'" : "de ";
-}
-
+// Correction : inclure les partials depuis la racine "views/partials" même pour les sous-dossiers
 matieres.forEach(matiere => {
     const [titre, showCours, showTds, showTps, showAnnales, showForum] = titres[matiere];
     const titreMin = titre.toLowerCase();
@@ -216,8 +210,8 @@ matieres.forEach(matiere => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <%- include('partials/header.ejs') %>
-  <%- include('partials/head.ejs') %>
+  <%- include('../partials/header.ejs') %>
+  <%- include('../partials/head.ejs') %>
   <br>
   <br>
   <br>
@@ -413,7 +407,7 @@ matieres.forEach(matiere => {
       </form>
     </div>
   </div>
-  <%- include("partials/footer.ejs") %>
+  <%- include("../partials/footer.ejs") %>
   <script>
     function openModal() {
       document.getElementById('uploadModal').style.display = 'flex';
@@ -462,5 +456,12 @@ matieres.forEach(matiere => {
 `;
 
     fs.writeFileSync(path.join(viewsDir, `${matiere}.ejs`), content, 'utf8');
-    console.log(`Page générée : ${matiere}.ejs`);
+    console.log(`Page générée : matieres/${matiere}.ejs`);
 });
+
+// Fonction pour choisir "de" ou "d'" selon la première lettre du titre
+function deOuD(titre) {
+    const voyelles = ['a', 'e', 'i', 'o', 'u', 'y', 'é', 'è', 'ê', 'â', 'î', 'ô', 'û', 'ù', 'ë', 'ï', 'ü', 'œ'];
+    const firstLetter = titre.trim().toLowerCase()[0];
+    return voyelles.includes(firstLetter) ? "d'" : "de ";
+}

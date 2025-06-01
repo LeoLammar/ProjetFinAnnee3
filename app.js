@@ -222,7 +222,8 @@ matieres.forEach(matiere => {
         const tps = await getPdfFilesFromDB(matiere, 'tps');
         const annales = await getPdfFilesFromDB(matiere, 'annales');
         const forum = await getPdfFilesFromDB(matiere, 'forum');
-        res.render(matiere, { cours, tds, tps, annales, forum });
+        // Modifie le chemin du template pour pointer vers le sous-dossier "matieres"
+        res.render(path.join('matieres', matiere), { cours, tds, tps, annales, forum });
     });
 });
 
