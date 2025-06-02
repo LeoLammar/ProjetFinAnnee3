@@ -9,7 +9,6 @@
   <%- include('partials/header.ejs') %>
 
   <main class="flex flex-col items-center p-4 pt-20">
-    <!-- Tabs -->
     <div class="flex rounded-full border border-black overflow-hidden mb-6">
       <button id="tab-cours" class="px-4 py-1 bg-[#5C83BA] text-white rounded-l-full focus:outline-none">Cours</button>
       <button id="tab-associations" class="px-4 py-1 text-black bg-white rounded-r-full focus:outline-none">Associations</button>
@@ -98,7 +97,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      // Tabs gestion
       const tabCours = document.getElementById('tab-cours');
       const tabAssociations = document.getElementById('tab-associations');
       const coursContent = document.getElementById('cours-content');
