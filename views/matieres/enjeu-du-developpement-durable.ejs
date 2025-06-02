@@ -171,12 +171,17 @@
           <ul style="margin-left: 1.5rem;">
             <% cours.forEach(function(file, idx) { %>
               <li style="margin-bottom: 1rem;">
-                <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'cours-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
-                  <%= file.name %>
-                </a>
-                <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;">
-                  Télécharger
-                </a>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'cours-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
+                    <%= file.name %>
+                  </a>
+                  <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;" title="Télécharger">
+                    <!-- Icône SVG de téléchargement -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
+                      <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
+                    </svg>
+                  </a>
+                </div>
                 <div id="cours-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none; margin-left: 0.5rem;">
                   <iframe src="" class="pdf-frame" allowfullscreen></iframe>
                 </div>
@@ -198,12 +203,16 @@
           <ul style="margin-left: 1.5rem;">
             <% tps.forEach(function(file, idx) { %>
               <li style="margin-bottom: 1rem;">
-                <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'tps-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
-                  <%= file.name %>
-                </a>
-                <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;">
-                  Télécharger
-                </a>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'tps-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
+                    <%= file.name %>
+                  </a>
+                  <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;" title="Télécharger">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
+                      <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
+                    </svg>
+                  </a>
+                </div>
                 <div id="tps-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none; margin-left: 0.5rem;">
                   <iframe src="" class="pdf-frame" allowfullscreen></iframe>
                 </div>
@@ -225,12 +234,16 @@
           <ul style="margin-left: 1.5rem;">
             <% annales.forEach(function(file, idx) { %>
               <li style="margin-bottom: 1rem;">
-                <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'annales-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
-                  <%= file.name %>
-                </a>
-                <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;">
-                  Télécharger
-                </a>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'annales-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
+                    <%= file.name %>
+                  </a>
+                  <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;" title="Télécharger">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
+                      <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
+                    </svg>
+                  </a>
+                </div>
                 <div id="annales-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none; margin-left: 0.5rem;">
                   <iframe src="" class="pdf-frame" allowfullscreen></iframe>
                 </div>
@@ -252,12 +265,16 @@
           <ul style="margin-left: 1.5rem;">
             <% forum.forEach(function(file, idx) { %>
               <li style="margin-bottom: 1rem;">
-                <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'forum-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
-                  <%= file.name %>
-                </a>
-                <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;">
-                  Télécharger
-                </a>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'forum-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
+                    <%= file.name %>
+                  </a>
+                  <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;" title="Télécharger">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
+                      <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
+                    </svg>
+                  </a>
+                </div>
                 <div id="forum-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none; margin-left: 0.5rem;">
                   <iframe src="" class="pdf-frame" allowfullscreen></iframe>
                 </div>
