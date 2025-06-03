@@ -31,7 +31,6 @@
 
     <div id="cours-content" style="width:100%;">
       <% if (planning && planning.length > 0) { %>
-        <!-- Navigation semaines -->
         <div class="flex items-center justify-center mb-4 gap-4">
           <form method="POST" action="/emploidutemps" class="inline">
             <input type="hidden" name="password_mauria" value="<%= typeof password_mauria !== 'undefined' ? password_mauria : '' %>">
@@ -47,16 +46,33 @@
             <button type="submit" class="text-2xl px-2" title="Semaine suivante" style="color:#5C83BA;">&#8594;</button>
           </form>
         </div>
-        <!-- Grille emploi du temps -->
+
+        <div id="internal-error" class="mb-4 text-red-600 font-semibold" style="display:none;"></div>
+
+        <form id="add-personal-course-form" class="mb-4 flex flex-wrap gap-2 items-end bg-blue-50 p-3 rounded shadow max-w-2xl w-full">
+          <input type="text" id="personal-title" placeholder="Titre du cours" class="border rounded px-2 py-1 flex-1" required>
+          <select id="personal-day" class="border rounded px-2 py-1" required>
+            <option value="">Jour</option>
+            <option value="0">Lundi</option>
+            <option value="1">Mardi</option>
+            <option value="2">Mercredi</option>
+            <option value="3">Jeudi</option>
+            <option value="4">Vendredi</option>
+            <option value="5">Samedi</option>
+          </select>
+          <input type="time" id="personal-start" class="border rounded px-2 py-1" required>
+          <input type="time" id="personal-end" class="border rounded px-2 py-1" required>
+          <button type="submit" class="bg-[#5C83BA] text-white px-4 py-1 rounded">Ajouter</button>
+        </form>
+
         <div class="flex w-full max-w-7xl">
-          <!-- Colonne heures -->
           <div class="w-16 relative">
             <div class="h-10"></div>
             <% for (let hour = 8; hour <= 18; hour++) { %>
               <div class="h-[100px] text-xs text-gray-600 border-t text-right pr-1 pt-1"><%= hour %>h</div>
             <% } %>
           </div>
-          <!-- Jours de la semaine -->
+
           <% 
             const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
             function getMonday(d) {
@@ -96,6 +112,72 @@
       return new Date(d.setHours(0,0,0,0), d.setDate(diff));
     }
 
+    function loadPersonalCourses() {
+      try {
+        const data = localStorage.getItem('personalCourses');
+        if (data) {
+          return JSON.parse(data);
+        }
+      } catch (e) {}
+      return [];
+    }
+
+
+    function savePersonalCourses() {
+      localStorage.setItem('personalCourses', JSON.stringify(personalCourses));
+    }
+
+
+    let personalCourses = loadPersonalCourses();
+
+    function addCourseToGrid(event, color = "bg-[#5C83BA]", index = null) {
+      const startDate = new Date(event.start);
+      const endDate = new Date(event.end);
+      let dayIndex = (startDate.getDay() + 6) % 7;
+      if (dayIndex > 5) return;
+      const startHourDecimal = startDate.getHours() + startDate.getMinutes() / 60;
+      const endHourDecimal = endDate.getHours() + endDate.getMinutes() / 60;
+      const container = document.getElementById(`day-${dayIndex}`);
+      if (!container) return;
+      const courseDiv = document.createElement('div');
+      courseDiv.className = `absolute left-1 right-1 ${color} text-white text-xs rounded p-1 shadow border border-white cursor-pointer overflow-hidden`;
+      const top = (startHourDecimal - startHour) * pixelsPerHour;
+      const height = (endHourDecimal - startHourDecimal) * pixelsPerHour;
+      courseDiv.style.top = `${top}px`;
+      courseDiv.style.height = `${height}px`;
+      const lines = event.title.split('\n');
+      let html = `<div class="font-bold">${lines[0]}</div>`;
+      for (let i = 1; i < lines.length; i++) {
+        html += `<div>${lines[i]}</div>`;
+      }
+
+      if (color === "bg-black" && index !== null) {
+        html += `<button type="button" class="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs delete-personal-course" data-index="${index}" title="Supprimer">✕</button>`;
+        courseDiv.style.position = "absolute";
+      }
+      courseDiv.innerHTML = html;
+      container.appendChild(courseDiv);
+    }
+
+    function renderPersonalCourses() {
+      for (let i = 0; i < 6; i++) {
+        const container = document.getElementById(`day-${i}`);
+        if (!container) continue;
+        Array.from(container.querySelectorAll('.bg-black')).forEach(el => el.remove());
+      }
+      personalCourses.forEach((event, idx) => {
+        addCourseToGrid(event, "bg-black", idx);
+      });
+    }
+
+    function showInternalError(msg) {
+      const errDiv = document.getElementById('internal-error');
+      if (errDiv) {
+        errDiv.textContent = msg;
+        errDiv.style.display = msg ? '' : 'none';
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       const tabCours = document.getElementById('tab-cours');
       const tabAssociations = document.getElementById('tab-associations');
@@ -119,29 +201,99 @@
         associationsContent.style.display = '';
       });
 
-      // Affichage des cours
       if (!planning || planning.length === 0) return;
       planning.forEach(event => {
-        const startDate = new Date(event.start);
-        const endDate = new Date(event.end);
-        let dayIndex = (startDate.getDay() + 6) % 7;
-        if (dayIndex > 5) return;
-        const startHourDecimal = startDate.getHours() + startDate.getMinutes() / 60;
-        const endHourDecimal = endDate.getHours() + endDate.getMinutes() / 60;
-        const container = document.getElementById(`day-${dayIndex}`);
-        if (!container) return;
-        const courseDiv = document.createElement('div');
-        courseDiv.className = "absolute left-1 right-1 bg-[#5C83BA] text-white text-xs rounded p-1 shadow border border-white cursor-pointer overflow-hidden";
-        const top = (startHourDecimal - startHour) * pixelsPerHour;
-        const height = (endHourDecimal - startHourDecimal) * pixelsPerHour;
-        courseDiv.style.top = `${top}px`;
-        courseDiv.style.height = `${height}px`;
-        const lines = event.title.split('\n');
-        courseDiv.innerHTML = `<div class="font-bold">${lines[0]}</div>`;
-        for (let i = 1; i < lines.length; i++) {
-          courseDiv.innerHTML += `<div>${lines[i]}</div>`;
+        addCourseToGrid(event, "bg-[#5C83BA]");
+      });
+
+      renderPersonalCourses();
+
+      document.getElementById('add-personal-course-form')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        showInternalError("");
+        const title = document.getElementById('personal-title').value.trim();
+        const day = parseInt(document.getElementById('personal-day').value, 10);
+        const start = document.getElementById('personal-start').value;
+        const end = document.getElementById('personal-end').value;
+
+        if (!title || isNaN(day) || !start || !end) {
+          showInternalError("Veuillez remplir tous les champs.");
+          return;
         }
-        container.appendChild(courseDiv);
+
+        const [startHourVal, startMin] = start.split(':').map(Number);
+        const [endHourVal, endMin] = end.split(':').map(Number);
+        const startDec = startHourVal + startMin / 60;
+        const endDec = endHourVal + endMin / 60;
+
+        if (endDec <= startDec) {
+          showInternalError("L'heure de fin doit être après l'heure de début.");
+          return;
+        }
+
+
+        let monday;
+        if (planning.length > 0) {
+          monday = new Date(planning[0].start);
+          var dayOfWeek = monday.getDay(),
+              diff = monday.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+          monday.setDate(diff);
+          monday.setHours(0,0,0,0);
+        } else {
+          monday = new Date();
+          monday.setHours(0,0,0,0);
+        }
+
+        const dayDate = new Date(monday);
+        dayDate.setDate(monday.getDate() + day);
+
+        const allCourses = (planning || []).concat(personalCourses);
+        const overlaps = allCourses.some(ev => {
+          const evStart = new Date(ev.start);
+          const evEnd = new Date(ev.end);
+          if (
+            evStart.getFullYear() !== dayDate.getFullYear() ||
+            evStart.getMonth() !== dayDate.getMonth() ||
+            evStart.getDate() !== dayDate.getDate()
+          ) return false;
+          const evStartDec = evStart.getHours() + evStart.getMinutes() / 60;
+          const evEndDec = evEnd.getHours() + evEnd.getMinutes() / 60;
+          return (startDec < evEndDec && endDec > evStartDec);
+        });
+
+        if (overlaps) {
+          showInternalError("Ce créneau est déjà occupé par un autre cours.");
+          return;
+        }
+
+        const startDate = new Date(dayDate);
+        startDate.setHours(startHourVal, startMin, 0, 0);
+        const endDate = new Date(dayDate);
+        endDate.setHours(endHourVal, endMin, 0, 0);
+
+        const newCourse = {
+          title: "[Perso] " + title,
+          start: startDate.toISOString(),
+          end: endDate.toISOString()
+        };
+        personalCourses.push(newCourse);
+
+        savePersonalCourses();
+
+        renderPersonalCourses();
+
+        this.reset();
+      });
+
+      document.addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('delete-personal-course')) {
+          const idx = parseInt(e.target.getAttribute('data-index'), 10);
+          if (!isNaN(idx)) {
+            personalCourses.splice(idx, 1);
+            savePersonalCourses();
+            renderPersonalCourses();
+          }
+        }
       });
     });
   </script>
