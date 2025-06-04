@@ -16,18 +16,21 @@
 
     <h1 class="text-[#5C83BA] font-bold text-3xl mb-4 text-center">EMPLOI DU TEMPS</h1>
 
-    <% if (!planning || planning.length === 0 || error) { %>
-      <% if (error) { %>
-        <div class="mb-4 text-red-600 font-semibold"><%= error %></div>
-      <% } %>
-      <form method="POST" action="/emploidutemps" class="mb-6 flex flex-col items-center gap-2">
-        <input type="password" name="password_mauria" placeholder="Mot de passe Aurion" class="border rounded px-2 py-1" required>
-        <% if (typeof start !== 'undefined' && start) { %>
-          <input type="hidden" name="start" value="<%= start %>">
+    <!-- Bloc mot de passe Aurion, visible uniquement dans l'onglet Cours -->
+    <div id="cours-login-block" style="display:block;">
+      <% if (!planning || planning.length === 0 || error) { %>
+        <% if (error) { %>
+          <div class="mb-4 text-red-600 font-semibold"><%= error %></div>
         <% } %>
-        <button type="submit" class="bg-[#5C83BA] text-white px-4 py-1 rounded">Valider</button>
-      </form>
-    <% } %>
+        <form method="POST" action="/emploidutemps" class="mb-6 flex flex-col items-center gap-2">
+          <input type="password" name="password_mauria" placeholder="Mot de passe Aurion" class="border rounded px-2 py-1" required>
+          <% if (typeof start !== 'undefined' && start) { %>
+            <input type="hidden" name="start" value="<%= start %>">
+          <% } %>
+          <button type="submit" class="bg-[#5C83BA] text-white px-4 py-1 rounded">Valider</button>
+        </form>
+      <% } %>
+    </div>
 
     <div id="cours-content" style="width:100%;">
       <% if (planning && planning.length > 0) { %>
@@ -79,9 +82,11 @@
               d = new Date(d);
               var day = d.getDay(),
                   diff = d.getDate() - day + (day === 0 ? -6 : 1);
-              return new Date(d.setDate(diff));
+              d.setDate(diff);
+              d.setHours(0,0,0,0);
+              return d;
             }
-            let monday = planning.length > 0 ? getMonday(planning[0].start) : new Date();
+            let monday = planning.length > 0 ? getMonday(planning[0].start) : getMonday(new Date());
           %>
           <% for (let i = 0; i < days.length; i++) { %>
             <div class="flex-1 border-l relative">
@@ -96,20 +101,200 @@
       <% } %>
     </div>
 
+    <!-- ASSOCIATIONS -->
     <div id="associations-content" style="display:none; width:100%;">
+      <div class="flex items-center justify-center mb-4 gap-4" id="associations-nav">
+        <button id="associations-prev" class="text-2xl px-2" style="color:#5C83BA;">&#8592;</button>
+        <span id="associations-week" class="font-semibold text-lg" style="color:#5C83BA;"></span>
+        <button id="associations-next" class="text-2xl px-2" style="color:#5C83BA;">&#8594;</button>
+      </div>
+      <% if (user && (user.perm === 1 || user.perm === 2)) { %>
+        <form id="add-association-event-form" class="mb-4 flex flex-wrap gap-2 items-end bg-blue-50 p-3 rounded shadow max-w-2xl w-full">
+          <input type="text" id="association-title" placeholder="Titre de l'événement" class="border rounded px-2 py-1 flex-1" required>
+          <input type="text" id="association-organizer" placeholder="Nom de l'association" class="border rounded px-2 py-1 flex-1" required>
+          <input type="text" id="association-location" placeholder="Lieu" class="border rounded px-2 py-1 flex-1" required>
+          <input type="text" id="association-description" placeholder="Description" class="border rounded px-2 py-1 flex-1" required>
+          <select id="association-day" class="border rounded px-2 py-1" required>
+            <option value="">Jour</option>
+            <option value="0">Lundi</option>
+            <option value="1">Mardi</option>
+            <option value="2">Mercredi</option>
+            <option value="3">Jeudi</option>
+            <option value="4">Vendredi</option>
+            <option value="5">Samedi</option>
+          </select>
+          <input type="time" id="association-start" class="border rounded px-2 py-1" required>
+          <input type="time" id="association-end" class="border rounded px-2 py-1" required>
+          <button type="submit" class="bg-[#5C83BA] text-white px-4 py-1 rounded">Ajouter</button>
+        </form>
+      <% } %>
+      <div id="association-error" class="mb-4 text-red-600 font-semibold" style="display:none;"></div>
+      <div class="flex w-full max-w-7xl">
+        <div class="w-16 relative">
+          <div class="h-10"></div>
+          <% for (let hour = 8; hour <= 28; hour++) { %>
+            <div class="h-[100px] text-xs text-gray-600 border-t text-right pr-1 pt-1"><%= (hour <= 23 ? hour : hour - 24) %>h</div>
+          <% } %>
+        </div>
+        <% const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']; %>
+        <% for (let i = 0; i < 6; i++) { %>
+          <div class="flex-1 border-l relative">
+            <div class="h-10 bg-[#5C83BA] text-white text-center font-semibold leading-10 border-b sticky top-0 z-10">
+              <%= days[i] %>
+            </div>
+            <div class="relative" style="height:2000px" id="association-day-<%= i %>"></div>
+          </div>
+        <% } %>
+      </div>
     </div>
+    <!-- FIN ASSOCIATIONS -->
   </main>
+
+  <!-- MODALE DE CONFIRMATION SUPPRESSION ASSOCIATION -->
+  <div id="delete-assoc-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
+    <div class="bg-white rounded shadow-lg p-6 max-w-sm w-full">
+      <div class="font-bold mb-2 text-lg text-[#5C83BA]">Supprimer l'événement ?</div>
+      <div class="mb-4 text-gray-700">Êtes-vous sûr de vouloir supprimer cet événement ? Cette action est irréversible.</div>
+      <div class="flex justify-end gap-2">
+        <button id="cancel-delete-assoc" class="px-4 py-1 rounded bg-gray-200 hover:bg-gray-300">Annuler</button>
+        <button id="confirm-delete-assoc" class="px-4 py-1 rounded bg-red-600 text-white hover:bg-red-700">Supprimer</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     const pixelsPerHour = 100;
     const startHour = 8;
+    const endHour = 28;
     const planning = <%- JSON.stringify(planning || []) %>;
+    const user = <%- JSON.stringify(user || null) %>;
 
+    // --- ASSOCIATIONS : gestion de la semaine affichée ---
     function getMonday(d) {
       d = new Date(d);
-      var day = d.getDay(),
-          diff = d.getDate() - day + (day === 0 ? -6 : 1);
-      return new Date(d.setHours(0,0,0,0), d.setDate(diff));
+      var day = d.getDay();
+      var diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      d.setDate(diff);
+      d.setHours(0,0,0,0);
+      return d;
+    }
+    let associationMonday = getMonday(new Date());
+
+    function updateAssociationsWeek() {
+      const weekSpan = document.getElementById('associations-week');
+      weekSpan.textContent = "Semaine du " + associationMonday.toLocaleDateString('fr-FR');
+      const start = new Date(associationMonday);
+      const end = new Date(associationMonday);
+      end.setDate(start.getDate() + 6);
+      loadAssociationEvents(start.toISOString(), end.toISOString());
+    }
+
+    // Carrousel pour événements qui se chevauchent
+    function renderAssociationEvents(events) {
+      let eventsByDay = [[],[],[],[],[],[]];
+      events.forEach(event => {
+        const startDate = new Date(event.start);
+        let dayIndex = (startDate.getDay() + 6) % 7;
+        if (dayIndex > 5) return;
+        eventsByDay[dayIndex].push(event);
+      });
+
+      for (let i = 0; i < 6; i++) {
+        const container = document.getElementById(`association-day-${i}`);
+        if (!container) continue;
+        container.innerHTML = '';
+        const dayEvents = eventsByDay[i].sort((a, b) => new Date(a.start) - new Date(b.start));
+        let used = new Set();
+
+        for (let j = 0; j < dayEvents.length; j++) {
+          if (used.has(j)) continue;
+          const ev = dayEvents[j];
+          const evStart = new Date(ev.start).getTime();
+          const evEnd = new Date(ev.end).getTime();
+
+          // Trouve tous les événements qui se chevauchent avec celui-ci
+          let group = [j];
+          for (let k = 0; k < dayEvents.length; k++) {
+            if (k === j) continue;
+            if (used.has(k)) continue;
+            const other = dayEvents[k];
+            const otherStart = new Date(other.start).getTime();
+            const otherEnd = new Date(other.end).getTime();
+            if (evStart < otherEnd && evEnd > otherStart) {
+              group.push(k);
+            }
+          }
+          // Marque tous comme utilisés
+          group.forEach(idx => used.add(idx));
+
+          // Affiche UN SEUL bloc pour le groupe, qui change de place/taille au slide
+          let current = 0;
+          const div = document.createElement('div');
+          div.className = "absolute left-1 right-1 bg-orange-600 text-white text-xs rounded p-1 shadow border border-white overflow-hidden";
+
+          function renderSlide(idx) {
+            const evSlide = dayEvents[group[idx]];
+            const evSlideStart = new Date(evSlide.start);
+            const evSlideEnd = new Date(evSlide.end);
+            const startHourDecimal = evSlideStart.getHours() + evSlideStart.getMinutes() / 60;
+            const endHourDecimal = evSlideEnd.getHours() + evSlideEnd.getMinutes() / 60;
+            const top = (startHourDecimal - startHour) * pixelsPerHour;
+            const height = (endHourDecimal - startHourDecimal) * pixelsPerHour;
+            div.style.top = `${top}px`;
+            div.style.height = `${height}px`;
+
+            // Vérifie les droits de suppression
+            let canDelete = false;
+            if (user && typeof user.perm === 'number') {
+              if (user.perm === 2) canDelete = true;
+              else if (user.perm === 1 && evSlide.createdBy === user.username) canDelete = true;
+            }
+
+            div.innerHTML = `
+              <div class="slides-container">
+                <div class="slide">
+                  <div class="font-bold">${evSlide.title}</div>
+                  <div><span class="font-semibold">Association :</span> ${evSlide.organizer || ''}</div>
+                  <div><span class="font-semibold">Lieu :</span> ${evSlide.location || ''}</div>
+                  <div><span class="font-semibold">Description :</span> ${evSlide.description || ''}</div>
+                  <div><span class="font-semibold">Heure :</span> ${evSlideStart.getHours().toString().padStart(2, '0')}:${evSlideStart.getMinutes().toString().padStart(2, '0')} - ${evSlideEnd.getHours().toString().padStart(2, '0')}:${evSlideEnd.getMinutes().toString().padStart(2, '0')}</div>
+                  ${canDelete ? `<button type="button" class="delete-assoc-ev absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-id="${evSlide._id}">✕</button>` : ''}
+                </div>
+              </div>
+              ${group.length > 1 ? `
+              <div class="flex justify-between mt-1">
+                <button type="button" class="prev-slide bg-white text-orange-600 rounded px-1 text-xs">&lt;</button>
+                <button type="button" class="next-slide bg-white text-orange-600 rounded px-1 text-xs">&gt;</button>
+              </div>
+              ` : ''}
+            `;
+            if (group.length > 1) {
+              div.querySelector('.prev-slide').onclick = () => {
+                current = (current - 1 + group.length) % group.length;
+                renderSlide(current);
+              };
+              div.querySelector('.next-slide').onclick = () => {
+                current = (current + 1) % group.length;
+                renderSlide(current);
+              };
+            }
+          }
+          renderSlide(current);
+          container.appendChild(div);
+        }
+      }
+    }
+
+    async function loadAssociationEvents(start, end) {
+      const res = await fetch(`/api/association-events?start=${start}&end=${end}`);
+      const events = await res.json();
+      renderAssociationEvents(events);
+    }
+
+    function showAssociationError(msg) {
+      const errDiv = document.getElementById('association-error');
+      errDiv.textContent = msg;
+      errDiv.style.display = msg ? '' : 'none';
     }
 
     function loadPersonalCourses() {
@@ -122,11 +307,9 @@
       return [];
     }
 
-
     function savePersonalCourses() {
       localStorage.setItem('personalCourses', JSON.stringify(personalCourses));
     }
-
 
     let personalCourses = loadPersonalCourses();
 
@@ -150,7 +333,6 @@
       for (let i = 1; i < lines.length; i++) {
         html += `<div>${lines[i]}</div>`;
       }
-
       if (color === "bg-black" && index !== null) {
         html += `<button type="button" class="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs delete-personal-course" data-index="${index}" title="Supprimer">✕</button>`;
         courseDiv.style.position = "absolute";
@@ -183,6 +365,20 @@
       const tabAssociations = document.getElementById('tab-associations');
       const coursContent = document.getElementById('cours-content');
       const associationsContent = document.getElementById('associations-content');
+      const coursLoginBlock = document.getElementById('cours-login-block');
+
+      // Navigation semaine Associations
+      document.getElementById('associations-prev').onclick = function() {
+        associationMonday.setDate(associationMonday.getDate() - 7);
+        updateAssociationsWeek();
+      };
+      document.getElementById('associations-next').onclick = function() {
+        associationMonday.setDate(associationMonday.getDate() + 7);
+        updateAssociationsWeek();
+      };
+
+      // Affichage initial de la semaine Associations
+      updateAssociationsWeek();
 
       tabCours.addEventListener('click', () => {
         tabCours.classList.add('bg-[#5C83BA]', 'text-white');
@@ -191,6 +387,7 @@
         tabAssociations.classList.remove('bg-[#5C83BA]', 'text-white');
         coursContent.style.display = '';
         associationsContent.style.display = 'none';
+        if (coursLoginBlock) coursLoginBlock.style.display = '';
       });
       tabAssociations.addEventListener('click', () => {
         tabAssociations.classList.add('bg-[#5C83BA]', 'text-white');
@@ -199,15 +396,19 @@
         tabCours.classList.remove('bg-[#5C83BA]', 'text-white');
         coursContent.style.display = 'none';
         associationsContent.style.display = '';
+        if (coursLoginBlock) coursLoginBlock.style.display = 'none';
+        updateAssociationsWeek();
       });
 
-      if (!planning || planning.length === 0) return;
-      planning.forEach(event => {
-        addCourseToGrid(event, "bg-[#5C83BA]");
-      });
+      // Affichage des cours Aurion et persos seulement si planning chargé
+      if (planning && planning.length > 0) {
+        planning.forEach(event => {
+          addCourseToGrid(event, "bg-[#5C83BA]");
+        });
+        renderPersonalCourses();
+      }
 
-      renderPersonalCourses();
-
+      // Ajout d'un cours perso
       document.getElementById('add-personal-course-form')?.addEventListener('submit', function(e) {
         e.preventDefault();
         showInternalError("");
@@ -231,9 +432,8 @@
           return;
         }
 
-
         let monday;
-        if (planning.length > 0) {
+        if (planning && planning.length > 0) {
           monday = new Date(planning[0].start);
           var dayOfWeek = monday.getDay(),
               diff = monday.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
@@ -293,6 +493,108 @@
             savePersonalCourses();
             renderPersonalCourses();
           }
+        }
+      });
+
+      // Ajout d'un événement d'association (dans la semaine affichée)
+      const addForm = document.getElementById('add-association-event-form');
+      if (addForm) {
+        addForm.addEventListener('submit', async function(e) {
+          e.preventDefault();
+          showAssociationError("");
+          const title = document.getElementById('association-title').value.trim();
+          const organizer = document.getElementById('association-organizer').value.trim();
+          const location = document.getElementById('association-location').value.trim();
+          const description = document.getElementById('association-description').value.trim();
+          const day = parseInt(document.getElementById('association-day').value, 10);
+          const start = document.getElementById('association-start').value;
+          const end = document.getElementById('association-end').value;
+          if (!title || !organizer || !location || !description || isNaN(day) || !start || !end) {
+            showAssociationError("Veuillez remplir tous les champs.");
+            return;
+          }
+          const [startHourVal, startMin] = start.split(':').map(Number);
+          const [endHourVal, endMin] = end.split(':').map(Number);
+
+          // Empêcher avant 8h ou après 4h du matin
+          const startTotal = startHourVal + startMin / 60;
+          const endTotal = endHourVal + endMin / 60;
+          if (startTotal < 8 || startTotal > 28 || endTotal < 8 || endTotal > 28) {
+            showAssociationError("Les événements doivent être entre 08:00 et 04:00 du matin.");
+            return;
+          }
+          if (endHourVal < startHourVal || (endHourVal === startHourVal && endMin <= startMin)) {
+            showAssociationError("L'heure de fin doit être après l'heure de début.");
+            return;
+          }
+          // Calcule la date du jour choisi dans la semaine affichée
+          let monday = getMonday(associationMonday);
+          let dayDate = new Date(monday);
+          dayDate.setDate(monday.getDate() + day);
+          const startDate = new Date(dayDate);
+          startDate.setHours(startHourVal, startMin, 0, 0);
+          const endDate = new Date(dayDate);
+          endDate.setHours(endHourVal, endMin, 0, 0);
+
+          // Envoi à l'API
+          const res = await fetch('/api/association-events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title,
+              organizer,
+              location,
+              description,
+              start: startDate.toISOString(),
+              end: endDate.toISOString()
+            })
+          });
+          const data = await res.json();
+          if (!data.success) {
+            showAssociationError(data.error || "Erreur lors de l'ajout.");
+            return;
+          }
+          // Recharge les événements de la semaine affichée
+          updateAssociationsWeek();
+          this.reset();
+        });
+      }
+
+      // Suppression d'un événement d'association avec confirmation modale
+      let assocToDeleteId = null;
+      document.addEventListener('click', function(e) {
+        // Ouvre la modale de suppression
+        if (e.target && e.target.classList.contains('delete-assoc-ev')) {
+          assocToDeleteId = e.target.getAttribute('data-id');
+          document.getElementById('delete-assoc-modal').style.display = '';
+        }
+        // Annule la suppression
+        if (e.target && e.target.id === 'cancel-delete-assoc') {
+          assocToDeleteId = null;
+          document.getElementById('delete-assoc-modal').style.display = 'none';
+        }
+        // Confirme la suppression
+        if (e.target && e.target.id === 'confirm-delete-assoc') {
+          if (!assocToDeleteId) return;
+          fetch('/api/association-events/' + assocToDeleteId, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              updateAssociationsWeek();
+            } else {
+              showAssociationError(data.error || "Erreur lors de la suppression.");
+            }
+            assocToDeleteId = null;
+            document.getElementById('delete-assoc-modal').style.display = 'none';
+          })
+          .catch(() => {
+            showAssociationError("Erreur lors de la suppression.");
+            assocToDeleteId = null;
+            document.getElementById('delete-assoc-modal').style.display = 'none';
+          });
         }
       });
     });

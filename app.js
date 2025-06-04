@@ -22,6 +22,8 @@ let messages = null;
 let database = null;
 let compte = null;
 let documents = null;
+let associationEvents = null;
+
 
 // On ne garde plus une seule collection "Documents" mais une collection par matière
 let matiereCollections = {};
@@ -52,6 +54,7 @@ async function initDB() {
         messages = database.collection("Messages");
         conversations = database.collection("Conversations");
         Ressources = database.collection("Ressources");
+        associationEvents = database.collection('AssociationEvents');
         matieres.forEach(matiere => {
             matiereCollections[matiere] = database.collection(matiere);
         });
@@ -351,7 +354,7 @@ app.get('/emploidutemps', async (req, res) => {
         return res.redirect('/connexion');
     }
     // Affiche juste le formulaire, pas d'appel API ici
-    res.render('emploidutemps', { planning: [], error: null });
+    res.render('emploidutemps', { planning: [], error: null, user: req.session.user});
 });
 
 app.post('/emploidutemps', async (req, res) => {
@@ -399,7 +402,7 @@ app.post('/emploidutemps', async (req, res) => {
     }
 
     // Passe la date de début à la vue pour la navigation
-    res.render('emploidutemps', { planning, error, start: startStr, password_mauria });
+    res.render('emploidutemps', { planning, error, start: startStr, password_mauria, user: req.session.user });
 });
 
 
@@ -503,7 +506,8 @@ app.get('/modifier', async (req, res) => {
         email: user.email,
         username: user.username,
         date_naissance: user.date_naissance,
-        photo: user.photo
+        photo: user.photo,
+        perm: user.perm
     };
     res.render('modifier', { user, error: null, success: null });
 });
@@ -544,7 +548,8 @@ app.post('/modifier', uploadProfilePhoto.single('photo'), async (req, res) => {
         email: userMaj.email,
         username: userMaj.username,
         date_naissance: userMaj.date_naissance,
-        photo: userMaj.photo
+        photo: userMaj.photo,
+        perm: userMaj.perm
     };
 
     res.redirect('/compte');
@@ -596,6 +601,7 @@ app.post('/connexion', redirectIfAuthenticated, async (req, res) => {
         prenom: user.prenom,
         date_naissance: user.date_naissance,
         photo: user.photo,
+        perm: user.perm
     };
 
     res.redirect('/');
@@ -623,7 +629,8 @@ app.post('/inscription', redirectIfAuthenticated, uploadProfilePhoto.single('pho
             date_naissance,
             password: hashedPassword,
             photo: photoPath,
-            date_inscription: new Date()
+            date_inscription: new Date(),
+            perm: 0
         });
 
         res.render('inscription', { success: "Inscription réussie !" });
@@ -850,4 +857,56 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('Utilisateur déconnecté');
     });
+});
+
+app.get('/api/association-events', async (req, res) => {
+    const { start, end } = req.query;
+    if (!associationEvents) return res.json([]);
+    // Récupère tous les événements qui touchent la semaine affichée
+    const events = await associationEvents.find({
+        start: { $lt: end },
+        end: { $gt: start }
+    }).toArray();
+    res.json(events);
+});
+
+app.post('/api/association-events', async (req, res) => {
+    if (!req.session.user || ![1,2].includes(req.session.user.perm)) {
+        return res.status(403).json({ error: "Non autorisé" });
+    }
+    const { title, organizer, location, description, start, end } = req.body;
+    if (!title || !organizer || !location || !description || !start || !end) {
+        return res.status(400).json({ error: "Champs manquants" });
+    }
+    await associationEvents.insertOne({
+        title,
+        organizer,
+        location,
+        description,
+        start,
+        end,
+        createdBy: req.session.user.username
+    });
+    res.json({ success: true });
+});
+
+
+app.delete('/api/association-events/:id', async (req, res) => {
+    if (!req.session.user || typeof req.session.user.perm !== 'number') {
+        return res.status(403).json({ error: "Non autorisé" });
+    }
+    const { id } = req.params;
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ error: "ID invalide" });
+    }
+    const event = await associationEvents.findOne({ _id: new ObjectId(id) });
+    if (!event) return res.status(404).json({ error: "Événement introuvable" });
+
+    // Permissions : perm 2 = admin, perm 1 = créateur, perm 0 = interdit
+    if (req.session.user.perm === 2 ||
+        (req.session.user.perm === 1 && event.createdBy === req.session.user.username)) {
+        await associationEvents.deleteOne({ _id: new ObjectId(id) });
+        return res.json({ success: true });
+    }
+    return res.status(403).json({ error: "Non autorisé à supprimer cet événement" });
 });
