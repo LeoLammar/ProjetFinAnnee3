@@ -8,6 +8,15 @@
   <%- include('partials/head.ejs') %>
   <%- include('partials/header.ejs') %>
 
+  <!-- Modale d'affichage d'un événement (cours ou association) -->
+  <div id="view-event-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
+    <div class="bg-white rounded shadow-lg p-6 max-w-sm w-full relative">
+      <button type="button" id="close-view-event" class="absolute top-2 right-2 text-gray-400 hover:text-black text-2xl leading-none">&times;</button>
+      <div id="view-event-content"></div>
+      <div class="flex justify-end gap-2 mt-4" id="view-event-actions"></div>
+    </div>
+  </div>
+
   <main class="flex flex-col items-center p-4 pt-20">
     <div class="flex rounded-full border border-black overflow-hidden mb-6">
       <button id="tab-cours" class="px-4 py-1 bg-[#5C83BA] text-white rounded-l-full focus:outline-none">Cours</button>
@@ -162,12 +171,118 @@
     </div>
   </div>
 
+  <!-- MODALE DE MODIFICATION ASSOCIATION -->
+  <div id="edit-assoc-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
+    <form id="edit-assoc-form" class="bg-white rounded shadow-lg p-6 max-w-sm w-full">
+      <div class="font-bold mb-2 text-lg text-[#5C83BA]">Modifier l'événement</div>
+      <div class="mb-2">
+        <input type="text" id="edit-assoc-title" class="border rounded px-2 py-1 w-full mb-2" placeholder="Titre" required>
+        <input type="text" id="edit-assoc-organizer" class="border rounded px-2 py-1 w-full mb-2" placeholder="Association" required>
+        <input type="text" id="edit-assoc-location" class="border rounded px-2 py-1 w-full mb-2" placeholder="Lieu" required>
+        <input type="text" id="edit-assoc-description" class="border rounded px-2 py-1 w-full mb-2" placeholder="Description" required>
+        <label class="block mb-1">Jour :
+          <select id="edit-assoc-day" class="border rounded px-2 py-1 w-full" required>
+            <option value="0">Lundi</option>
+            <option value="1">Mardi</option>
+            <option value="2">Mercredi</option>
+            <option value="3">Jeudi</option>
+            <option value="4">Vendredi</option>
+            <option value="5">Samedi</option>
+          </select>
+        </label>
+        <div class="flex gap-2">
+          <input type="time" id="edit-assoc-start" class="border rounded px-2 py-1 flex-1" required>
+          <input type="time" id="edit-assoc-end" class="border rounded px-2 py-1 flex-1" required>
+        </div>
+      </div>
+      <div id="edit-assoc-error" class="text-red-600 mb-2" style="display:none;"></div>
+      <div class="flex justify-end gap-2 mt-2">
+        <button type="button" id="cancel-edit-assoc" class="px-4 py-1 rounded bg-gray-200 hover:bg-gray-300">Annuler</button>
+        <button type="submit" class="px-4 py-1 rounded bg-[#5C83BA] text-white hover:bg-[#42659a]">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+
   <script>
     const pixelsPerHour = 100;
     const startHour = 8;
     const endHour = 28;
     const planning = <%- JSON.stringify(planning || []) %>;
     const user = <%- JSON.stringify(user || null) %>;
+
+    // Ouvre la modale d'affichage d'un événement
+    function openViewEventModal(event, type, index = null) {
+      const contentDiv = document.getElementById('view-event-content');
+      const actionsDiv = document.getElementById('view-event-actions');
+      actionsDiv.innerHTML = '';
+      let html = '';
+      if (type === 'cours') {
+        html += `<div class="font-bold text-lg mb-2">${event.title}</div>`;
+        html += `<div><span class="font-semibold">Début :</span> ${new Date(event.start).toLocaleString('fr-FR')}</div>`;
+        html += `<div><span class="font-semibold">Fin :</span> ${new Date(event.end).toLocaleString('fr-FR')}</div>`;
+        // Bouton supprimer pour cours perso
+        if (index !== null) {
+          actionsDiv.innerHTML += `<button type="button" class="delete-personal-course-modal bg-red-600 hover:bg-red-700 text-white rounded px-3 py-1" data-index="${index}">Supprimer</button>`;
+        }
+      } else if (type === 'association') {
+        html += `<div class="font-bold text-lg mb-2">${event.title}</div>`;
+        html += `<div><span class="font-semibold">Association :</span> ${event.organizer || ''}</div>`;
+        html += `<div><span class="font-semibold">Lieu :</span> ${event.location || ''}</div>`;
+        html += `<div><span class="font-semibold">Description :</span> ${event.description || ''}</div>`;
+        html += `<div><span class="font-semibold">Début :</span> ${new Date(event.start).toLocaleString('fr-FR')}</div>`;
+        html += `<div><span class="font-semibold">Fin :</span> ${new Date(event.end).toLocaleString('fr-FR')}</div>`;
+        // Boutons modifier/supprimer selon droits
+        let canDelete = false, canEdit = false;
+        if (user && typeof user.perm === 'number') {
+          if (user.perm === 2) canDelete = canEdit = true;
+          else if (user.perm === 1 && event.createdBy === user.username) canDelete = canEdit = true;
+        }
+        if (canEdit) {
+          actionsDiv.innerHTML += `<button type="button" class="edit-assoc-ev-modal bg-yellow-400 hover:bg-yellow-500 text-black rounded px-3 py-1" data-id="${event._id}">Modifier</button>`;
+        }
+        if (canDelete) {
+          actionsDiv.innerHTML += `<button type="button" class="delete-assoc-ev-modal bg-red-600 hover:bg-red-700 text-white rounded px-3 py-1" data-id="${event._id}">Supprimer</button>`;
+        }
+      }
+      contentDiv.innerHTML = html;
+      document.getElementById('view-event-modal').style.display = '';
+    }
+
+    // Ferme la modale d'affichage
+    document.getElementById('close-view-event').onclick = function() {
+      document.getElementById('view-event-modal').style.display = 'none';
+    };
+
+    // Gestion des boutons dans la modale
+    document.getElementById('view-event-actions').onclick = function(e) {
+      // Supprimer cours perso
+      if (e.target && e.target.classList.contains('delete-personal-course-modal')) {
+        const idx = parseInt(e.target.getAttribute('data-index'), 10);
+        if (!isNaN(idx)) {
+          personalCourses.splice(idx, 1);
+          savePersonalCourses();
+          renderPersonalCourses();
+          document.getElementById('view-event-modal').style.display = 'none';
+        }
+      }
+      // Supprimer association
+      if (e.target && e.target.classList.contains('delete-assoc-ev-modal')) {
+        assocToDeleteId = e.target.getAttribute('data-id');
+        document.getElementById('view-event-modal').style.display = 'none';
+        document.getElementById('delete-assoc-modal').style.display = '';
+      }
+      // Modifier association
+      if (e.target && e.target.classList.contains('edit-assoc-ev-modal')) {
+        const id = e.target.getAttribute('data-id');
+        assocToEdit = assocEventsCache.find(ev => ev._id === id);
+        if (assocToEdit) {
+          fillEditAssocModal(assocToEdit);
+          document.getElementById('view-event-modal').style.display = 'none';
+          document.getElementById('edit-assoc-modal').style.display = '';
+          document.getElementById('edit-assoc-error').style.display = 'none';
+        }
+      }
+    };
 
     // --- ASSOCIATIONS : gestion de la semaine affichée ---
     function getMonday(d) {
@@ -180,6 +295,8 @@
     }
     let associationMonday = getMonday(new Date());
 
+    let assocEventsCache = [];
+
     function updateAssociationsWeek() {
       const weekSpan = document.getElementById('associations-week');
       weekSpan.textContent = "Semaine du " + associationMonday.toLocaleDateString('fr-FR');
@@ -191,6 +308,7 @@
 
     // Carrousel pour événements qui se chevauchent
     function renderAssociationEvents(events) {
+      assocEventsCache = events;
       let eventsByDay = [[],[],[],[],[],[]];
       events.forEach(event => {
         const startDate = new Date(event.start);
@@ -243,13 +361,6 @@
             div.style.top = `${top}px`;
             div.style.height = `${height}px`;
 
-            // Vérifie les droits de suppression
-            let canDelete = false;
-            if (user && typeof user.perm === 'number') {
-              if (user.perm === 2) canDelete = true;
-              else if (user.perm === 1 && evSlide.createdBy === user.username) canDelete = true;
-            }
-
             div.innerHTML = `
               <div class="slides-container">
                 <div class="slide">
@@ -258,7 +369,6 @@
                   <div><span class="font-semibold">Lieu :</span> ${evSlide.location || ''}</div>
                   <div><span class="font-semibold">Description :</span> ${evSlide.description || ''}</div>
                   <div><span class="font-semibold">Heure :</span> ${evSlideStart.getHours().toString().padStart(2, '0')}:${evSlideStart.getMinutes().toString().padStart(2, '0')} - ${evSlideEnd.getHours().toString().padStart(2, '0')}:${evSlideEnd.getMinutes().toString().padStart(2, '0')}</div>
-                  ${canDelete ? `<button type="button" class="delete-assoc-ev absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-id="${evSlide._id}">✕</button>` : ''}
                 </div>
               </div>
               ${group.length > 1 ? `
@@ -268,6 +378,16 @@
               </div>
               ` : ''}
             `;
+            div.onclick = function(e) {
+              // Ne pas ouvrir la modale si on clique sur un bouton d'action
+              if (
+                (e.target.classList && (
+                  e.target.classList.contains('delete-assoc-ev') ||
+                  e.target.classList.contains('edit-assoc-ev')
+                ))
+              ) return;
+              openViewEventModal(evSlide, "association");
+            };
             if (group.length > 1) {
               div.querySelector('.prev-slide').onclick = () => {
                 current = (current - 1 + group.length) % group.length;
@@ -288,6 +408,7 @@
     async function loadAssociationEvents(start, end) {
       const res = await fetch(`/api/association-events?start=${start}&end=${end}`);
       const events = await res.json();
+      assocEventsCache = events;
       renderAssociationEvents(events);
     }
 
@@ -338,6 +459,12 @@
         courseDiv.style.position = "absolute";
       }
       courseDiv.innerHTML = html;
+      // Ajoute le clic pour ouvrir la modale
+      courseDiv.onclick = function(e) {
+        // Ne pas ouvrir la modale si on clique sur le bouton supprimer
+        if (e.target.classList.contains('delete-personal-course')) return;
+        openViewEventModal(event, color === "bg-black" ? "cours" : "cours", index);
+      };
       container.appendChild(courseDiv);
     }
 
@@ -560,8 +687,23 @@
         });
       }
 
-      // Suppression d'un événement d'association avec confirmation modale
+      // Suppression et modification d'un événement d'association avec modales
       let assocToDeleteId = null;
+      let assocToEdit = null;
+
+      function fillEditAssocModal(event) {
+        document.getElementById('edit-assoc-title').value = event.title || '';
+        document.getElementById('edit-assoc-organizer').value = event.organizer || '';
+        document.getElementById('edit-assoc-location').value = event.location || '';
+        document.getElementById('edit-assoc-description').value = event.description || '';
+        const startDate = new Date(event.start);
+        let dayIndex = (startDate.getDay() + 6) % 7;
+        document.getElementById('edit-assoc-day').value = dayIndex;
+        document.getElementById('edit-assoc-start').value = startDate.getHours().toString().padStart(2, '0') + ':' + startDate.getMinutes().toString().padStart(2, '0');
+        const endDate = new Date(event.end);
+        document.getElementById('edit-assoc-end').value = endDate.getHours().toString().padStart(2, '0') + ':' + endDate.getMinutes().toString().padStart(2, '0');
+      }
+
       document.addEventListener('click', function(e) {
         // Ouvre la modale de suppression
         if (e.target && e.target.classList.contains('delete-assoc-ev')) {
@@ -596,6 +738,77 @@
             document.getElementById('delete-assoc-modal').style.display = 'none';
           });
         }
+
+        // Ouvre la modale d'édition
+        if (e.target && e.target.classList.contains('edit-assoc-ev')) {
+          const id = e.target.getAttribute('data-id');
+          assocToEdit = assocEventsCache.find(ev => ev._id === id);
+          if (assocToEdit) {
+            fillEditAssocModal(assocToEdit);
+            document.getElementById('edit-assoc-modal').style.display = '';
+            document.getElementById('edit-assoc-error').style.display = 'none';
+          }
+        }
+        // Annule l'édition
+        if (e.target && e.target.id === 'cancel-edit-assoc') {
+          assocToEdit = null;
+          document.getElementById('edit-assoc-modal').style.display = 'none';
+        }
+      });
+
+      document.getElementById('edit-assoc-form')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!assocToEdit) return;
+        const title = document.getElementById('edit-assoc-title').value.trim();
+        const organizer = document.getElementById('edit-assoc-organizer').value.trim();
+        const location = document.getElementById('edit-assoc-location').value.trim();
+        const description = document.getElementById('edit-assoc-description').value.trim();
+        const day = parseInt(document.getElementById('edit-assoc-day').value, 10);
+        const start = document.getElementById('edit-assoc-start').value;
+        const end = document.getElementById('edit-assoc-end').value;
+
+        if (!title || !organizer || !location || !description || isNaN(day) || !start || !end) {
+          document.getElementById('edit-assoc-error').textContent = "Veuillez remplir tous les champs.";
+          document.getElementById('edit-assoc-error').style.display = '';
+          return;
+        }
+        const [startHourVal, startMin] = start.split(':').map(Number);
+        const [endHourVal, endMin] = end.split(':').map(Number);
+        if (endHourVal < startHourVal || (endHourVal === startHourVal && endMin <= startMin)) {
+          document.getElementById('edit-assoc-error').textContent = "L'heure de fin doit être après l'heure de début.";
+          document.getElementById('edit-assoc-error').style.display = '';
+          return;
+        }
+        let monday = getMonday(associationMonday);
+        let dayDate = new Date(monday);
+        dayDate.setDate(monday.getDate() + day);
+        const startDate = new Date(dayDate);
+        startDate.setHours(startHourVal, startMin, 0, 0);
+        const endDate = new Date(dayDate);
+        endDate.setHours(endHourVal, endMin, 0, 0);
+
+        // Envoi à l'API
+        const res = await fetch('/api/association-events/' + assocToEdit._id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            organizer,
+            location,
+            description,
+            start: startDate.toISOString(),
+            end: endDate.toISOString()
+          })
+        });
+        const data = await res.json();
+        if (!data.success) {
+          document.getElementById('edit-assoc-error').textContent = data.error || "Erreur lors de la modification.";
+          document.getElementById('edit-assoc-error').style.display = '';
+          return;
+        }
+        assocToEdit = null;
+        document.getElementById('edit-assoc-modal').style.display = 'none';
+        updateAssociationsWeek();
       });
     });
   </script>

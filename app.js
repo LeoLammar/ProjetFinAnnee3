@@ -902,11 +902,38 @@ app.delete('/api/association-events/:id', async (req, res) => {
     const event = await associationEvents.findOne({ _id: new ObjectId(id) });
     if (!event) return res.status(404).json({ error: "Événement introuvable" });
 
-    // Permissions : perm 2 = admin, perm 1 = créateur, perm 0 = interdit
     if (req.session.user.perm === 2 ||
         (req.session.user.perm === 1 && event.createdBy === req.session.user.username)) {
         await associationEvents.deleteOne({ _id: new ObjectId(id) });
         return res.json({ success: true });
     }
     return res.status(403).json({ error: "Non autorisé à supprimer cet événement" });
+});
+
+app.put('/api/association-events/:id', async (req, res) => {
+    if (!req.session.user || typeof req.session.user.perm !== 'number') {
+        return res.status(403).json({ error: "Non autorisé" });
+    }
+    const { id } = req.params;
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ error: "ID invalide" });
+    }
+    const event = await associationEvents.findOne({ _id: new ObjectId(id) });
+    if (!event) return res.status(404).json({ error: "Événement introuvable" });
+
+    if (
+        req.session.user.perm === 2 ||
+        (req.session.user.perm === 1 && event.createdBy === req.session.user.username)
+    ) {
+        const { title, organizer, location, description, start, end } = req.body;
+        if (!title || !organizer || !location || !description || !start || !end) {
+            return res.status(400).json({ error: "Champs manquants" });
+        }
+        await associationEvents.updateOne(
+            { _id: new ObjectId(id) },
+            { $set: { title, organizer, location, description, start, end } }
+        );
+        return res.json({ success: true });
+    }
+    return res.status(403).json({ error: "Non autorisé à modifier cet événement" });
 });
