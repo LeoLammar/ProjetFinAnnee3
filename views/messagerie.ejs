@@ -11,15 +11,59 @@
     .tab-active {
       filter: brightness(0) saturate(100%) invert(36%) sepia(41%) saturate(408%) hue-rotate(174deg) brightness(88%) contrast(86%);
     }
+    
+    /* Styles personnalisés pour le scroll */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 10px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #a8a8a8;
+    }
+    
+    /* Hauteur fixe pour le chat desktop */
+    .desktop-chat-messages {
+      height: calc(100vh - 320px);
+      min-height: 400px;
+      max-height: calc(100vh - 320px);
+    }
+
+    /* Hauteur fixe pour le chat mobile */
+    .mobile-chat-container {
+      height: calc(100vh - 120px);
+      max-height: calc(100vh - 120px);
+    }
   </style>  
 </head>
 <body class="bg-[#EAF5FF] font-sans">
   <%- include('partials/header.ejs') %>
-  <div class="pt-20 md:pt-24 min-h-screen">
-    <div class="flex flex-col md:flex-row gap-8 p-4 md:p-8 max-w-7xl w-full mx-auto">
+  
+  <!-- Indicateur de statut de connexion -->
+  <div id="connection-status" class="hidden fixed top-16 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+    <span id="status-text">Connexion en cours...</span>
+  </div>
+
+  <!-- Indicateur de messages en attente -->
+  <div id="pending-messages" class="hidden fixed bottom-20 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+    <span id="pending-count">0</span> message(s) en attente
+  </div>
+
+  <div class="pt-16 md:pt-24 min-h-screen">
+    <div class="flex flex-col md:flex-row gap-8 p-4 md:p-8 max-w-7xl w-full mx-auto" 
+         data-conversations='<%- JSON.stringify(typeof conversations !== "undefined" ? conversations : []) %>'>
 
 <!-- MOBILE LISTE (visible uniquement en mobile) -->
-<div id="mobile-list" class="block md:hidden w-full px-4">
+<div id="mobile-list" class="block md:hidden w-full px-4 py-4">
   <!-- SEARCH MOBILE (avec résultats dynamiques) -->
   <div class="relative mb-4">
     <div class="bg-white rounded-xl shadow px-4 py-3 flex items-center border border-[#E3E9F3]">
@@ -32,15 +76,15 @@
       />
     </div>
     <div id="search-results-mobile"
-         class="absolute w-full bg-white shadow rounded-lg mt-1 z-50 hidden max-h-64 overflow-y-auto border border-[#E3E9F3]">
+         class="absolute w-full bg-white shadow rounded-lg mt-1 z-50 hidden max-h-64 overflow-y-auto border border-[#E3E9F3] custom-scrollbar">
     </div>
   </div>
 
-  <!-- GROUPS (scrollable bloc) -->
-  <div class="bg-white rounded-xl shadow border border-[#E3E9F3] px-4 py-4 h-60 overflow-y-auto mb-4">
+  <!-- GROUPS (même hauteur que PRIVATE) -->
+  <div class="bg-white rounded-xl shadow border border-[#E3E9F3] px-4 py-4 h-64 overflow-y-auto mb-4 custom-scrollbar">
     <h2 class="font-bold text-md mb-2">Groups</h2>
     <ul class="flex flex-col gap-3">
-      <li onclick="openMobileChat()" class="flex items-center justify-between hover:bg-[#f2f6fa] rounded-lg px-2 py-1 cursor-pointer transition">
+      <li onclick="openMobileChat('group', 'Friends Forever')" class="flex items-center justify-between hover:bg-[#f2f6fa] rounded-lg px-2 py-1 cursor-pointer transition">
         <div class="flex items-center gap-3">
           <img src="/icons/groupe1.jpg" class="w-8 h-8 rounded-full" />
           <div>
@@ -56,60 +100,84 @@
     </ul>
   </div>
 
-  <!-- PRIVATE (scrollable bloc) -->
-  <div class="bg-white rounded-xl shadow border border-[#E3E9F3] px-4 py-4 h-60 overflow-y-auto">
+  <!-- PRIVATE (même hauteur que GROUPS) -->
+  <div class="bg-white rounded-xl shadow border border-[#E3E9F3] px-4 py-4 h-64 overflow-y-auto custom-scrollbar">
     <h2 class="font-bold text-md mb-2">Private</h2>
-    <ul class="flex flex-col gap-3">
-      <li onclick="openMobileChat()" class="flex items-center justify-between hover:bg-[#f2f6fa] rounded-lg px-2 py-1 cursor-pointer transition">
-        <div class="flex items-center gap-3">
-          <img src="/icons/anil.jpg" class="w-8 h-8 rounded-full" />
-          <div>
-            <p class="font-semibold leading-4">Anil</p>
-            <p class="text-xs text-gray-500 leading-4">April fool's day</p>
+    <ul id="private-conversations-mobile" class="flex flex-col gap-3">
+      <% if (typeof conversations !== 'undefined' && conversations.length > 0) { %>
+        <% conversations.forEach(conv => { 
+          const other = conv.participants.find(p => p !== currentUser.username);
+          let lastMessage = "Pas encore de message";
+          let lastMessageTime = "Just now";
+          
+          if (conv.lastMessage) {
+            lastMessage = conv.lastMessage.length > 30 ? conv.lastMessage.substring(0, 30) + "..." : conv.lastMessage;
+          }
+          
+          if (conv.lastMessageTime) {
+            lastMessageTime = new Date(conv.lastMessageTime).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+          }
+        %>
+        <li onclick="openMobileChat('<%= other %>')" 
+            class="flex items-center justify-between hover:bg-[#f2f6fa] rounded-lg px-2 py-1 cursor-pointer transition user-result"
+            data-username="<%= other %>">
+          <div class="flex items-center gap-3">
+            <img src="<%= conv.photo || '/public/default.png' %>" class="w-8 h-8 rounded-full" />
+            <div>
+              <p class="font-semibold leading-4"><%= other %></p>
+              <p class="text-xs text-gray-500 leading-4"><%= lastMessage %></p>
+            </div>
           </div>
-        </div>
-        <div class="flex flex-col items-end gap-1">
-          <span class="text-xs text-gray-500">Today, 9.52pm</span>
-          <img src="/icons/double-check.svg" class="w-4 h-4 text-purple-500" />
-        </div>
-      </li>
+          <div class="flex flex-col items-end gap-1">
+            <span class="text-xs text-gray-500"><%= lastMessageTime %></span>
+            <!-- NOUVEAU : Bulle de notification au lieu de l'icône -->
+            <% if (conv.unreadCount && conv.unreadCount > 0) { %>
+              <span class="text-xs text-white bg-red-500 min-w-[20px] h-5 rounded-full flex items-center justify-center px-1 font-semibold">
+                <%= conv.unreadCount > 99 ? '99+' : conv.unreadCount %>
+              </span>
+            <% } else { %>
+              <div class="w-5 h-5"></div> <!-- Espace vide pour maintenir l'alignement -->
+            <% } %>
+          </div>
+        </li>
+        <% }); %>
+      <% } else { %>
+        <li class="text-xs text-gray-500 text-center py-4">Aucune conversation</li>
+      <% } %>
     </ul>
   </div>
 </div>
 
 <!-- MOBILE CHAT (caché par défaut, visible quand on clique sur une conversation) -->
-<main id="mobile-chat" class="hidden md:hidden w-full flex-col bg-white rounded-xl shadow border border-[#E3E9F3] px-2 py-2 h-[80vh]">
-  <!-- Header utilisateur avec bouton retour -->
-  <div class="flex items-center gap-3 pb-3 border-b border-gray-200 mb-2">
+<main id="mobile-chat" class="hidden md:hidden w-full bg-white rounded-xl shadow border border-[#E3E9F3] mobile-chat-container flex flex-col mx-auto max-w-md p-0">
+  <!-- Header utilisateur avec bouton retour - hauteur fixe -->
+  <div class="flex items-center gap-3 px-4 py-2 border-b border-gray-200 flex-shrink-0 !mt-0">
     <button onclick="closeMobileChat()" class="mr-1">
-      <svg class="w-7 h-7 text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
       </svg>
     </button>
-    <img src="/icons/tykouz.jpg" class="w-10 h-10 rounded-full" />
-    <div>
-      <h3 class="font-bold text-md">Tykouz</h3>
-      <p class="text-xs text-gray-500">Online - Last seen, y a pas longtemps wola</p>
+    <img id="mobile-chat-avatar" src="/public/default.png" class="w-10 h-10 rounded-full" />
+    <div class="flex-1">
+      <h3 id="mobile-chat-name" class="font-bold text-md">Utilisateur</h3>
+      <p id="mobile-chat-status" class="text-xs text-gray-500">@username</p>
     </div>
   </div>
-  <!-- Conversation scrollable -->
-  <div class="flex-1 overflow-y-auto flex flex-col gap-3 mb-2 px-1">
-    <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[80%] text-sm">Guten tag</div>
-    <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[80%] text-sm">Comment qu'y va?</div>
-    <div class="text-xs text-gray-500 self-start pl-2">Today, 8.30pm</div>
-    <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[80%] text-sm">Hello!</div>
-    <div class="text-xs text-gray-500 self-end pr-2">Today, 8.33pm</div>
-    <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[80%] text-sm">I am fine and how are you?</div>
-    <div class="text-xs text-gray-500 self-end pr-2">Today, 8.34pm</div>
-    <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[80%] text-sm">Je vais bien ! Petite réunion demain à 9h?</div>
-    <div class="text-xs text-gray-500 self-start pl-2">Today, 8.36pm</div>
-    <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[80%] text-sm">Ok noté !</div>
-    <div class="text-xs text-gray-500 self-end pr-2">Today, 8.58pm</div>
+  
+  <!-- Conversation scrollable - hauteur flexible -->
+  <div id="mobile-chat-messages" class="flex-1 overflow-y-auto flex flex-col gap-2 px-4 py-4 custom-scrollbar">
+    <!-- Les messages seront chargés ici dynamiquement -->
   </div>
-  <!-- Barre de saisie -->
-  <div class="flex items-center gap-3 px-4 py-3 bg-[#F1F7FD] rounded-full shadow mt-2">
-    <input type="text" placeholder="Type your message here..." class="flex-1 text-sm bg-transparent outline-none text-gray-700" />
-    <img src="/icons/send.svg" class="w-6 h-6" />
+  
+  <!-- Barre de saisie - hauteur fixe -->
+  <div class="flex-shrink-0 px-4 py-3">
+    <form id="mobile-message-form" class="flex items-center gap-3 bg-[#F1F7FD] rounded-full px-4 py-2">
+      <input type="hidden" id="mobile-message-to" name="to" value="" />
+      <input type="text" id="mobile-message-input" name="message" placeholder="Type your message here..." class="flex-1 text-sm bg-transparent outline-none text-gray-700" required />
+      <button type="submit" class="flex-shrink-0">
+        <img src="/icons/send.svg" class="w-6 h-6" />
+      </button>
+    </form>
   </div>
 </main>
 
@@ -127,12 +195,12 @@
       />
     </div>
     <div id="search-results-desktop"
-         class="absolute w-full bg-white shadow rounded-lg mt-1 z-50 hidden max-h-64 overflow-y-auto border border-[#E3E9F3]">
+         class="absolute w-full bg-white shadow rounded-lg mt-1 z-50 hidden max-h-64 overflow-y-auto border border-[#E3E9F3] custom-scrollbar">
     </div>
   </div>
 
-  <!-- GROUPS -->
-  <div class="bg-white rounded-xl shadow border border-[#E3E9F3] px-4 py-4 h-64 md:h-72 overflow-y-auto flex flex-col">
+  <!-- GROUPS (même hauteur que PRIVATE) -->
+  <div class="bg-white rounded-xl shadow border border-[#E3E9F3] px-4 py-4 h-72 overflow-y-auto flex flex-col custom-scrollbar">
     <h2 class="font-bold text-md md:text-lg mb-2">Groups</h2>
     <ul class="flex flex-col gap-3">
       <li class="flex items-center justify-between hover:bg-[#f2f6fa] rounded-lg px-2 py-1 cursor-pointer transition">
@@ -151,59 +219,80 @@
     </ul>
   </div>
 
-  <!-- PRIVATE -->
-  <div class="bg-white rounded-xl shadow border border-[#E3E9F3] px-4 py-4 h-64 md:h-72 overflow-y-auto flex flex-col">
+  <!-- PRIVATE (même hauteur que GROUPS) -->
+  <div class="bg-white rounded-xl shadow border border-[#E3E9F3] px-4 py-4 h-72 overflow-y-auto flex flex-col custom-scrollbar">
     <h2 class="font-bold text-md md:text-lg mb-2">Private</h2>
-    <ul class="flex flex-col gap-3">
-      <% conversations.forEach(conv => { 
+    <ul id="private-conversations-desktop" class="flex flex-col gap-3">
+      <% if (typeof conversations !== 'undefined' && conversations.length > 0) { %>
+        <% conversations.forEach(conv => { 
           const other = conv.participants.find(p => p !== currentUser.username);
-          const last = conv.messages && conv.messages.length > 0 ? conv.messages[conv.messages.length - 1].text : "Pas encore de message"; 
-      %>
-        <li onclick="window.location.href='/messagerie?user=<%= other %>'"
+          let lastMessage = "Pas encore de message";
+          let lastMessageTime = "Just now";
+          
+          if (conv.lastMessage) {
+            lastMessage = conv.lastMessage.length > 40 ? conv.lastMessage.substring(0, 40) + "..." : conv.lastMessage;
+          }
+          
+          if (conv.lastMessageTime) {
+            lastMessageTime = new Date(conv.lastMessageTime).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+          }
+        %>
+        <li onclick="openDesktopConversation('<%= other %>')"
             class="flex items-center justify-between hover:bg-[#f2f6fa] rounded-lg px-2 py-1 cursor-pointer transition user-result"
             data-username="<%= other %>">
           <div class="flex items-center gap-3">
-            <img src="/icons/default-avatar.jpg" class="w-8 h-8 rounded-full" />
+            <img src="<%= conv.photo || '/public/default.png' %>" class="w-8 h-8 rounded-full" />
             <div>
               <p class="font-semibold leading-4"><%= other %></p>
-              <p class="text-xs text-gray-500 leading-4"><%= last %></p>
+              <p class="text-xs text-gray-500 leading-4"><%= lastMessage %></p>
             </div>
           </div>
           <div class="flex flex-col items-end gap-1">
-            <span class="text-xs text-gray-500">Just now</span>
-            <img src="/icons/double-check.svg" class="w-4 h-4 text-purple-500" />
+            <span class="text-xs text-gray-500"><%= lastMessageTime %></span>
+            <!-- NOUVEAU : Bulle de notification au lieu de l'icône -->
+            <% if (conv.unreadCount && conv.unreadCount > 0) { %>
+              <span class="text-xs text-white bg-red-500 min-w-[20px] h-5 rounded-full flex items-center justify-center px-1 font-semibold">
+                <%= conv.unreadCount > 99 ? '99+' : conv.unreadCount %>
+              </span>
+            <% } else { %>
+              <div class="w-5 h-5"></div> <!-- Espace vide pour maintenir l'alignement -->
+            <% } %>
           </div>
         </li>
-      <% }); %>
+        <% }); %>
+      <% } else { %>
+        <li class="text-xs text-gray-500 text-center py-4">Aucune conversation</li>
+      <% } %>
     </ul>
-
   </div>
 </aside>
 
 <main id="chat" class="hidden md:flex w-2/3 flex-col bg-white rounded-xl shadow border border-[#E3E9F3] px-4 md:px-8 py-6">
   <% if (selectedUser) { %>
-    <!-- Header utilisateur -->
-    <div class="flex items-center gap-4 pb-3 border-b border-gray-200 mb-4">
-      <img src="/icons/default-avatar.jpg" class="w-12 h-12 rounded-full" />
+    <!-- Header utilisateur (hauteur fixe) -->
+    <div class="flex items-center gap-4 pb-3 border-b border-gray-200 mb-4 flex-shrink-0">
+      <img src="<%= selectedUser && selectedUser.photo ? selectedUser.photo : '/public/default.png' %>" class="w-12 h-12 rounded-full" />
       <div>
         <h3 class="font-bold text-md md:text-lg"><%= selectedUser.prenom %> <%= selectedUser.nom %></h3>
         <p class="text-xs md:text-sm text-gray-500">@<%= selectedUser.username %></p>
       </div>
     </div>
 
-    <!-- Conversation scrollable -->
-    <div class="flex-1 overflow-y-auto flex flex-col gap-3 mb-4">
+    <!-- Conversation scrollable avec hauteur fixe -->
+    <div class="desktop-chat-messages overflow-y-auto flex flex-col gap-3 mb-4 custom-scrollbar">
       <% messages.forEach(msg => { %>
         <% if (msg.from === currentUser.username) { %>
-          <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[70%] text-sm"><%= msg.text %></div>
+          <div class="self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[70%] text-sm break-words"><%= msg.text %></div>
+          <div class="text-xs text-gray-500 self-end pr-2"><%= new Date(msg.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) %></div>
         <% } else { %>
-          <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[70%] text-sm"><%= msg.text %></div>
+          <div class="self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[70%] text-sm break-words"><%= msg.text %></div>
+          <div class="text-xs text-gray-500 self-start pl-2"><%= new Date(msg.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) %></div>
         <% } %>
       <% }) %>
     </div>
 
-    <!-- Barre de saisie -->
-    <form action="/messagerie/send" method="POST" class="flex items-center gap-3 px-4 py-3 bg-[#F1F7FD] rounded-full shadow">
+    <!-- Barre de saisie (hauteur fixe) - FORMULAIRE MODIFIÉ POUR WEBSOCKET -->
+    <form id="desktop-message-form" class="flex items-center gap-3 px-4 py-3 bg-[#F1F7FD] rounded-full shadow flex-shrink-0">
       <input type="hidden" name="to" value="<%= selectedUser.username %>" />
       <input type="text" name="message" placeholder="Type your message here..." class="flex-1 text-sm bg-transparent outline-none text-gray-700" required />
       <button type="submit">
@@ -211,180 +300,429 @@
       </button>
     </form>
   <% } else { %>
-    <div class="text-center text-gray-400 text-sm mt-16">Sélectionne un utilisateur pour démarrer une conversation</div>
+    <div class="flex-1 flex items-center justify-center">
+      <div class="text-center text-gray-400 text-sm">Sélectionne un utilisateur pour démarrer une conversation</div>
+    </div>
   <% } %>
 </main>
-
 
     </div>
   </div>
 
 <script>
-  function openMobileChat() {
-    document.getElementById('mobile-list').classList.add('hidden');
-    document.getElementById('mobile-chat').classList.remove('hidden');
+  let currentMobileUser = null;
+  let currentConversationId = null;
+  let messageQueue = [];
+  let isConnected = false;
+
+  // Variable pour stocker les compteurs de messages non lus
+  let unreadCounters = new Map(); // username -> unreadCount
+
+  // WebSocket avec configuration avancée
+  const socket = io({
+    transports: ['websocket', 'polling'],
+    timeout: 20000,
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionAttempts: 5,
+    maxReconnectionAttempts: 5
+  });
+  
+  const currentUser = '<%= currentUser.username %>';
+
+  // ========== GESTION DE LA CONNEXION ==========
+  
+  socket.on('connect', () => {
+    console.log('Connecté au serveur WebSocket');
+    isConnected = true;
+    hideConnectionStatus();
+    socket.emit('authenticate', currentUser);
+    
+    // Envoyer les messages en attente
+    while (messageQueue.length > 0) {
+      const queuedMessage = messageQueue.shift();
+      socket.emit('sendMessage', queuedMessage);
+    }
+    updatePendingMessages();
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Déconnecté du serveur WebSocket');
+    isConnected = false;
+    showConnectionStatus('Connexion perdue...', 'bg-red-500');
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('Erreur de connexion WebSocket:', error);
+    showConnectionStatus('Erreur de connexion', 'bg-red-500');
+  });
+
+  socket.on('reconnect', (attemptNumber) => {
+    console.log('Reconnecté au serveur WebSocket après', attemptNumber, 'tentatives');
+    showConnectionStatus('Reconnecté !', 'bg-green-500');
+    setTimeout(hideConnectionStatus, 2000);
+    socket.emit('authenticate', currentUser);
+  });
+
+  socket.on('reconnect_attempt', (attemptNumber) => {
+    console.log('Tentative de reconnexion', attemptNumber);
+    showConnectionStatus(`Reconnexion... (${attemptNumber}/5)`, 'bg-yellow-500');
+  });
+
+  socket.on('reconnect_failed', () => {
+    console.log('Échec de la reconnexion');
+    showConnectionStatus('Impossible de se reconnecter', 'bg-red-500');
+  });
+
+  // ========== FONCTIONS UTILITAIRES ==========
+  
+  function showConnectionStatus(message, bgColor = 'bg-yellow-500') {
+    const statusDiv = document.getElementById('connection-status');
+    const statusText = document.getElementById('status-text');
+    
+    statusDiv.className = `fixed top-16 left-1/2 transform -translate-x-1/2 ${bgColor} text-white px-4 py-2 rounded-lg shadow-lg z-50`;
+    statusText.textContent = message;
+    statusDiv.classList.remove('hidden');
+  }
+
+  function hideConnectionStatus() {
+    const statusDiv = document.getElementById('connection-status');
+    statusDiv.classList.add('hidden');
+  }
+
+  function updatePendingMessages() {
+    const pendingDiv = document.getElementById('pending-messages');
+    const pendingCount = document.getElementById('pending-count');
+    
+    if (messageQueue.length > 0) {
+      pendingCount.textContent = messageQueue.length;
+      pendingDiv.classList.remove('hidden');
+    } else {
+      pendingDiv.classList.add('hidden');
+    }
+  }
+
+  function handleMessageError(error) {
+    console.error('Erreur lors de l\'envoi du message:', error);
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'fixed top-20 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+    errorDiv.textContent = 'Erreur lors de l\'envoi du message. Réessayez.';
+    document.body.appendChild(errorDiv);
+    
+    setTimeout(() => {
+      errorDiv.remove();
+    }, 3000);
+  }
+
+  function sendMessageSafely(messageData) {
+    if (isConnected) {
+      socket.emit('sendMessage', messageData);
+    } else {
+      messageQueue.push(messageData);
+      updatePendingMessages();
+      showConnectionStatus('Message mis en file d\'attente', 'bg-blue-500');
+    }
+  }
+
+  // ========== GESTION DES ÉVÉNEMENTS WEBSOCKET AVEC NOTIFICATIONS ==========
+
+  socket.on('newMessage', (messageData) => {
+    console.log('Nouveau message reçu:', messageData);
+    
+    // Mettre à jour le compteur de messages non lus
+    if (messageData.from !== currentUser) {
+      const currentCount = unreadCounters.get(messageData.from) || 0;
+      unreadCounters.set(messageData.from, currentCount + 1);
+    }
+    
+    if (window.innerWidth >= 768) {
+      // Desktop - Ajouter à la conversation active si c'est la bonne
+      if (messageData.from !== currentUser && 
+          (messageData.from === '<%= selectedUser ? selectedUser.username : "" %>' || 
+           messageData.to === '<%= selectedUser ? selectedUser.username : "" %>')) {
+        addMessageToDesktopChat(messageData, false);
+        // Marquer comme lu si on est dans la conversation
+        markConversationAsRead(messageData.from);
+      }
+    } else {
+      // Mobile - Ajouter si c'est la conversation active
+      if (currentMobileUser && 
+          (messageData.from === currentMobileUser || messageData.to === currentMobileUser)) {
+        addMessageToMobileChat(messageData, messageData.from === currentUser);
+        // Marquer comme lu si on est dans la conversation
+        if (messageData.from !== currentUser) {
+          markConversationAsRead(messageData.from);
+        }
+      }
+    }
+    
+    refreshConversationsList();
+    updatePageTitle();
+  });
+
+  socket.on('messageConfirmed', (messageData) => {
+    console.log('Message confirmé:', messageData);
+    refreshConversationsList();
+  });
+
+  socket.on('conversationUpdated', (conversationData) => {
+    console.log('Conversation mise à jour:', conversationData);
+    refreshConversationsList();
+  });
+
+  socket.on('refreshConversations', (data) => {
+    console.log('Rafraîchissement des conversations:', data);
+    refreshConversationsList();
+  });
+
+  // Nouveau : Événement pour les messages marqués comme lus
+  socket.on('messagesMarkedAsRead', (data) => {
+    console.log('Messages marqués comme lus:', data);
+    unreadCounters.set(data.username, 0);
+    refreshConversationsList();
+    updatePageTitle();
+  });
+
+  socket.on('error', (error) => {
+    console.error('Erreur WebSocket:', error);
+    handleMessageError(error);
+  });
+
+  // ========== FONCTION POUR MARQUER COMME LU ==========
+
+  function markConversationAsRead(username) {
+    // Trouver l'ID de la conversation
+    fetch('/api/conversations')
+      .then(response => response.json())
+      .then(conversations => {
+        const conv = conversations.find(c => 
+          c.participants.includes(username) && c.participants.includes(currentUser)
+        );
+        
+        if (conv && conv._id) {
+          // Émettre l'événement pour marquer comme lu
+          socket.emit('markAsRead', {
+            conversationId: conv._id,
+            username: currentUser
+          });
+          
+          // Mettre à jour localement
+          unreadCounters.set(username, 0);
+          refreshConversationsList();
+          updatePageTitle();
+        }
+      })
+      .catch(error => {
+        console.error('Erreur lors du marquage comme lu:', error);
+      });
+  }
+
+  // ========== FONCTIONS D'AJOUT DE MESSAGES ==========
+
+  function addMessageToDesktopChat(messageData, isOwnMessage) {
+    const messagesContainer = document.querySelector('.desktop-chat-messages');
+    if (!messagesContainer) return;
+
+    const messageDiv = document.createElement('div');
+    const timeDiv = document.createElement('div');
+    const messageTime = new Date(messageData.timestamp).toLocaleTimeString('fr-FR', {
+      hour: '2-digit', 
+      minute: '2-digit'
+    });
+
+    if (isOwnMessage) {
+      messageDiv.className = 'self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[70%] text-sm break-words';
+      timeDiv.className = 'text-xs text-gray-500 self-end pr-2';
+    } else {
+      messageDiv.className = 'self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[70%] text-sm break-words';
+      timeDiv.className = 'text-xs text-gray-500 self-start pl-2';
+    }
+
+    messageDiv.textContent = messageData.text;
+    timeDiv.textContent = messageTime;
+
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.appendChild(timeDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  function addMessageToMobileChat(messageData, isOwnMessage) {
+    const messagesContainer = document.getElementById('mobile-chat-messages');
+    if (!messagesContainer) return;
+
+    const messageDiv = document.createElement('div');
+    const timeDiv = document.createElement('div');
+    const messageTime = new Date(messageData.timestamp).toLocaleTimeString('fr-FR', {
+      hour: '2-digit', 
+      minute: '2-digit'
+    });
+
+    if (isOwnMessage) {
+      messageDiv.className = 'self-end bg-[#5C83BA] text-white px-4 py-2 rounded-2xl max-w-[75%] text-sm break-words';
+      timeDiv.className = 'text-xs text-gray-500 self-end pr-2';
+    } else {
+      messageDiv.className = 'self-start bg-gray-200 text-black px-4 py-2 rounded-2xl max-w-[75%] text-sm break-words';
+      timeDiv.className = 'text-xs text-gray-500 self-start pl-2';
+    }
+
+    messageDiv.textContent = messageData.text;
+    timeDiv.textContent = messageTime;
+
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.appendChild(timeDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  // ========== GESTION DES FORMULAIRES ==========
+
+  // Formulaire mobile
+  document.getElementById('mobile-message-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const messageInput = document.getElementById('mobile-message-input');
+    const message = messageInput.value.trim();
+    const to = document.getElementById('mobile-message-to').value;
+    
+    if (!message || !to) return;
+    
+    const messageData = {
+      from: currentUser,
+      to: to,
+      text: message,
+      timestamp: new Date()
+    };
+    
+    addMessageToMobileChat(messageData, true);
+    messageInput.value = '';
+    
+    sendMessageSafely({
+      to: to,
+      message: message
+    });
+  });
+
+  // ========== FONCTION POUR RÉCUPÉRER LES INFOS UTILISATEUR ==========
+
+  async function fetchUserInfo(username) {
+    try {
+      const response = await fetch(`/api/user/${encodeURIComponent(username)}`);
+      if (response.ok) {
+        const userInfo = await response.json();
+        // Mettre en cache la photo si elle existe
+        if (userInfo.photo && userInfo.photo !== '/public/default.png') {
+          if (!window.userPhotos) window.userPhotos = {};
+          window.userPhotos[username] = userInfo.photo;
+        }
+        return userInfo;
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération des infos utilisateur:', error);
+    }
+    return null;
+  }
+
+  // ========== FONCTIONS DE CONVERSATION AVEC NOTIFICATIONS ==========
+
+  async function openMobileChat(username) {
+    console.log('Ouverture du chat mobile pour:', username);
+    currentMobileUser = username;
+    
+    // Marquer la conversation comme lue
+    markConversationAsRead(username);
+    
+    try {
+      // Essayer de récupérer les infos de l'utilisateur si on ne les a pas déjà
+      if (!window.userPhotos || !window.userPhotos[username]) {
+        await fetchUserInfo(username);
+      }
+      
+      document.getElementById('mobile-chat-name').textContent = username;
+      document.getElementById('mobile-chat-status').textContent = `@${username}`;
+      document.getElementById('mobile-message-to').value = username;
+      
+      // NOUVEAU : Mettre à jour l'avatar
+      const avatarImg = document.getElementById('mobile-chat-avatar');
+      if (avatarImg) {
+        // Récupérer la photo depuis les conversations ou le cache
+        let userPhoto = '/public/default.png'; // Fallback par défaut
+        
+        // Chercher dans le cache des photos
+        if (window.userPhotos && window.userPhotos[username]) {
+          userPhoto = window.userPhotos[username];
+        } else {
+          // Chercher dans la liste des conversations actuelles
+          const conversationElement = document.querySelector(`[data-username="${username}"]`);
+          if (conversationElement) {
+            const imgElement = conversationElement.querySelector('img');
+            if (imgElement && imgElement.src && !imgElement.src.includes('/public/default.png')) {
+              userPhoto = imgElement.src;
+              // Mettre en cache pour la prochaine fois
+              if (!window.userPhotos) window.userPhotos = {};
+              window.userPhotos[username] = userPhoto;
+            }
+          }
+        }
+        
+        avatarImg.src = userPhoto;
+        console.log('Avatar mobile mis à jour:', userPhoto);
+      }
+      
+      const messagesContainer = document.getElementById('mobile-chat-messages');
+      messagesContainer.innerHTML = '<div class="text-center text-gray-500 text-sm py-4">Chargement...</div>';
+      
+      document.getElementById('mobile-list').classList.add('hidden');
+      document.getElementById('mobile-chat').classList.remove('hidden');
+      
+      const response = await fetch(`/messagerie?user=${encodeURIComponent(username)}`);
+      if (response.ok) {
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const desktopMessages = doc.querySelector('#chat .desktop-chat-messages');
+        
+        if (desktopMessages) {
+          messagesContainer.innerHTML = '';
+          const messageElements = desktopMessages.children;
+          
+          for (let i = 0; i < messageElements.length; i++) {
+            const element = messageElements[i].cloneNode(true);
+            if (element.classList.contains('self-end')) {
+              element.classList.remove('max-w-[70%]');
+              element.classList.add('max-w-[75%]');
+            }
+            if (element.classList.contains('self-start')) {
+              element.classList.remove('max-w-[70%]');
+              element.classList.add('max-w-[75%]');
+            }
+            messagesContainer.appendChild(element);
+          }
+        } else {
+          messagesContainer.innerHTML = '<div class="text-center text-gray-500 text-sm py-4">Aucun message</div>';
+        }
+        
+        setTimeout(() => {
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }, 100);
+        
+      } else {
+        messagesContainer.innerHTML = '<div class="text-center text-red-500 text-sm py-4">Erreur de chargement</div>';
+      }
+      
+    } catch (error) {
+      console.error('Erreur lors du chargement des messages:', error);
+      const messagesContainer = document.getElementById('mobile-chat-messages');
+      messagesContainer.innerHTML = '<div class="text-center text-red-500 text-sm py-4">Erreur de chargement</div>';
+    }
   }
 
   function closeMobileChat() {
     document.getElementById('mobile-chat').classList.add('hidden');
     document.getElementById('mobile-list').classList.remove('hidden');
+    currentMobileUser = null;
   }
 
-  function setupSearch(inputId, resultId) {
-    const input = document.getElementById(inputId);
-    const results = document.getElementById(resultId);
+  // ========== FONCTION DE RECHERCHE ==========
 
-    if (!input || !results) {
-      console.warn(`Éléments non trouvés: ${inputId} ou ${resultId}`);
-      return;
-    }
-
-    console.log(`Configuration de la recherche pour: ${inputId}`);
-
-    input.addEventListener('input', async () => {
-      const q = input.value.trim();
-      if (!q) {
-        results.classList.add('hidden');
-        results.innerHTML = '';
-        return;
-      }
-
-      console.log(`Recherche pour: "${q}"`);
-
-      try {
-        const res = await fetch(`/search-users?q=${encodeURIComponent(q)}`);
-        const users = await res.json();
-
-        if (!Array.isArray(users)) {
-          console.warn("Résultat inattendu :", users);
-          return;
-        }
-
-        console.log(`${users.length} utilisateurs trouvés`);
-
-        if (users.length === 0) {
-          results.innerHTML = '<div class="p-2 text-sm text-gray-500">Aucun utilisateur trouvé</div>';
-        } else {
-        results.innerHTML = users.map(user => `
-          <div data-username="${user.username}"
-              class="user-result px-4 py-2 hover:bg-gray-100 cursor-pointer border-b text-sm">
-            ${user.prenom} ${user.nom} <span class="text-gray-500">(@${user.username})</span>
-          </div>
-        `).join('');
-        results.querySelectorAll('.user-result').forEach(div => {
-          div.addEventListener('click', () => {
-            const username = div.dataset.username;
-            window.location.href = `/messagerie?user=${encodeURIComponent(username)}`;
-          });
-        });
-        }
-
-        results.classList.remove('hidden');
-      } catch (err) {
-        console.error("Erreur fetch :", err);
-        results.innerHTML = '<div class="p-2 text-sm text-red-500">Erreur de recherche</div>';
-        results.classList.remove('hidden');
-      }
-    });
-
-    // Fermer les résultats en cliquant ailleurs
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest(`#${inputId}`) && !e.target.closest(`#${resultId}`)) {
-        results.classList.add('hidden');
-      }
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    console.log('Initialisation des barres de recherche...');
-    setupSearch('user-search-mobile', 'search-results-mobile');
-    setupSearch('user-search-desktop', 'search-results-desktop');
-  });
-</script>
-// Dans votre fichier messagerie.ejs, remplacez le script WebSocket existant par ceci :
-
-<script>
-  const socket = io();
-  const currentUser = '<%= currentUser.username %>';
-
-  // Fonction pour recharger la liste des conversations via AJAX
-  async function refreshConversationsList() {
-    try {
-      const response = await fetch('/api/conversations');
-      const conversations = await response.json();
-      
-      const privateSection = document.querySelector('#private-conversations-list');
-      if (privateSection && Array.isArray(conversations)) {
-        privateSection.innerHTML = conversations.map(conv => {
-          const other = conv.participants.find(p => p !== currentUser);
-          const lastMessage = conv.messages && conv.messages.length > 0 
-            ? conv.messages[conv.messages.length - 1].text 
-            : "Pas encore de message";
-          
-          return `
-            <li onclick="window.location.href='/messagerie?user=${encodeURIComponent(other)}'"
-                class="flex items-center justify-between hover:bg-[#f2f6fa] rounded-lg px-2 py-1 cursor-pointer transition user-result"
-                data-username="${other}">
-              <div class="flex items-center gap-3">
-                <img src="/icons/default-avatar.jpg" class="w-8 h-8 rounded-full" />
-                <div>
-                  <p class="font-semibold leading-4">${other}</p>
-                  <p class="text-xs text-gray-500 leading-4">${lastMessage}</p>
-                </div>
-              </div>
-              <div class="flex flex-col items-end gap-1">
-                <span class="text-xs text-gray-500">Just now</span>
-                <img src="/icons/double-check.svg" class="w-4 h-4 text-purple-500" />
-              </div>
-            </li>
-          `;
-        }).join('');
-      }
-    } catch (error) {
-      console.error('Erreur lors du rechargement des conversations:', error);
-    }
-  }
-
-  // Écouter les événements WebSocket
-  socket.on('refreshConversations', (data) => {
-    console.log('Nouvelle conversation détectée:', data);
-    refreshConversationsList();
-  });
-
-  // Fonction modifiée pour créer une conversation
-  function createConversationAndRedirect(username) {
-    fetch(`/messagerie/create?user=${encodeURIComponent(username)}`, {
-      method: 'GET'
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        // Émettre l'événement WebSocket
-        socket.emit('newConversation', {
-          participants: [currentUser, username],
-          initiator: currentUser
-        });
-        
-        // Rediriger vers la conversation
-        window.location.href = `/messagerie?user=${encodeURIComponent(username)}`;
-      } else {
-        console.error('Erreur lors de la création de la conversation');
-      }
-    })
-    .catch(error => {
-      console.error('Erreur:', error);
-    });
-  }
-
-  // Fonction pour gérer les clics sur les résultats de recherche
-  function handleUserResultClick(element) {
-    const username = element.dataset.username;
-    if (username) {
-      createConversationAndRedirect(username);
-    }
-  }
-
-  // Mise à jour de la fonction setupSearch pour utiliser la nouvelle logique
   function setupSearch(inputId, resultId) {
     const input = document.getElementById(inputId);
     const results = document.getElementById(resultId);
@@ -424,7 +762,18 @@
           // Ajouter les événements de clic
           results.querySelectorAll('.user-result-search').forEach(div => {
             div.addEventListener('click', () => {
-              handleUserResultClick(div);
+              const username = div.dataset.username;
+              
+              // Comportement différent selon la vue
+              if (window.innerWidth < 768) { // Mobile
+                createConversationAndOpenMobile(username);
+              } else { // Desktop
+                createConversationAndRedirect(username);
+              }
+              
+              // Fermer les résultats de recherche
+              results.classList.add('hidden');
+              input.value = '';
             });
           });
         }
@@ -445,14 +794,281 @@
     });
   }
 
-  // Initialisation
+  // Fonction pour créer une conversation et ouvrir le chat mobile
+  async function createConversationAndOpenMobile(username) {
+    try {
+      // D'abord récupérer les infos de l'utilisateur pour avoir sa photo
+      await fetchUserInfo(username);
+      
+      const response = await fetch(`/messagerie/create?user=${encodeURIComponent(username)}`, {
+        method: 'GET'
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        // Émettre l'événement WebSocket
+        socket.emit('newConversation', {
+          participants: [currentUser, username],
+          initiator: currentUser
+        });
+        
+        // Ouvrir le chat mobile
+        await openMobileChat(username);
+      } else {
+        console.error('Erreur lors de la création de la conversation');
+      }
+    } catch (error) {
+      console.error('Erreur:', error);
+    }
+  }
+
+  // Fonction pour ouvrir une conversation en desktop avec marquage comme lu
+  async function openDesktopConversation(username) {
+    console.log('Ouverture de la conversation desktop pour:', username);
+    
+    // Marquer comme lu avant la redirection
+    markConversationAsRead(username);
+    
+    try {
+      // Récupérer les infos de l'utilisateur pour avoir sa photo
+      await fetchUserInfo(username);
+      
+      const response = await fetch(`/messagerie/create?user=${encodeURIComponent(username)}`, {
+        method: 'GET'
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        socket.emit('newConversation', {
+          participants: [currentUser, username],
+          initiator: currentUser
+        });
+        
+        window.location.href = `/messagerie?user=${encodeURIComponent(username)}`;
+      } else {
+        console.error('Erreur lors de la création de la conversation');
+      }
+    } catch (error) {
+      console.error('Erreur:', error);
+      window.location.href = `/messagerie?user=${encodeURIComponent(username)}`;
+    }
+  }
+
+  // Fonction pour créer une conversation et rediriger (desktop)
+  function createConversationAndRedirect(username) {
+    openDesktopConversation(username);
+  }
+
+  // ========== FONCTION DE MISE À JOUR DES CONVERSATIONS AVEC NOTIFICATIONS ==========
+
+  async function refreshConversationsList() {
+    try {
+      const response = await fetch('/api/conversations');
+      const conversations = await response.json();
+      
+      // Mettre à jour les compteurs locaux
+      conversations.forEach(conv => {
+        const other = conv.participants.find(p => p !== currentUser);
+        if (conv.unreadCount !== undefined) {
+          unreadCounters.set(other, conv.unreadCount);
+        }
+      });
+      
+      // Initialiser le cache des photos s'il n'existe pas
+      if (!window.userPhotos) {
+        window.userPhotos = {};
+      }
+      
+      // Mettre à jour le cache des photos avec les nouvelles données
+      conversations.forEach(conv => {
+        const other = conv.participants.find(p => p !== currentUser);
+        if (other && conv.photo) {
+          window.userPhotos[other] = conv.photo;
+        }
+      });
+
+      // Mettre à jour les deux listes (mobile et desktop)
+      const updateConversationsList = (containerId, conversations) => {
+        const container = document.getElementById(containerId);
+        if (container && Array.isArray(conversations)) {
+          container.innerHTML = conversations.map(conv => {
+            const other = conv.participants.find(p => p !== currentUser);
+            let lastMessage = "Pas encore de message";
+            let lastMessageTime = "Just now";
+            
+            if (conv.lastMessage) {
+              const maxLength = containerId.includes('mobile') ? 30 : 40;
+              lastMessage = conv.lastMessage.length > maxLength ? 
+                           conv.lastMessage.substring(0, maxLength) + "..." : 
+                           conv.lastMessage;
+            }
+            
+            if (conv.lastMessageTime) {
+              lastMessageTime = new Date(conv.lastMessageTime).toLocaleTimeString('fr-FR', {
+                hour: '2-digit', 
+                minute: '2-digit'
+              });
+            }
+            
+            const clickAction = containerId.includes('mobile') 
+              ? `openMobileChat('${other}')`
+              : `openDesktopConversation('${other}')`;
+            
+            // Créer la bulle de notification
+            const unreadCount = conv.unreadCount || 0;
+            const notificationBadge = unreadCount > 0 
+              ? `<span class="text-xs text-white bg-red-500 min-w-[20px] h-5 rounded-full flex items-center justify-center px-1 font-semibold">
+                   ${unreadCount > 99 ? '99+' : unreadCount}
+                 </span>`
+              : '<div class="w-5 h-5"></div>';
+
+            // AMÉLIORATION : Logique plus robuste pour les photos
+            let photo = '/public/default.png'; // Fallback par défaut
+            
+            if (conv.photo) {
+              photo = conv.photo;
+            } else if (window.userPhotos && window.userPhotos[other]) {
+              photo = window.userPhotos[other];
+            }
+            
+            // Mettre à jour le cache si on a une photo
+            if (conv.photo && other) {
+              window.userPhotos[other] = conv.photo;
+            }
+            
+            return `
+              <li onclick="${clickAction}"
+                  class="flex items-center justify-between hover:bg-[#f2f6fa] rounded-lg px-2 py-1 cursor-pointer transition user-result"
+                  data-username="${other}">
+                <div class="flex items-center gap-3">
+                  <img src="${photo}" class="w-8 h-8 rounded-full" />
+                  <div>
+                    <p class="font-semibold leading-4">${other}</p>
+                    <p class="text-xs text-gray-500 leading-4">${lastMessage}</p>
+                  </div>
+                </div>
+                <div class="flex flex-col items-end gap-1">
+                  <span class="text-xs text-gray-500">${lastMessageTime}</span>
+                  ${notificationBadge}
+                </div>
+              </li>
+            `;
+          }).join('');
+        }
+      };
+      
+      updateConversationsList('private-conversations-mobile', conversations);
+      updateConversationsList('private-conversations-desktop', conversations);
+      
+      // Mettre à jour le titre de la page avec le nombre total de messages non lus
+      updatePageTitle();
+      
+    } catch (error) {
+      console.error('Erreur lors du rechargement des conversations:', error);
+    }
+  }
+
+  // ========== FONCTION POUR METTRE À JOUR LE TITRE DE LA PAGE ==========
+
+  function updatePageTitle() {
+    const totalUnread = Array.from(unreadCounters.values()).reduce((sum, count) => sum + count, 0);
+    const baseTitle = 'Messagerie';
+    
+    if (totalUnread > 0) {
+      document.title = `(${totalUnread}) ${baseTitle}`;
+    } else {
+      document.title = baseTitle;
+    }
+  }
+
+  // ========== INITIALISATION ==========
+
   document.addEventListener('DOMContentLoaded', () => {
-    console.log('Initialisation de la messagerie WebSocket...');
+    console.log('Initialisation de la messagerie WebSocket avec notifications...');
     setupSearch('user-search-mobile', 'search-results-mobile');
     setupSearch('user-search-desktop', 'search-results-desktop');
+    
+    // Initialiser le cache des photos de manière plus robuste
+    window.userPhotos = {};
+    
+    // Récupérer les photos depuis les données initiales ET depuis les éléments HTML
+    const mainContainer = document.querySelector('[data-conversations]');
+    if (mainContainer && mainContainer.dataset.conversations) {
+      try {
+        const conversationsData = JSON.parse(mainContainer.dataset.conversations);
+        conversationsData.forEach(conv => {
+          const other = conv.participants.find(p => p !== currentUser);
+          if (other) {
+            if (conv.unreadCount) {
+              unreadCounters.set(other, conv.unreadCount);
+            }
+            if (conv.photo) {
+              window.userPhotos[other] = conv.photo;
+            }
+          }
+        });
+      } catch (e) {
+        console.warn('Erreur lors du parsing des données de conversations:', e);
+      }
+    }
+    
+    // NOUVEAU : Récupérer les photos depuis les éléments HTML existants
+    document.querySelectorAll('.user-result').forEach(element => {
+      const username = element.dataset.username;
+      const imgElement = element.querySelector('img');
+      if (username && imgElement && imgElement.src && !imgElement.src.includes('/public/default.png')) {
+        window.userPhotos[username] = imgElement.src;
+      }
+    });
+    
+    // Scroll automatique vers le bas pour les messages existants en desktop
+    const desktopMessages = document.querySelector('.desktop-chat-messages');
+    if (desktopMessages) {
+      setTimeout(() => {
+        desktopMessages.scrollTop = desktopMessages.scrollHeight;
+      }, 100);
+    }
+    
+    // Gestion du formulaire desktop
+    const desktopForm = document.getElementById('desktop-message-form');
+    if (desktopForm) {
+      desktopForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(desktopForm);
+        const message = formData.get('message');
+        const to = formData.get('to');
+        
+        if (!message || !to) return;
+        
+        const messageData = {
+          from: currentUser,
+          to: to,
+          text: message,
+          timestamp: new Date()
+        };
+        
+        addMessageToDesktopChat(messageData, true);
+        
+        const messageInput = desktopForm.querySelector('input[name="message"]');
+        messageInput.value = '';
+        
+        sendMessageSafely({
+          to: to,
+          message: message
+        });
+      });
+    }
+    
+    // Mettre à jour le titre initial
+    updatePageTitle();
+    
+    // Rendre les fonctions globales pour les onclick
+    window.openMobileChat = openMobileChat;
+    window.closeMobileChat = closeMobileChat;
+    window.openDesktopConversation = openDesktopConversation;
   });
 </script>
-
 
   <%- include("partials/footer.ejs") %>
 </body>

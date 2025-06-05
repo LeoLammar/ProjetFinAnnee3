@@ -402,11 +402,6 @@ app.post('/emploidutemps', async (req, res) => {
     res.render('emploidutemps', { planning, error, start: startStr, password_mauria });
 });
 
-
-
-
-
-
 app.get('/compte', (req, res) => {
     if (!req.session.user) {
         return res.redirect('/connexion');
@@ -633,7 +628,8 @@ app.post('/inscription', redirectIfAuthenticated, uploadProfilePhoto.single('pho
     }
 });
 
-// Démarrer le serveur
+// ========== ROUTES DE RECHERCHE ET MESSAGERIE ==========
+
 app.get('/search-users', async (req, res) => {
     const query = req.query.q;
 
@@ -658,22 +654,49 @@ app.get('/search-users', async (req, res) => {
     }
 });
 
-// Route API pour récupérer la liste des conversations
+// Route API pour récupérer la liste des conversations avec notifications
 app.get('/api/conversations', async (req, res) => {
     const currentUser = req.session.user;
     
     if (!currentUser) {
         return res.status(401).json({ error: 'Non connecté' });
     }
+    
     try {
         const conversationsCollection = database.collection('Conversations');
+        const messagesCollection = database.collection('Messages');
         
         const conversations = await conversationsCollection.find({
             participants: currentUser.username
         }).sort({ 
-            lastActivity: -1,  // Trier par dernière activité
-            createdAt: -1      // Puis par date de création
+            lastActivity: -1,
+            createdAt: -1
         }).toArray();
+
+        // Enrichir chaque conversation avec le dernier message et le compteur de non lus
+        for (const conv of conversations) {
+            const lastMsg = await messagesCollection.findOne(
+                { conversationId: conv._id },
+                { sort: { timestamp: -1 } }
+            );
+            
+            // Compter les messages non lus pour l'utilisateur actuel
+            const unreadCount = await messagesCollection.countDocuments({
+                conversationId: conv._id,
+                to: currentUser.username,
+                read: false
+            });
+            
+            if (lastMsg) {
+                conv.lastMessage = lastMsg.text;
+                conv.lastMessageTime = lastMsg.timestamp;
+            } else {
+                conv.lastMessage = "Pas encore de message";
+                conv.lastMessageTime = conv.createdAt;
+            }
+            
+            conv.unreadCount = unreadCount; // NOUVEAU : ajouter le compteur
+        }
 
         res.json(conversations);
     } catch (error) {
@@ -717,11 +740,13 @@ app.get('/messagerie/create', async (req, res) => {
     }
 });
 
+// Route messagerie avec marquage automatique des messages comme lus
 app.get('/messagerie', async (req, res) => {
     const currentUser = req.session.user;
     if (!currentUser) return res.redirect('/connexion');
 
     const conversationsCollection = database.collection('Conversations');
+    const messagesCollection = database.collection('Messages');
     const selectedUsername = req.query.user;
 
     let selectedUser = null;
@@ -735,28 +760,89 @@ app.get('/messagerie', async (req, res) => {
         createdAt: -1
     }).toArray();
 
+
+    // Enrichir chaque conversation avec le dernier message, compteur non lus ET la photo de l'autre utilisateur
+    for (const conv of conversations) {
+        const lastMsg = await messagesCollection.findOne(
+            { conversationId: conv._id },
+            { sort: { timestamp: -1 } }
+        );
+
+        // Compter les messages non lus
+        const unreadCount = await messagesCollection.countDocuments({
+            conversationId: conv._id,
+            to: currentUser.username,
+            read: false
+        });
+
+        if (lastMsg) {
+            conv.lastMessage = lastMsg.text;
+            conv.lastMessageTime = lastMsg.timestamp;
+        } else {
+            conv.lastMessage = "Pas encore de message";
+            conv.lastMessageTime = conv.createdAt;
+        }
+
+        conv.unreadCount = unreadCount;
+
+        // AJOUT : récupérer la photo de l'autre utilisateur
+        const otherUsername = conv.participants.find(p => p !== currentUser.username);
+        if (otherUsername) {
+            const otherUser = await compte.findOne({ username: otherUsername }, { projection: { photo: 1 } });
+            conv.photo = otherUser && otherUser.photo ? otherUser.photo : '/default.png';
+        } else {
+            conv.photo = '/default.png';
+        }
+    }
+
     // Si on a cliqué sur un utilisateur
     if (selectedUsername) {
         selectedUser = await compte.findOne({ username: selectedUsername });
+
+        if (selectedUser && !selectedUser.photo) {
+        selectedUser.photo = '/default.png';
+    }
 
         if (selectedUser) {
             let conv = await conversationsCollection.findOne({
                 participants: { $all: [currentUser.username, selectedUsername] }
             });
+            
             if (!conv) {
                 // Créer une nouvelle conversation vide
                 const insertResult = await conversationsCollection.insertOne({
                     participants: [currentUser.username, selectedUsername],
-                    messages: [],
                     createdAt: new Date(),
                     lastActivity: new Date()
                 });
                 conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
             }
 
-            if (conv && conv.messages) {
-                messages = conv.messages;
-            }
+            // Récupérer les messages de cette conversation
+            messages = await messagesCollection.find({
+                conversationId: conv._id
+            }).sort({ timestamp: 1 }).toArray();
+            
+            // NOUVEAU : Marquer tous les messages de cette conversation comme lus
+            await messagesCollection.updateMany(
+                {
+                    conversationId: conv._id,
+                    to: currentUser.username,
+                    read: false
+                },
+                {
+                    $set: {
+                        read: true,
+                        readAt: new Date()
+                    }
+                }
+            );
+            
+            // Remettre le compteur à zéro pour cette conversation
+            await conversationsCollection.updateOne(
+                { _id: conv._id },
+                { $set: { [`unreadCount.${currentUser.username}`]: 0 } }
+            );
         }
     }
 
@@ -768,17 +854,19 @@ app.get('/messagerie', async (req, res) => {
     });
 });
 
+// Route modifiée pour envoyer des messages avec système de notifications
 app.post('/messagerie/send', async (req, res) => {
     const { to, message } = req.body;
     const currentUser = req.session.user;
 
     if (!currentUser || !to || !message) {
-        return res.redirect('/messagerie');
+        return res.status(400).json({ success: false, error: 'Données manquantes' });
     }
 
     try {
         const conversationsCollection = database.collection('Conversations');
-        
+        const messagesCollection = database.collection('Messages');
+
         // Trouver ou créer la conversation
         let conv = await conversationsCollection.findOne({
             participants: { $all: [currentUser.username, to] }
@@ -787,67 +875,336 @@ app.post('/messagerie/send', async (req, res) => {
         if (!conv) {
             const insertResult = await conversationsCollection.insertOne({
                 participants: [currentUser.username, to],
-                messages: [],
                 createdAt: new Date(),
                 lastActivity: new Date()
             });
             conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
         }
-        // Ajouter le message
+
+        // Créer le message avec statut de lecture
         const newMessage = {
+            conversationId: conv._id,
             from: currentUser.username,
             to: to,
             text: message,
-            timestamp: new Date()
+            timestamp: new Date(),
+            read: false,  // NOUVEAU : statut de lecture
+            readAt: null  // NOUVEAU : timestamp de lecture
         };
 
+        const insertResult = await messagesCollection.insertOne(newMessage);
+        newMessage._id = insertResult.insertedId;
+
+        // Compter les messages non lus pour le destinataire
+        const unreadCount = await messagesCollection.countDocuments({
+            conversationId: conv._id,
+            to: to,
+            read: false
+        });
+
+        // Mettre à jour la conversation
         await conversationsCollection.updateOne(
             { _id: conv._id },
             { 
-                $push: { messages: newMessage },
-                $set: { lastActivity: new Date() }
+                $set: { 
+                    lastActivity: new Date(),
+                    lastMessage: message,
+                    lastMessageTime: new Date(),
+                    [`unreadCount.${to}`]: unreadCount  // NOUVEAU : compteur par utilisateur
+                } 
             }
         );
 
-        // Émettre l'événement WebSocket pour notifier tous les clients
-        io.emit('newMessage', {
+        // Émettre via WebSocket avec le compteur de non lus
+        const messageData = {
+            _id: newMessage._id,
             conversationId: conv._id,
-            message: newMessage,
-            participants: conv.participants
-        });
+            from: currentUser.username,
+            to: to,
+            text: message,
+            timestamp: newMessage.timestamp,
+            read: false
+        };
 
-        res.redirect('/messagerie?user=' + encodeURIComponent(to));
+        // Envoyer au destinataire s'il est connecté
+        const recipientSocketId = userSocketMap.get(to);
+        if (recipientSocketId) {
+            io.to(recipientSocketId).emit('newMessage', {
+                ...messageData,
+                unreadCount: unreadCount
+            });
+        }
+
+        // Notifier du changement de conversation
+        const conversationData = {
+            conversationId: conv._id,
+            participants: conv.participants,
+            lastMessage: message,
+            lastMessageTime: new Date(),
+            lastActivity: new Date(),
+            unreadCount: unreadCount
+        };
+
+        if (recipientSocketId) {
+            io.to(recipientSocketId).emit('conversationUpdated', conversationData);
+        }
+
+        res.json({ success: true, message: messageData });
+
     } catch (error) {
         console.error('Erreur lors de l\'envoi du message:', error);
-        res.redirect('/messagerie');
+        res.status(500).json({ success: false, error: 'Erreur serveur' });
     }
 });
 
-const http = require('http').createServer(app);
-const { Server } = require('socket.io');
-const io = new Server(http);
-
-// Démarre le serveur sur le port 3000 avec WebSocket
-http.listen(3000, () => {
-    console.log('Serveur WebSocket + Express lancé sur http://localhost:3000');
+// Route pour vérifier le statut de connexion
+app.get('/api/status', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        user: req.session.user ? req.session.user.username : null,
+        timestamp: new Date().toISOString()
+    });
 });
 
-// Modification du gestionnaire WebSocket
-io.on('connection', (socket) => {
-    console.log('Un utilisateur est connecté via WebSocket');
+// ========== CONFIGURATION WEBSOCKET AVEC NOTIFICATIONS ==========
 
-    socket.on('newConversation', (data) => {
-        console.log('Nouvelle conversation créée:', data);
-        // Émettre à tous les clients connectés
-        socket.broadcast.emit('refreshConversations', data);
+const http = require('http').createServer(app);
+const { Server } = require('socket.io');
+
+// Configuration avancée du socket.io
+const io = new Server(http, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    },
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['websocket', 'polling']
+});
+
+// Map pour stocker les connexions utilisateur
+const userSocketMap = new Map(); // username -> socketId
+
+// Fonction de logging pour débugger
+function logWebSocketEvent(event, data) {
+    console.log(`[WebSocket] ${new Date().toISOString()} - ${event}:`, data);
+}
+
+// Middleware de gestion d'erreurs WebSocket
+io.engine.on("connection_error", (err) => {
+    console.log('Erreur de connexion WebSocket:', err.req);
+    console.log('Code d\'erreur:', err.code);
+    console.log('Message d\'erreur:', err.message);
+    console.log('Contexte:', err.context);
+});
+
+// Gestion des connexions WebSocket avec système de notifications
+io.on('connection', (socket) => {
+    console.log('Un utilisateur est connecté via WebSocket:', socket.id);
+
+    // Authentification du socket avec l'utilisateur
+    socket.on('authenticate', (username) => {
+        if (username) {
+            userSocketMap.set(username, socket.id);
+            socket.username = username;
+            console.log(`Utilisateur ${username} authentifié avec socket ${socket.id}`);
+            logWebSocketEvent('authenticate', { username, socketId: socket.id });
+        }
     });
 
+    // Rejoindre une conversation
     socket.on('joinConversation', (conversationId) => {
         socket.join(conversationId);
-        console.log(`Utilisateur rejoint la conversation: ${conversationId}`);
+        console.log(`Socket ${socket.id} a rejoint la conversation: ${conversationId}`);
+        logWebSocketEvent('joinConversation', { socketId: socket.id, conversationId });
     });
 
-    socket.on('disconnect', () => {
-        console.log('Utilisateur déconnecté');
+    // Quitter une conversation
+    socket.on('leaveConversation', (conversationId) => {
+        socket.leave(conversationId);
+        console.log(`Socket ${socket.id} a quitté la conversation: ${conversationId}`);
+        logWebSocketEvent('leaveConversation', { socketId: socket.id, conversationId });
     });
+
+    // Écouter les nouveaux messages avec gestion des notifications
+    socket.on('sendMessage', async (data) => {
+        const { to, message, conversationId } = data;
+        const from = socket.username;
+
+        if (!from || !to || !message) {
+            socket.emit('error', { message: 'Données manquantes' });
+            return;
+        }
+
+        try {
+            const conversationsCollection = database.collection('Conversations');
+            const messagesCollection = database.collection('Messages');
+
+            // Trouver ou créer la conversation
+            let conv = await conversationsCollection.findOne({
+                participants: { $all: [from, to] }
+            });
+
+            if (!conv) {
+                const insertResult = await conversationsCollection.insertOne({
+                    participants: [from, to],
+                    createdAt: new Date(),
+                    lastActivity: new Date()
+                });
+                conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
+            }
+
+            // Créer le message avec statut de lecture
+            const newMessage = {
+                conversationId: conv._id,
+                from: from,
+                to: to,
+                text: message,
+                timestamp: new Date(),
+                read: false,  // NOUVEAU : statut de lecture
+                readAt: null  // NOUVEAU : timestamp de lecture
+            };
+
+            const insertResult = await messagesCollection.insertOne(newMessage);
+            newMessage._id = insertResult.insertedId;
+
+            // Compter les messages non lus pour le destinataire
+            const unreadCount = await messagesCollection.countDocuments({
+                conversationId: conv._id,
+                to: to,
+                read: false
+            });
+
+            // Mettre à jour la dernière activité avec compteur
+            await conversationsCollection.updateOne(
+                { _id: conv._id },
+                { 
+                    $set: { 
+                        lastActivity: new Date(),
+                        lastMessage: message,
+                        lastMessageTime: new Date(),
+                        [`unreadCount.${to}`]: unreadCount  // NOUVEAU : compteur par utilisateur
+                    } 
+                }
+            );
+
+            // Émettre le message avec le compteur de non lus
+            const messageData = {
+                _id: newMessage._id,
+                conversationId: conv._id,
+                from: from,
+                to: to,
+                text: message,
+                timestamp: newMessage.timestamp,
+                read: false
+            };
+
+            // Envoyer au destinataire s'il est connecté
+            const recipientSocketId = userSocketMap.get(to);
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit('newMessage', {
+                    ...messageData,
+                    unreadCount: unreadCount
+                });
+            }
+
+            // Confirmer l'envoi à l'expéditeur
+            socket.emit('messageConfirmed', messageData);
+
+            // Notifier les participants du changement de conversation
+            const conversationData = {
+                conversationId: conv._id,
+                participants: conv.participants,
+                lastMessage: message,
+                lastMessageTime: new Date(),
+                lastActivity: new Date(),
+                unreadCount: unreadCount
+            };
+
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit('conversationUpdated', conversationData);
+            }
+            socket.emit('conversationUpdated', conversationData);
+
+            logWebSocketEvent('sendMessage', { from, to, messageId: newMessage._id, unreadCount });
+
+        } catch (error) {
+            console.error('Erreur lors de l\'envoi du message:', error);
+            socket.emit('error', { message: 'Erreur lors de l\'envoi du message' });
+        }
+    });
+
+    // NOUVEAU : Événement pour marquer les messages comme lus
+    socket.on('markAsRead', async (data) => {
+        const { conversationId, username } = data;
+        
+        try {
+            const messagesCollection = database.collection('Messages');
+            const conversationsCollection = database.collection('Conversations');
+            
+            // Marquer tous les messages de cette conversation comme lus pour cet utilisateur
+            await messagesCollection.updateMany(
+                {
+                    conversationId: new ObjectId(conversationId),
+                    to: username,
+                    read: false
+                },
+                {
+                    $set: {
+                        read: true,
+                        readAt: new Date()
+                    }
+                }
+            );
+            
+            // Remettre le compteur à zéro
+            await conversationsCollection.updateOne(
+                { _id: new ObjectId(conversationId) },
+                { $set: { [`unreadCount.${username}`]: 0 } }
+            );
+            
+            // Notifier l'utilisateur que les messages ont été marqués comme lus
+            socket.emit('messagesMarkedAsRead', { conversationId, username });
+            
+            console.log(`Messages marqués comme lus pour ${username} dans conversation ${conversationId}`);
+            
+        } catch (error) {
+            console.error('Erreur lors du marquage comme lu:', error);
+            socket.emit('error', { message: 'Erreur lors du marquage comme lu' });
+        }
+    });
+
+    // Nouvelle conversation créée
+    socket.on('newConversation', (data) => {
+        console.log('Nouvelle conversation créée:', data);
+        const { participants, initiator } = data;
+        
+        // Notifier tous les participants
+        participants.forEach(participant => {
+            const participantSocketId = userSocketMap.get(participant);
+            if (participantSocketId && participant !== initiator) {
+                io.to(participantSocketId).emit('refreshConversations', data);
+            }
+        });
+
+        logWebSocketEvent('newConversation', data);
+    });
+
+    // Déconnexion
+    socket.on('disconnect', () => {
+        if (socket.username) {
+            userSocketMap.delete(socket.username);
+            console.log(`Utilisateur ${socket.username} déconnecté`);
+            logWebSocketEvent('disconnect', { username: socket.username, socketId: socket.id });
+        }
+        console.log('Socket déconnecté:', socket.id);
+    });
+});
+
+// Exposer io globalement
+global.io = io;
+
+// Démarrer le serveur WebSocket + Express
+http.listen(3000, () => {
+    console.log('Serveur WebSocket + Express lancé sur http://localhost:3000');
 });
