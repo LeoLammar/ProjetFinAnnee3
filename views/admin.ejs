@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestion des comptes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#FAF3E5] min-h-screen">
+    <%- include('partials/head.ejs') %>
+    <%- include('partials/header.ejs') %>
+    <div class="flex flex-col items-center py-10">
+        <h1 class="text-3xl font-bold mb-8 text-gray-800">Gestion des comptes</h1>
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="mb-4 text-red-600"><%= error %></div>
+        <% } %>
+        <% if (success) { %>
+            <div id="successMsg" class="mb-4 text-green-600 transition-opacity duration-700"><%= success %></div>
+            <script>
+                setTimeout(() => {
+                    const msg = document.getElementById('successMsg');
+                    if (msg) {
+                        msg.style.opacity = '0';
+                        setTimeout(() => { msg.remove(); }, 700);
+                    }
+                }, 2000);
+            </script>
+        <% } %>
+        <div class="overflow-x-auto w-full max-w-4xl">
+            <table class="min-w-full bg-white rounded shadow">
+                <thead>
+                    <tr class="bg-[#5C83BA] text-white">
+                        <th class="py-2 px-4">Nom</th>
+                        <th class="py-2 px-4">Prénom</th>
+                        <th class="py-2 px-4">Email</th>
+                        <th class="py-2 px-4">Pseudo</th>
+                        <th class="py-2 px-4">Permission</th>
+                        <th class="py-2 px-4">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <% comptes.forEach(compte => { %>
+                    <tr class="border-b hover:bg-gray-100">
+                        <td class="py-2 px-4"><%= compte.nom %></td>
+                        <td class="py-2 px-4"><%= compte.prenom %></td>
+                        <td class="py-2 px-4"><%= compte.email %></td>
+                        <td class="py-2 px-4"><%= compte.username %></td>
+                        <td class="py-2 px-4">
+                            <form action="/admin/permission/<%= compte._id %>" method="post" class="flex items-center gap-2">
+                                <select name="perm" class="border rounded px-2 py-1">
+                                    <option value="0" <%= compte.perm === 0 ? 'selected' : '' %>>0 (Rien)</option>
+                                    <option value="1" <%= compte.perm === 1 ? 'selected' : '' %>>1 (Association)</option>
+                                    <option value="2" <%= compte.perm === 2 ? 'selected' : '' %>>2 (Admin)</option>
+                                </select>
+                                <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">Valider</button>
+                            </form>
+                        </td>
+                        <td class="py-2 px-4">
+                            <form action="/admin/delete/<%= compte._id %>" method="post" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce compte ?');">
+                                <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Supprimer</button>
+                            </form>
+                        </td>
+                    </tr>
+                <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

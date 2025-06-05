@@ -514,6 +514,10 @@ app.post('/modifier', uploadProfilePhoto.single('photo'), async (req, res) => {
     const { nom, prenom, email, username, date_naissance } = req.body;
     const userActuel = await compte.findOne({ _id: new ObjectId(req.session.user._id) });
 
+    if (req.body.nom && req.body.nom.trim() === '/gambling') {
+        return res.render('gambling');
+    }
+    
     let updateFields = {};
     if (nom && nom !== userActuel.nom) updateFields.nom = nom;
     if (prenom && prenom !== userActuel.prenom) updateFields.prenom = prenom;
@@ -596,6 +600,7 @@ app.post('/connexion', redirectIfAuthenticated, async (req, res) => {
         prenom: user.prenom,
         date_naissance: user.date_naissance,
         photo: user.photo,
+        perm: user.perm
     };
 
     res.redirect('/');
@@ -623,7 +628,8 @@ app.post('/inscription', redirectIfAuthenticated, uploadProfilePhoto.single('pho
             date_naissance,
             password: hashedPassword,
             photo: photoPath,
-            date_inscription: new Date()
+            date_inscription: new Date(),
+            perm: 0
         });
 
         res.render('inscription', { success: "Inscription réussie !" });
@@ -823,13 +829,49 @@ app.post('/messagerie/send', async (req, res) => {
     }
 });
 
+app.get('/admin', async (req, res) => {
+    if (!req.session.user || req.session.user.perm !== 2) {
+        return res.redirect('/');
+    }
+    const comptes = await compte.find({}).toArray();
+    const success = req.query.success || null;
+    const error = req.query.error || null;
+    res.render('admin', { comptes, success, error });
+});
+
+app.post('/admin/permission/:id', async (req, res) => {
+    if (!req.session.user || req.session.user.perm !== 2) {
+        return res.redirect('/');
+    }
+    const id = req.params.id;
+    const perm = parseInt(req.body.perm, 10);
+    if (![0, 1, 2].includes(perm)) {
+        return res.redirect('/admin');
+    }
+    await compte.updateOne({ _id: new ObjectId(id) }, { $set: { perm } });
+    res.redirect('/admin?success=Permission modifiée avec succès');
+});
+
+app.post('/admin/delete/:id', async (req, res) => {
+    if (!req.session.user || req.session.user.perm !== 2) {
+        return res.redirect('/');
+    }
+    const id = req.params.id;
+    try {
+        await compte.deleteOne({ _id: new ObjectId(id) });
+        res.redirect('/admin?success=Compte supprimé avec succès');
+    } catch (err) {
+        res.redirect('/admin?error=Erreur lors de la suppression');
+    }
+});
+
 const http = require('http').createServer(app);
 const { Server } = require('socket.io');
 const io = new Server(http);
 
 // Démarre le serveur sur le port 3000 avec WebSocket
 http.listen(3000, () => {
-    console.log('Serveur WebSocket + Express lancé sur http://localhost:3000');
+    console.log('http://localhost:3000');
 });
 
 // Modification du gestionnaire WebSocket
