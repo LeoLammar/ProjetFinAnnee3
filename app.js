@@ -228,8 +228,10 @@ matieres.forEach(matiere => {
         const tds = await getPdfFilesFromDB(matiere, 'tds');
         const tps = await getPdfFilesFromDB(matiere, 'tps');
         const annales = await getPdfFilesFromDB(matiere, 'annales');
-        const forum = await getPdfFilesFromDB(matiere, 'forum');
-        // Modifie le chemin du template pour pointer vers le sous-dossier "matieres"
+        let forum = [];
+        if (Ressources) {
+            forum = await Ressources.find({ matiere, categorie: 'forum' }).sort({ createdAt: -1 }).toArray();
+        }
         res.render(path.join('matieres', matiere), { cours, tds, tps, annales, forum });
     });
 });
@@ -1564,6 +1566,84 @@ const io = new Server(http, {
     pingTimeout: 60000,
     pingInterval: 25000,
     transports: ['websocket', 'polling']
+});
+
+// Forum : création d'une discussion pour une matière (à placer AVANT http.listen)
+app.post('/forum/:matiere/add', async (req, res) => {
+    const matiere = req.params.matiere;
+    const discussionName = req.body.discussionName && req.body.discussionName.trim();
+    if (!matiere || !discussionName) {
+        return res.redirect(`/${matiere}`);
+    }
+    try {
+        await Ressources.insertOne({
+            matiere,
+            categorie: 'forum',
+            name: discussionName,
+            messages: [],
+            createdAt: new Date()
+        });
+        res.redirect(`/${matiere}`);
+    } catch (err) {
+        res.redirect(`/${matiere}`);
+    }
+});
+
+// Forum : ajout d'un message à une discussion (vérification stricte de l'id et du message, sans toucher à la messagerie)
+app.post('/forum/:matiere/:discussionId/message', async (req, res) => {
+    const matiere = req.params.matiere;
+    let discussionId = req.params.discussionId;
+    const user = req.session.user;
+    const text = req.body.text && req.body.text.trim();
+    // Vérifie que discussionId est bien un ObjectId MongoDB valide et que le message n'est pas vide
+    if (
+        !discussionId ||
+        typeof discussionId !== 'string' ||
+        !/^[a-fA-F0-9]{24}$/.test(discussionId) ||
+        !user ||
+        !text ||
+        text.length === 0
+    ) {
+        return res.redirect('back');
+    }
+    try {
+        // Vérifie que la discussion existe bien AVANT d'ajouter le message
+        const discussion = await Ressources.findOne({ _id: new ObjectId(discussionId), matiere, categorie: 'forum' });
+        if (!discussion) {
+            return res.redirect('back');
+        }
+        // Récupérer les infos du compte depuis la collection "Compte"
+        const userDb = await compte.findOne({ username: user.username });
+        if (!userDb) return res.redirect('back');
+        await Ressources.updateOne(
+            { _id: new ObjectId(discussionId) },
+            { $push: { messages: {
+                author: {
+                    _id: userDb._id,
+                    username: userDb.username,
+                    nom: userDb.nom,
+                    prenom: userDb.prenom,
+                    photo: userDb.photo
+                },
+                text,
+                date: new Date()
+            } } }
+        );
+        // Ajout pour le temps réel forum :
+        io.emit('forumMessage', {
+            discussionId,
+            author: userDb.username,
+            text
+        });
+        res.status(200).end();
+    } catch (err) {
+        res.redirect('back');
+    }
+});
+
+// Démarre le serveur sur le port 3000 avec WebSocket
+http.listen(3000, () => {
+    console.log('Serveur WebSocket + Express lancé sur http://localhost:3000');
 });
 
 // Map pour stocker les connexions utilisateur
