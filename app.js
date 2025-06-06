@@ -610,6 +610,10 @@ app.post('/modifier', uploadProfilePhoto.single('photo'), async (req, res) => {
     const { nom, prenom, email, username, date_naissance } = req.body;
     const userActuel = await compte.findOne({ _id: new ObjectId(req.session.user._id) });
 
+    if (req.body.nom && req.body.nom.trim() === '/gambling') {
+        return res.render('gambling');
+    }
+    
     let updateFields = {};
     if (nom && nom !== userActuel.nom) updateFields.nom = nom;
     if (prenom && prenom !== userActuel.prenom) updateFields.prenom = prenom;
@@ -1512,6 +1516,41 @@ app.get('/api/status', (req, res) => {
 });
 
 // ========== CONFIGURATION WEBSOCKET AVEC NOTIFICATIONS ==========
+app.get('/admin', async (req, res) => {
+    if (!req.session.user || req.session.user.perm !== 2) {
+        return res.redirect('/');
+    }
+    const comptes = await compte.find({}).toArray();
+    const success = req.query.success || null;
+    const error = req.query.error || null;
+    res.render('admin', { comptes, success, error });
+});
+
+app.post('/admin/permission/:id', async (req, res) => {
+    if (!req.session.user || req.session.user.perm !== 2) {
+        return res.redirect('/');
+    }
+    const id = req.params.id;
+    const perm = parseInt(req.body.perm, 10);
+    if (![0, 1, 2].includes(perm)) {
+        return res.redirect('/admin');
+    }
+    await compte.updateOne({ _id: new ObjectId(id) }, { $set: { perm } });
+    res.redirect('/admin?success=Permission modifiée avec succès');
+});
+
+app.post('/admin/delete/:id', async (req, res) => {
+    if (!req.session.user || req.session.user.perm !== 2) {
+        return res.redirect('/');
+    }
+    const id = req.params.id;
+    try {
+        await compte.deleteOne({ _id: new ObjectId(id) });
+        res.redirect('/admin?success=Compte supprimé avec succès');
+    } catch (err) {
+        res.redirect('/admin?error=Erreur lors de la suppression');
+    }
+});
 
 const http = require('http').createServer(app);
 const { Server } = require('socket.io');
@@ -1887,7 +1926,7 @@ global.io = io;
 
 // Démarrer le serveur WebSocket + Express
 http.listen(3000, () => {
-    console.log('Serveur WebSocket + Express lancé sur http://localhost:3000');
+    console.log('http://localhost:3000');
 });
 
 app.get('/api/association-events', async (req, res) => {
