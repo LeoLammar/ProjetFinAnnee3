@@ -22,11 +22,8 @@ let messages = null;
 let database = null;
 let compte = null;
 let documents = null;
-<<<<<<< HEAD
 let mentorat = null;
-=======
 let associationEvents = null;
->>>>>>> pyprien
 
 
 // On ne garde plus une seule collection "Documents" mais une collection par matière
@@ -58,11 +55,8 @@ async function initDB() {
         messages = database.collection("Messages");
         conversations = database.collection("Conversations");
         Ressources = database.collection("Ressources");
-<<<<<<< HEAD
         mentorat = database.collection('mentorat');
-=======
         associationEvents = database.collection('AssociationEvents');
->>>>>>> pyprien
         matieres.forEach(matiere => {
             matiereCollections[matiere] = database.collection(matiere);
         });
