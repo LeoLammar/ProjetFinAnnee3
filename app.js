@@ -15,7 +15,7 @@ const axios = require('axios');
 const uri = `mongodb+srv://${process.env.DB_ID}:${process.env.DB_PASSWORD}@cluster0.rphccsl.mongodb.net`;
 const DATABASE_NAME = "Argos";
 const DATABASE_COLLECTION = "Compte";
-const DOCUMENTS_COLLECTION = "Documents"; // Nouvelle collection pour les fichiers
+const DOCUMENTS_COLLECTION = "Documents";
 
 let conversations = null;
 let messages = null;
@@ -25,6 +25,7 @@ let documents = null;
 let mentorat = null;
 let associationEvents = null;
 
+let groups = null; // NOUVEAU: Collection pour les groupes
 
 // On ne garde plus une seule collection "Documents" mais une collection par matière
 let matiereCollections = {};
@@ -54,6 +55,7 @@ async function initDB() {
         compte = database.collection(DATABASE_COLLECTION);
         messages = database.collection("Messages");
         conversations = database.collection("Conversations");
+        groups = database.collection("Groups"); 
         Ressources = database.collection("Ressources");
         mentorat = database.collection('mentorat');
         associationEvents = database.collection('AssociationEvents');
@@ -615,9 +617,29 @@ app.post('/modifier', uploadProfilePhoto.single('photo'), async (req, res) => {
     if (username && username !== userActuel.username) updateFields.username = username;
     if (date_naissance && date_naissance !== userActuel.date_naissance) updateFields.date_naissance = date_naissance;
 
-    // Ajoute la photo SEULEMENT si un fichier est uploadé
+    // Gestion de la photo de profil
     if (req.file) {
-        updateFields.photo = '/' + req.file.filename;
+        // Supprimer l'ancienne photo si ce n'est pas la photo par défaut
+        if (userActuel.photo && userActuel.photo !== '/default.png') {
+            try {
+                const oldPhotoPath = path.join(__dirname, 'public', userActuel.photo);
+                if (fs.existsSync(oldPhotoPath)) {
+                    fs.unlinkSync(oldPhotoPath);
+                }
+            } catch (err) {
+                console.error("Erreur lors de la suppression de l'ancienne photo:", err);
+            }
+        }
+        
+        // Ajouter un timestamp au nom de fichier pour éviter le cache
+        const timestamp = Date.now();
+        const newFilename = `${timestamp}_${req.file.filename}`;
+        const newPath = path.join(__dirname, 'public', 'uploads', newFilename);
+        
+        // Renommer le fichier avec le timestamp
+        fs.renameSync(req.file.path, newPath);
+        
+        updateFields.photo = `/uploads/${newFilename}`;
     }
 
     if (Object.keys(updateFields).length === 0) {
@@ -629,8 +651,8 @@ app.post('/modifier', uploadProfilePhoto.single('photo'), async (req, res) => {
         { $set: updateFields }
     );
 
-    // Mets à jour la session avec la nouvelle photo si besoin
-    const userMaj = { ...userActuel, ...updateFields };
+    // Mettre à jour la session
+    const userMaj = await compte.findOne({ _id: new ObjectId(req.session.user._id) });
     req.session.user = {
         _id: userMaj._id,
         nom: userMaj.nom,
@@ -642,6 +664,7 @@ app.post('/modifier', uploadProfilePhoto.single('photo'), async (req, res) => {
         perm: userMaj.perm
     };
 
+    // Forcer le rechargement en redirigeant
     res.redirect('/compte');
 });
 
@@ -756,6 +779,292 @@ app.get('/search-users', async (req, res) => {
     }
 });
 
+// ========== NOUVELLES ROUTES POUR LES GROUPES ==========
+
+// Configuration du stockage pour les photos de groupe
+const groupPhotoStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, path.join(__dirname, 'public', 'group_photos'));
+    },
+    filename: function (req, file, cb) {
+        const ext = path.extname(file.originalname);
+        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + ext;
+        cb(null, uniqueName);
+    }
+});
+const uploadGroupPhoto = multer({ storage: groupPhotoStorage });
+
+app.post('/groups/create', uploadGroupPhoto.single('avatar'), async (req, res) => {
+    const currentUser = req.session.user;
+    if (!currentUser) {
+        return res.status(401).json({ success: false, error: 'Non connecté' });
+    }
+
+    try {
+        const { name, description } = req.body;
+        
+        // Parse les membres - ils peuvent être envoyés comme string JSON
+        let members = [];
+        if (req.body.members) {
+            if (typeof req.body.members === 'string') {
+                try {
+                    members = JSON.parse(req.body.members);
+                } catch (e) {
+                    // Si ce n'est pas du JSON valide, on considère que c'est un tableau vide
+                    members = [];
+                }
+            } else if (Array.isArray(req.body.members)) {
+                members = req.body.members;
+            }
+        }
+
+        // Validation - le nom est obligatoire, mais pas les membres
+        if (!name || !name.trim()) {
+            return res.status(400).json({ success: false, error: 'Le nom du groupe est obligatoire' });
+        }
+
+        // Créer la liste des membres (au minimum l'utilisateur actuel)
+        const memberUsernames = [currentUser.username];
+        if (Array.isArray(members) && members.length > 0) {
+            // Ajouter les autres membres s'il y en a
+            members.forEach(member => {
+                if (member && typeof member === 'string' && member !== currentUser.username) {
+                    memberUsernames.push(member);
+                }
+            });
+        }
+        
+        const uniqueMembers = [...new Set(memberUsernames)]; // Supprimer les doublons
+
+        // Vérifier que tous les membres existent (seulement s'il y en a d'autres que l'utilisateur actuel)
+        if (uniqueMembers.length > 1) {
+            const existingUsers = await compte.find({
+                username: { $in: uniqueMembers }
+            }).toArray();
+            
+            if (existingUsers.length !== uniqueMembers.length) {
+                return res.status(400).json({ success: false, error: 'Certains utilisateurs n\'existent pas' });
+            }
+        }
+
+        // Déterminer le chemin de l'avatar
+        let avatarPath = '/group_photos/default.png';
+        if (req.file) {
+            avatarPath = '/group_photos/' + req.file.filename;
+        }
+
+        // Créer le groupe
+        const newGroup = {
+            name: name.trim(),
+            description: description ? description.trim() : '',
+            members: uniqueMembers,
+            admins: [currentUser.username],
+            createdBy: currentUser.username,
+            createdAt: new Date(),
+            lastActivity: new Date(),
+            avatar: avatarPath
+        };
+
+        const result = await groups.insertOne(newGroup);
+        newGroup._id = result.insertedId;
+
+        res.json({ success: true, group: newGroup });
+    } catch (error) {
+        console.error('Erreur lors de la création du groupe:', error);
+        res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+});
+
+// Route pour afficher le formulaire de modification d'un groupe
+app.get('/groups/:groupId/edit', async (req, res) => {
+    const currentUser = req.session.user;
+    if (!currentUser) {
+        return res.status(401).json({ success: false, error: 'Non connecté' });
+    }
+
+    try {
+        const group = await groups.findOne({ 
+            _id: new ObjectId(req.params.groupId),
+            admins: currentUser.username // Seuls les admins peuvent modifier
+        });
+
+        if (!group) {
+            return res.status(404).json({ success: false, error: 'Groupe non trouvé ou accès refusé' });
+        }
+
+        res.json({ success: true, group });
+    } catch (error) {
+        console.error('Erreur lors de la récupération du groupe:', error);
+        res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+});
+
+// Route pour mettre à jour un groupe
+app.post('/groups/:groupId/update', uploadGroupPhoto.single('avatar'), async (req, res) => {
+    const currentUser = req.session.user;
+    if (!currentUser) {
+        return res.status(401).json({ success: false, error: 'Non connecté' });
+    }
+
+    const { name, description } = req.body;
+    const groupId = req.params.groupId;
+
+    try {
+        const group = await groups.findOne({
+            _id: new ObjectId(groupId),
+            admins: currentUser.username
+        });
+
+        if (!group) {
+            return res.status(403).json({ success: false, error: 'Accès refusé' });
+        }
+
+        const updateData = {
+            name: name || group.name,
+            description: description || group.description,
+            lastActivity: new Date()
+        };
+
+        if (req.file) {
+            updateData.avatar = '/group_photos/' + req.file.filename;
+        }
+
+        await groups.updateOne(
+            { _id: group._id },
+            { $set: updateData }
+        );
+
+        res.json({ success: true, group: { ...group, ...updateData } });
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour du groupe:', error);
+        res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+});
+
+
+// Route pour récupérer les groupes d'un utilisateur
+app.get('/api/groups', async (req, res) => {
+    const currentUser = req.session.user;
+    
+    if (!currentUser) {
+        return res.status(401).json({ error: 'Non connecté' });
+    }
+    
+    try {
+        const userGroups = await groups.find({
+            members: currentUser.username
+        }).sort({ 
+            lastActivity: -1,
+            createdAt: -1
+        }).toArray();
+
+        // Enrichir chaque groupe avec le dernier message et le compteur de non lus
+        for (const group of userGroups) {
+            const lastMsg = await messages.findOne(
+                { groupId: group._id },
+                { sort: { timestamp: -1 } }
+            );
+            
+            // Compter les messages non lus pour l'utilisateur actuel
+            const unreadCount = await messages.countDocuments({
+                groupId: group._id,
+                from: { $ne: currentUser.username }, // Pas ses propres messages
+                readBy: { $not: { $elemMatch: { username: currentUser.username } } } // Pas encore lu
+            });
+            
+            if (lastMsg) {
+                group.lastMessage = lastMsg.text;
+                group.lastMessageTime = lastMsg.timestamp;
+                group.lastMessageFrom = lastMsg.from;
+            } else {
+                group.lastMessage = "Pas encore de message";
+                group.lastMessageTime = group.createdAt;
+                group.lastMessageFrom = null;
+            }
+            
+            group.unreadCount = unreadCount;
+        }
+
+        res.json(userGroups);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des groupes:', error);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// Route pour rejoindre un groupe
+app.post('/groups/:groupId/join', async (req, res) => {
+    const currentUser = req.session.user;
+    const groupId = req.params.groupId;
+    
+    if (!currentUser) {
+        return res.status(401).json({ success: false, error: 'Non connecté' });
+    }
+    
+    try {
+        const group = await groups.findOne({ _id: new ObjectId(groupId) });
+        
+        if (!group) {
+            return res.status(404).json({ success: false, error: 'Groupe non trouvé' });
+        }
+        
+        if (group.members.includes(currentUser.username)) {
+            return res.status(400).json({ success: false, error: 'Déjà membre du groupe' });
+        }
+        
+        await groups.updateOne(
+            { _id: new ObjectId(groupId) },
+            { 
+                $push: { members: currentUser.username },
+                $set: { lastActivity: new Date() }
+            }
+        );
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout au groupe:', error);
+        res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+});
+
+// Route pour quitter un groupe
+app.post('/groups/:groupId/leave', async (req, res) => {
+    const currentUser = req.session.user;
+    const groupId = req.params.groupId;
+    
+    if (!currentUser) {
+        return res.status(401).json({ success: false, error: 'Non connecté' });
+    }
+    
+    try {
+        const group = await groups.findOne({ _id: new ObjectId(groupId) });
+        
+        if (!group) {
+            return res.status(404).json({ success: false, error: 'Groupe non trouvé' });
+        }
+        
+        if (!group.members.includes(currentUser.username)) {
+            return res.status(400).json({ success: false, error: 'Pas membre du groupe' });
+        }
+        
+        await groups.updateOne(
+            { _id: new ObjectId(groupId) },
+            { 
+                $pull: { 
+                    members: currentUser.username,
+                    admins: currentUser.username
+                },
+                $set: { lastActivity: new Date() }
+            }
+        );
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur lors de la sortie du groupe:', error);
+        res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+});
+
 // Route API pour récupérer la liste des conversations avec notifications
 app.get('/api/conversations', async (req, res) => {
     const currentUser = req.session.user;
@@ -850,8 +1159,10 @@ app.get('/messagerie', async (req, res) => {
     const conversationsCollection = database.collection('Conversations');
     const messagesCollection = database.collection('Messages');
     const selectedUsername = req.query.user;
+    const selectedGroupId = req.query.group;
 
     let selectedUser = null;
+    let selectedGroup = null;
     let messages = [];
 
     // Toutes les conversations où l'utilisateur connecté participe
@@ -862,6 +1173,13 @@ app.get('/messagerie', async (req, res) => {
         createdAt: -1
     }).toArray();
 
+    // Tous les groupes où l'utilisateur connecté participe
+    const userGroups = await groups.find({
+        members: currentUser.username
+    }).sort({
+        lastActivity: -1,
+        createdAt: -1
+    }).toArray();
 
     // Enrichir chaque conversation avec le dernier message, compteur non lus ET la photo de l'autre utilisateur
     for (const conv of conversations) {
@@ -897,13 +1215,40 @@ app.get('/messagerie', async (req, res) => {
         }
     }
 
+    // Enrichir chaque groupe avec le dernier message et compteur non lus
+    for (const group of userGroups) {
+        const lastMsg = await messagesCollection.findOne(
+            { groupId: group._id },
+            { sort: { timestamp: -1 } }
+        );
+
+        // Compter les messages non lus pour l'utilisateur actuel
+        const unreadCount = await messagesCollection.countDocuments({
+            groupId: group._id,
+            from: { $ne: currentUser.username },
+            readBy: { $not: { $elemMatch: { username: currentUser.username } } }
+        });
+
+        if (lastMsg) {
+            group.lastMessage = lastMsg.text;
+            group.lastMessageTime = lastMsg.timestamp;
+            group.lastMessageFrom = lastMsg.from;
+        } else {
+            group.lastMessage = "Pas encore de message";
+            group.lastMessageTime = group.createdAt;
+            group.lastMessageFrom = null;
+        }
+
+        group.unreadCount = unreadCount;
+    }
+
     // Si on a cliqué sur un utilisateur
     if (selectedUsername) {
         selectedUser = await compte.findOne({ username: selectedUsername });
 
         if (selectedUser && !selectedUser.photo) {
-        selectedUser.photo = '/default.png';
-    }
+            selectedUser.photo = '/default.png';
+        }
 
         if (selectedUser) {
             let conv = await conversationsCollection.findOne({
@@ -948,20 +1293,57 @@ app.get('/messagerie', async (req, res) => {
         }
     }
 
+    // Si on a cliqué sur un groupe
+    if (selectedGroupId) {
+        selectedGroup = await groups.findOne({ _id: new ObjectId(selectedGroupId) });
+
+        if (selectedGroup && selectedGroup.members.includes(currentUser.username)) {
+            // Récupérer les messages de ce groupe
+            messages = await messagesCollection.find({
+                groupId: selectedGroup._id
+            }).sort({ timestamp: 1 }).toArray();
+            
+            // Marquer tous les messages de ce groupe comme lus pour cet utilisateur
+            await messagesCollection.updateMany(
+                {
+                    groupId: selectedGroup._id,
+                    from: { $ne: currentUser.username },
+                    readBy: { $not: { $elemMatch: { username: currentUser.username } } }
+                },
+                {
+                    $push: {
+                        readBy: {
+                            username: currentUser.username,
+                            readAt: new Date()
+                        }
+                    }
+                }
+            );
+            
+            // Mettre à jour l'activité du groupe
+            await groups.updateOne(
+                { _id: selectedGroup._id },
+                { $set: { lastActivity: new Date() } }
+            );
+        }
+    }
+
     res.render('messagerie', {
         currentUser,
         selectedUser,
+        selectedGroup,
         messages,
-        conversations
+        conversations,
+        groups: userGroups
     });
 });
 
-// Route modifiée pour envoyer des messages avec système de notifications
+// Route modifiée pour envoyer des messages avec système de notifications (privé et groupe)
 app.post('/messagerie/send', async (req, res) => {
-    const { to, message } = req.body;
+    const { to, message, groupId } = req.body;
     const currentUser = req.session.user;
 
-    if (!currentUser || !to || !message) {
+    if (!currentUser || !message || (!to && !groupId)) {
         return res.status(400).json({ success: false, error: 'Données manquantes' });
     }
 
@@ -969,89 +1351,150 @@ app.post('/messagerie/send', async (req, res) => {
         const conversationsCollection = database.collection('Conversations');
         const messagesCollection = database.collection('Messages');
 
-        // Trouver ou créer la conversation
-        let conv = await conversationsCollection.findOne({
-            participants: { $all: [currentUser.username, to] }
-        });
-
-        if (!conv) {
-            const insertResult = await conversationsCollection.insertOne({
-                participants: [currentUser.username, to],
-                createdAt: new Date(),
-                lastActivity: new Date()
-            });
-            conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
-        }
-
-        // Créer le message avec statut de lecture
-        const newMessage = {
-            conversationId: conv._id,
-            from: currentUser.username,
-            to: to,
-            text: message,
-            timestamp: new Date(),
-            read: false,  // NOUVEAU : statut de lecture
-            readAt: null  // NOUVEAU : timestamp de lecture
-        };
-
-        const insertResult = await messagesCollection.insertOne(newMessage);
-        newMessage._id = insertResult.insertedId;
-
-        // Compter les messages non lus pour le destinataire
-        const unreadCount = await messagesCollection.countDocuments({
-            conversationId: conv._id,
-            to: to,
-            read: false
-        });
-
-        // Mettre à jour la conversation
-        await conversationsCollection.updateOne(
-            { _id: conv._id },
-            { 
-                $set: { 
-                    lastActivity: new Date(),
-                    lastMessage: message,
-                    lastMessageTime: new Date(),
-                    [`unreadCount.${to}`]: unreadCount  // NOUVEAU : compteur par utilisateur
-                } 
+        if (groupId) {
+            // Message de groupe
+            const group = await groups.findOne({ _id: new ObjectId(groupId) });
+            
+            if (!group || !group.members.includes(currentUser.username)) {
+                return res.status(403).json({ success: false, error: 'Accès refusé au groupe' });
             }
-        );
 
-        // Émettre via WebSocket avec le compteur de non lus
-        const messageData = {
-            _id: newMessage._id,
-            conversationId: conv._id,
-            from: currentUser.username,
-            to: to,
-            text: message,
-            timestamp: newMessage.timestamp,
-            read: false
-        };
+            // Créer le message de groupe
+            const newMessage = {
+                groupId: group._id,
+                from: currentUser.username,
+                text: message,
+                timestamp: new Date(),
+                readBy: [
+                    {
+                        username: currentUser.username,
+                        readAt: new Date()
+                    }
+                ]
+            };
 
-        // Envoyer au destinataire s'il est connecté
-        const recipientSocketId = userSocketMap.get(to);
-        if (recipientSocketId) {
-            io.to(recipientSocketId).emit('newMessage', {
-                ...messageData,
-                unreadCount: unreadCount
+            const insertResult = await messagesCollection.insertOne(newMessage);
+            newMessage._id = insertResult.insertedId;
+
+            // Mettre à jour l'activité du groupe
+            await groups.updateOne(
+                { _id: group._id },
+                { 
+                    $set: { 
+                        lastActivity: new Date(),
+                        lastMessage: message,
+                        lastMessageTime: new Date(),
+                        lastMessageFrom: currentUser.username
+                    } 
+                }
+            );
+
+            // Émettre via WebSocket à tous les membres du groupe connectés
+            const messageData = {
+                _id: newMessage._id,
+                groupId: group._id,
+                from: currentUser.username,
+                text: message,
+                timestamp: newMessage.timestamp
+            };
+
+            group.members.forEach(member => {
+                if (member !== currentUser.username) {
+                    const memberSocketId = userSocketMap.get(member);
+                    if (memberSocketId) {
+                        io.to(memberSocketId).emit('newGroupMessage', messageData);
+                    }
+                }
             });
+
+            res.json({ success: true, message: messageData });
+
+        } else {
+            // Message privé (code existant)
+            // Trouver ou créer la conversation
+            let conv = await conversationsCollection.findOne({
+                participants: { $all: [currentUser.username, to] }
+            });
+
+            if (!conv) {
+                const insertResult = await conversationsCollection.insertOne({
+                    participants: [currentUser.username, to],
+                    createdAt: new Date(),
+                    lastActivity: new Date()
+                });
+                conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
+            }
+
+            // Créer le message avec statut de lecture
+            const newMessage = {
+                conversationId: conv._id,
+                from: currentUser.username,
+                to: to,
+                text: message,
+                timestamp: new Date(),
+                read: false,
+                readAt: null
+            };
+
+            const insertResult = await messagesCollection.insertOne(newMessage);
+            newMessage._id = insertResult.insertedId;
+
+            // Compter les messages non lus pour le destinataire
+            const unreadCount = await messagesCollection.countDocuments({
+                conversationId: conv._id,
+                to: to,
+                read: false
+            });
+
+            // Mettre à jour la conversation
+            await conversationsCollection.updateOne(
+                { _id: conv._id },
+                { 
+                    $set: { 
+                        lastActivity: new Date(),
+                        lastMessage: message,
+                        lastMessageTime: new Date(),
+                        [`unreadCount.${to}`]: unreadCount
+                    } 
+                }
+            );
+
+            // Émettre via WebSocket avec le compteur de non lus
+            const messageData = {
+                _id: newMessage._id,
+                conversationId: conv._id,
+                from: currentUser.username,
+                to: to,
+                text: message,
+                timestamp: newMessage.timestamp,
+                read: false
+            };
+
+            // Envoyer au destinataire s'il est connecté
+            const recipientSocketId = userSocketMap.get(to);
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit('newMessage', {
+                    ...messageData,
+                    unreadCount: unreadCount
+                });
+            }
+
+            // Notifier du changement de conversation
+            const conversationData = {
+                conversationId: conv._id,
+                participants: conv.participants,
+                lastMessage: message,
+                lastMessageTime: new Date(),
+                lastActivity: new Date(),
+                unreadCount: unreadCount
+            };
+
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit('conversationUpdated', conversationData);
+            }
+
+            res.json({ success: true, message: messageData });
         }
-
-        // Notifier du changement de conversation
-        const conversationData = {
-            conversationId: conv._id,
-            participants: conv.participants,
-            lastMessage: message,
-            lastMessageTime: new Date(),
-            lastActivity: new Date(),
-            unreadCount: unreadCount
-        };
-
-        if (recipientSocketId) {
-            io.to(recipientSocketId).emit('conversationUpdated', conversationData);
-        }
-
-        res.json({ success: true, message: messageData });
 
     } catch (error) {
         console.error('Erreur lors de l\'envoi du message:', error);
@@ -1114,11 +1557,39 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Écouter les mises à jour de groupe
+socket.on('groupUpdated', (data) => {
+    console.log('Groupe mis à jour:', data);
+    
+    // Mettre à jour l'affichage si on est dans ce groupe
+    if (window.innerWidth >= 768) {
+        // Desktop
+        if ('<%= selectedGroup ? selectedGroup._id : "" %>' === data.groupId) {
+            window.location.reload();
+        }
+    } else {
+        // Mobile
+        if (currentMobileGroupId === data.groupId) {
+            window.location.reload();
+        }
+    }
+    
+    // Mettre à jour la liste des groupes
+    refreshGroupsList();
+});
+
     // Rejoindre une conversation
     socket.on('joinConversation', (conversationId) => {
         socket.join(conversationId);
         console.log(`Socket ${socket.id} a rejoint la conversation: ${conversationId}`);
         logWebSocketEvent('joinConversation', { socketId: socket.id, conversationId });
+    });
+
+    // Rejoindre un groupe
+    socket.on('joinGroup', (groupId) => {
+        socket.join(`group_${groupId}`);
+        console.log(`Socket ${socket.id} a rejoint le groupe: ${groupId}`);
+        logWebSocketEvent('joinGroup', { socketId: socket.id, groupId });
     });
 
     // Quitter une conversation
@@ -1128,12 +1599,19 @@ io.on('connection', (socket) => {
         logWebSocketEvent('leaveConversation', { socketId: socket.id, conversationId });
     });
 
+    // Quitter un groupe
+    socket.on('leaveGroup', (groupId) => {
+        socket.leave(`group_${groupId}`);
+        console.log(`Socket ${socket.id} a quitté le groupe: ${groupId}`);
+        logWebSocketEvent('leaveGroup', { socketId: socket.id, groupId });
+    });
+
     // Écouter les nouveaux messages avec gestion des notifications
     socket.on('sendMessage', async (data) => {
-        const { to, message, conversationId } = data;
+        const { to, message, conversationId, groupId } = data;
         const from = socket.username;
 
-        if (!from || !to || !message) {
+        if (!from || !message || (!to && !groupId)) {
             socket.emit('error', { message: 'Données manquantes' });
             return;
         }
@@ -1142,93 +1620,157 @@ io.on('connection', (socket) => {
             const conversationsCollection = database.collection('Conversations');
             const messagesCollection = database.collection('Messages');
 
-            // Trouver ou créer la conversation
-            let conv = await conversationsCollection.findOne({
-                participants: { $all: [from, to] }
-            });
-
-            if (!conv) {
-                const insertResult = await conversationsCollection.insertOne({
-                    participants: [from, to],
-                    createdAt: new Date(),
-                    lastActivity: new Date()
-                });
-                conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
-            }
-
-            // Créer le message avec statut de lecture
-            const newMessage = {
-                conversationId: conv._id,
-                from: from,
-                to: to,
-                text: message,
-                timestamp: new Date(),
-                read: false,  // NOUVEAU : statut de lecture
-                readAt: null  // NOUVEAU : timestamp de lecture
-            };
-
-            const insertResult = await messagesCollection.insertOne(newMessage);
-            newMessage._id = insertResult.insertedId;
-
-            // Compter les messages non lus pour le destinataire
-            const unreadCount = await messagesCollection.countDocuments({
-                conversationId: conv._id,
-                to: to,
-                read: false
-            });
-
-            // Mettre à jour la dernière activité avec compteur
-            await conversationsCollection.updateOne(
-                { _id: conv._id },
-                { 
-                    $set: { 
-                        lastActivity: new Date(),
-                        lastMessage: message,
-                        lastMessageTime: new Date(),
-                        [`unreadCount.${to}`]: unreadCount  // NOUVEAU : compteur par utilisateur
-                    } 
+            if (groupId) {
+                // Message de groupe
+                const group = await groups.findOne({ _id: new ObjectId(groupId) });
+                
+                if (!group || !group.members.includes(from)) {
+                    socket.emit('error', { message: 'Accès refusé au groupe' });
+                    return;
                 }
-            );
 
-            // Émettre le message avec le compteur de non lus
-            const messageData = {
-                _id: newMessage._id,
-                conversationId: conv._id,
-                from: from,
-                to: to,
-                text: message,
-                timestamp: newMessage.timestamp,
-                read: false
-            };
+                // Créer le message de groupe
+                const newMessage = {
+                    groupId: group._id,
+                    from: from,
+                    text: message,
+                    timestamp: new Date(),
+                    readBy: [
+                        {
+                            username: from,
+                            readAt: new Date()
+                        }
+                    ]
+                };
 
-            // Envoyer au destinataire s'il est connecté
-            const recipientSocketId = userSocketMap.get(to);
-            if (recipientSocketId) {
-                io.to(recipientSocketId).emit('newMessage', {
-                    ...messageData,
-                    unreadCount: unreadCount
+                const insertResult = await messagesCollection.insertOne(newMessage);
+                newMessage._id = insertResult.insertedId;
+
+                // Mettre à jour l'activité du groupe
+                await groups.updateOne(
+                    { _id: group._id },
+                    { 
+                        $set: { 
+                            lastActivity: new Date(),
+                            lastMessage: message,
+                            lastMessageTime: new Date(),
+                            lastMessageFrom: from
+                        } 
+                    }
+                );
+
+                // Émettre le message à tous les membres du groupe
+                const messageData = {
+                    _id: newMessage._id,
+                    groupId: group._id,
+                    from: from,
+                    text: message,
+                    timestamp: newMessage.timestamp
+                };
+
+                // Envoyer à tous les membres connectés du groupe
+                group.members.forEach(member => {
+                    const memberSocketId = userSocketMap.get(member);
+                    if (memberSocketId) {
+                        io.to(memberSocketId).emit('newGroupMessage', messageData);
+                    }
                 });
+
+                // Confirmer l'envoi à l'expéditeur
+                socket.emit('messageConfirmed', messageData);
+
+                logWebSocketEvent('sendGroupMessage', { from, groupId, messageId: newMessage._id });
+
+            } else {
+                // Message privé (code existant)
+                // Trouver ou créer la conversation
+                let conv = await conversationsCollection.findOne({
+                    participants: { $all: [from, to] }
+                });
+
+                if (!conv) {
+                    const insertResult = await conversationsCollection.insertOne({
+                        participants: [from, to],
+                        createdAt: new Date(),
+                        lastActivity: new Date()
+                    });
+                    conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
+                }
+
+                // Créer le message avec statut de lecture
+                const newMessage = {
+                    conversationId: conv._id,
+                    from: from,
+                    to: to,
+                    text: message,
+                    timestamp: new Date(),
+                    read: false,
+                    readAt: null
+                };
+
+                const insertResult = await messagesCollection.insertOne(newMessage);
+                newMessage._id = insertResult.insertedId;
+
+                // Compter les messages non lus pour le destinataire
+                const unreadCount = await messagesCollection.countDocuments({
+                    conversationId: conv._id,
+                    to: to,
+                    read: false
+                });
+
+                // Mettre à jour la dernière activité avec compteur
+                await conversationsCollection.updateOne(
+                    { _id: conv._id },
+                    { 
+                        $set: { 
+                            lastActivity: new Date(),
+                            lastMessage: message,
+                            lastMessageTime: new Date(),
+                            [`unreadCount.${to}`]: unreadCount
+                        } 
+                    }
+                );
+
+                // Émettre le message avec le compteur de non lus
+                const messageData = {
+                    _id: newMessage._id,
+                    conversationId: conv._id,
+                    from: from,
+                    to: to,
+                    text: message,
+                    timestamp: newMessage.timestamp,
+                    read: false
+                };
+
+                // Envoyer au destinataire s'il est connecté
+                const recipientSocketId = userSocketMap.get(to);
+                if (recipientSocketId) {
+                    io.to(recipientSocketId).emit('newMessage', {
+                        ...messageData,
+                        unreadCount: unreadCount
+                    });
+                }
+
+                // Confirmer l'envoi à l'expéditeur
+                socket.emit('messageConfirmed', messageData);
+
+                // Notifier les participants du changement de conversation
+                const conversationData = {
+                    conversationId: conv._id,
+                    participants: conv.participants,
+                    lastMessage: message,
+                    lastMessageTime: new Date(),
+                    lastActivity: new Date(),
+                    unreadCount: unreadCount
+                };
+
+                if (recipientSocketId) {
+                    io.to(recipientSocketId).emit('conversationUpdated', conversationData);
+                }
+                socket.emit('conversationUpdated', conversationData);
+
+                logWebSocketEvent('sendMessage', { from, to, messageId: newMessage._id, unreadCount });
             }
-
-            // Confirmer l'envoi à l'expéditeur
-            socket.emit('messageConfirmed', messageData);
-
-            // Notifier les participants du changement de conversation
-            const conversationData = {
-                conversationId: conv._id,
-                participants: conv.participants,
-                lastMessage: message,
-                lastMessageTime: new Date(),
-                lastActivity: new Date(),
-                unreadCount: unreadCount
-            };
-
-            if (recipientSocketId) {
-                io.to(recipientSocketId).emit('conversationUpdated', conversationData);
-            }
-            socket.emit('conversationUpdated', conversationData);
-
-            logWebSocketEvent('sendMessage', { from, to, messageId: newMessage._id, unreadCount });
 
         } catch (error) {
             console.error('Erreur lors de l\'envoi du message:', error);
@@ -1238,37 +1780,58 @@ io.on('connection', (socket) => {
 
     // NOUVEAU : Événement pour marquer les messages comme lus
     socket.on('markAsRead', async (data) => {
-        const { conversationId, username } = data;
+        const { conversationId, groupId, username } = data;
         
         try {
             const messagesCollection = database.collection('Messages');
             const conversationsCollection = database.collection('Conversations');
             
-            // Marquer tous les messages de cette conversation comme lus pour cet utilisateur
-            await messagesCollection.updateMany(
-                {
-                    conversationId: new ObjectId(conversationId),
-                    to: username,
-                    read: false
-                },
-                {
-                    $set: {
-                        read: true,
-                        readAt: new Date()
+            if (groupId) {
+                // Marquer les messages du groupe comme lus
+                await messagesCollection.updateMany(
+                    {
+                        groupId: new ObjectId(groupId),
+                        from: { $ne: username },
+                        readBy: { $not: { $elemMatch: { username: username } } }
+                    },
+                    {
+                        $push: {
+                            readBy: {
+                                username: username,
+                                readAt: new Date()
+                            }
+                        }
                     }
-                }
-            );
+                );
+                
+                socket.emit('messagesMarkedAsRead', { groupId, username });
+                
+            } else if (conversationId) {
+                // Marquer les messages de conversation comme lus
+                await messagesCollection.updateMany(
+                    {
+                        conversationId: new ObjectId(conversationId),
+                        to: username,
+                        read: false
+                    },
+                    {
+                        $set: {
+                            read: true,
+                            readAt: new Date()
+                        }
+                    }
+                );
+                
+                // Remettre le compteur à zéro
+                await conversationsCollection.updateOne(
+                    { _id: new ObjectId(conversationId) },
+                    { $set: { [`unreadCount.${username}`]: 0 } }
+                );
+                
+                socket.emit('messagesMarkedAsRead', { conversationId, username });
+            }
             
-            // Remettre le compteur à zéro
-            await conversationsCollection.updateOne(
-                { _id: new ObjectId(conversationId) },
-                { $set: { [`unreadCount.${username}`]: 0 } }
-            );
-            
-            // Notifier l'utilisateur que les messages ont été marqués comme lus
-            socket.emit('messagesMarkedAsRead', { conversationId, username });
-            
-            console.log(`Messages marqués comme lus pour ${username} dans conversation ${conversationId}`);
+            console.log(`Messages marqués comme lus pour ${username}`);
             
         } catch (error) {
             console.error('Erreur lors du marquage comme lu:', error);
@@ -1290,6 +1853,22 @@ io.on('connection', (socket) => {
         });
 
         logWebSocketEvent('newConversation', data);
+    });
+
+    // Nouveau groupe créé
+    socket.on('newGroup', (data) => {
+        console.log('Nouveau groupe créé:', data);
+        const { members, initiator } = data;
+        
+        // Notifier tous les membres
+        members.forEach(member => {
+            const memberSocketId = userSocketMap.get(member);
+            if (memberSocketId && member !== initiator) {
+                io.to(memberSocketId).emit('refreshGroups', data);
+            }
+        });
+
+        logWebSocketEvent('newGroup', data);
     });
 
     // Déconnexion
