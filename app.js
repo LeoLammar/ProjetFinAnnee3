@@ -1641,10 +1641,7 @@ app.post('/forum/:matiere/:discussionId/message', async (req, res) => {
     }
 });
 
-// Démarre le serveur sur le port 3000 avec WebSocket
-http.listen(3000, () => {
-    console.log('Serveur WebSocket + Express lancé sur http://localhost:3000');
-});
+
 
 // Map pour stocker les connexions utilisateur
 const userSocketMap = new Map(); // username -> socketId
