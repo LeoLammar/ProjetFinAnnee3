@@ -89,20 +89,20 @@
 
     <div id="formulairePage" class="hidden w-full max-w-md bg-white p-6 rounded-xl shadow-lg mt-10">
       
-      <form id="formCours" class="space-y-4">
+      <form id="formCours" class="space-y-4" method="POST">
         <div>
           <label class="block font-semibold mb-1">Matière :</label>
-          <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="Ex: Transformation Intégrale">
+          <input type="text" name="matiere" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="Ex: Transformation Intégrale">
         </div>
 
         <div>
           <label class="block font-semibold mb-1">Durée :</label>
-          <input type="time" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
+          <input type="time" name="duree" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
         </div>
 
         <div>
           <label class="block font-semibold mb-1">Module :</label>
-          <select class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
+          <select name="module" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
             <option>Maths</option>
             <option>Physique</option>
             <option>Informatique</option>
@@ -112,7 +112,7 @@
 
         <div>
           <label class="block font-semibold mb-1">Message (optionnel)</label>
-          <textarea class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="Ton message..."></textarea>
+          <textarea name="message" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="Ton message..."></textarea>
         </div>
 
         <button type="submit" class="w-full bg-blue-400 text-white font-semibold py-2 rounded-lg hover:bg-blue-600 transition">
@@ -138,6 +138,12 @@
 
   <%- include("partials/footer.ejs") %>
   <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!contenuEleve.classList.contains('hidden')) {
+        chargerMentorats();
+      }
+    });
+
     const tabEleve = document.getElementById('tab-eleve');
     const tabEnseignant = document.getElementById('tab-enseignant');
     const slider = document.getElementById('slider');
@@ -154,6 +160,7 @@
       document.getElementById('confirmationPage').classList.add('hidden');
       coursPage.classList.add('hidden');
       formulairePage.classList.add('hidden');
+      chargerMentorats();
     });
 
     tabEnseignant.addEventListener('click', () => {
@@ -195,10 +202,10 @@
         document.getElementById('creneauxPage').classList.remove('hidden');
 
         // Réinitialiser les créneaux (exemple basique)
-        document.getElementById('creneauxContainer').innerHTML = '';
-        addCreneau('10h', '12h');
-        addCreneau('15h', '17h');
-        addCreneau('16h', '18h');
+        //document.getElementById('creneauxContainer').innerHTML = '';
+        //addCreneau('10h', '12h');
+        //addCreneau('15h', '17h');
+        //addCreneau('16h', '18h');
       });
 
       container.appendChild(card);
@@ -207,12 +214,12 @@
 
     
     // Exemple d'ajout
-    document.addEventListener('DOMContentLoaded', () => {
-        addMentorat('Maths', 'Transformation intégral', 'Léo Lammar', '2h');
-        addMentorat('Physique', 'Analyse des signaux', 'Léo Lammar', '1h30');
-        addMentorat('Informatique', 'Algorithmique avancée', 'Léo Lammar', '2h');
-        addMentorat('Maths', 'Probabilités', 'Léo Lammar', '1h45');
-    });
+    //document.addEventListener('DOMContentLoaded', () => {
+    //    addMentorat('Maths', 'Transformation intégral', 'Léo Lammar', '2h');
+    //    addMentorat('Physique', 'Analyse des signaux', 'Léo Lammar', '1h30');
+    //    addMentorat('Informatique', 'Algorithmique avancée', 'Léo Lammar', '2h');
+    //    addMentorat('Maths', 'Probabilités', 'Léo Lammar', '1h45');
+    //});
 
         // Références des pages
     const homePage = document.getElementById('homePage');
@@ -223,11 +230,6 @@
     const btnAfficherCours = document.getElementById('btnAfficherCours');
     const btnCreerCours = document.getElementById('btnCreerCours');
 
-    btnAfficherCours.addEventListener('click', () => {
-      coursPage.classList.remove('hidden');
-      formulairePage.classList.add('hidden'); // Masquer le formulaire
-    });
-
     btnCreerCours.addEventListener('click', () => {
       formulairePage.classList.remove('hidden');
       coursPage.classList.add('hidden'); // Masquer les cours
@@ -237,23 +239,29 @@
     // Exemple de données de cours pour affichage
     const coursContainer = document.getElementById('coursContainer');
 
-    function addMentoratEnseignant(titre, duree) {
+    function addMentoratEnseignant(titre, duree, module = '', message = '', id = '') {
       const card = document.createElement('div');
       card.className = "bg-blue-200 rounded-2xl p-4 text-center shadow-md";
       card.innerHTML = `
         <div class="text-2xl mb-2">👤</div>
         <h3 class="text-lg font-semibold mb-1">${titre}</h3>
-        <p class="text-sm mb-2">Durée : ${duree}</p>
-        <button class="bg-white text-red-500 font-semibold border border-red-500 px-3 py-1 rounded-md hover:bg-red-100 transition">
+        <p class="text-sm mb-1">Durée : ${duree}</p>
+        ${module ? `<p class="text-sm mb-1">Module : ${module}</p>` : ''}
+        ${message ? `<p class="text-sm italic">"${message}"</p>` : ''}
+        <button class="btn-supprimer bg-white text-red-500 font-semibold border border-red-500 px-3 py-1 rounded-md hover:bg-red-100 transition">
           Supprimer
         </button>
       `;
+
+      const btnSupprimer = card.querySelector('.btn-supprimer');
+      btnSupprimer.addEventListener('click', () => supprimerCours(id, card));
+
       coursContainer.appendChild(card);
     }
 
+
     // Exemple de cours affichés
-    addMentoratEnseignant('Transformation intégral', '2h');
-    addMentoratEnseignant('Physique du solide', '4h');
+    //addMentoratEnseignant('Transformation intégral', '2h');
 
     function addCreneau(heureDebut, heureFin) {
       const container = document.getElementById('creneauxContainer');
@@ -305,6 +313,85 @@
       document.getElementById('contenu-eleve').classList.remove('hidden');
     });
 
+    document.getElementById('formCours').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const form = e.target;
+      const data = {
+        matiere: form.matiere.value,
+        duree: form.duree.value,
+        module: form.module.value,
+        message: form.message.value
+      };
+
+      const res = await fetch('/mentorat/creer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        alert('Cours enregistré avec succès');
+        form.reset();
+      } else {
+        alert(result.error || 'Erreur lors de la création');
+      }
+    });
+
+
+    async function chargerCours() {
+      const res = await fetch('/mentorat/mes-cours');
+      const result = await res.json();
+
+      if (result.success) {
+        coursContainer.innerHTML = '';
+        result.cours.forEach(c => {
+          addMentoratEnseignant(c.matiere, c.duree, c.module, c.message, c._id);
+        });
+      } else {
+        alert('Erreur lors du chargement des cours');
+      }
+    }
+
+    // Quand on clique sur "Voir mes cours existants"
+    btnAfficherCours.addEventListener('click', async () => {
+      coursPage.classList.remove('hidden');
+      formulairePage.classList.add('hidden');
+      await chargerCours();
+    });
+
+    async function supprimerCours(id, element) {
+      if (!confirm("Confirmer la suppression de ce cours ?")) return;
+
+      const res = await fetch(`/mentorat/supprimer/${id}`, {
+        method: 'DELETE'
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        element.remove();
+      } else {
+        alert(result.error || "Échec de la suppression.");
+      }
+    }
+
+    async function chargerMentorats() {
+      const res = await fetch('/mentorat/liste');
+      const result = await res.json();
+
+      if (result.success) {
+        const container = document.getElementById('mentorats-container');
+        container.innerHTML = '';
+
+        result.cours.forEach(c => {
+          const intervenant = `${c.enseignant_prenom || ''} ${c.enseignant_nom || ''}`.trim();
+          addMentorat(c.module, c.matiere, intervenant, c.duree);
+        });
+      } else {
+        alert('Erreur lors du chargement des cours.');
+      }
+    }
 
   </script>
 

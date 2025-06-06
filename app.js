@@ -22,6 +22,8 @@ let messages = null;
 let database = null;
 let compte = null;
 let documents = null;
+let mentorat = null;
+
 
 // On ne garde plus une seule collection "Documents" mais une collection par matière
 let matiereCollections = {};
@@ -52,6 +54,7 @@ async function initDB() {
         messages = database.collection("Messages");
         conversations = database.collection("Conversations");
         Ressources = database.collection("Ressources");
+        mentorat = database.collection('mentorat');
         matieres.forEach(matiere => {
             matiereCollections[matiere] = database.collection(matiere);
         });
@@ -422,6 +425,99 @@ app.get('/logout', (req, res) => {
 
 app.get('/mentorat', (req, res) => {
     res.render('mentorat');
+});
+
+app.get('/mentorat/mes-cours', async (req, res) => {
+    if (!req.session.user || !req.session.user._id) {
+        return res.status(401).json({ success: false, error: 'Non connecté' });
+    }
+
+    try {
+        const cours = await mentorat.find({ enseignant_id: new ObjectId(req.session.user._id) }).toArray();
+        res.json({ success: true, cours });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+});
+
+app.delete('/mentorat/supprimer/:id', async (req, res) => {
+    if (!req.session.user || !req.session.user._id) {
+        return res.status(401).json({ success: false, error: 'Non connecté' });
+    }
+
+    const coursId = req.params.id;
+    if (!ObjectId.isValid(coursId)) {
+        return res.status(400).json({ success: false, error: 'ID invalide' });
+    }
+
+    try {
+        const resultat = await mentorat.deleteOne({
+            _id: new ObjectId(coursId),
+            enseignant_id: new ObjectId(req.session.user._id) // Sécurité : on supprime que ses propres cours
+        });
+
+        if (resultat.deletedCount === 1) {
+            res.json({ success: true });
+        } else {
+            res.json({ success: false, error: "Cours introuvable ou non autorisé" });
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+});
+
+app.get('/mentorat/liste', async (req, res) => {
+    if (!req.session.user || !req.session.user._id) {
+        return res.status(401).json({ success: false, error: 'Non connecté' });
+    }
+
+    try {
+        const cours = await mentorat.find({
+            enseignant_id: { $ne: new ObjectId(req.session.user._id) }
+        }).toArray();
+
+
+        res.json({ success: true, cours });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+});
+
+
+
+app.post('/mentorat/creer', async (req, res) => {
+    if (!req.session.user || !req.session.user._id) {
+        return res.status(401).json({ success: false, error: 'Utilisateur non connecté' });
+    }
+
+    const { matiere, duree, module, message } = req.body;
+
+    if (!matiere || !duree || !module) {
+        return res.status(400).json({ success: false, error: 'Champs manquants' });
+    }
+
+    try {
+        const cours = {
+            matiere,
+            duree,
+            module,
+            message: message || '',
+            enseignant_id: new ObjectId(req.session.user._id),
+            enseignant_nom: req.session.user.nom,
+            enseignant_prenom: req.session.user.prenom,
+            date_creation: new Date()
+        };
+
+        await mentorat.insertOne(cours);
+
+        res.json({ success: true, message: 'Cours créé avec succès' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
 });
 
 app.get('/salles', (req, res) => {
