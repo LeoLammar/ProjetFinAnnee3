@@ -85,7 +85,7 @@
             <% } %>
           </div>
 
-          <% 
+          <%
             const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
             function getMonday(d) {
               d = new Date(d);
@@ -231,6 +231,7 @@
         html += `<div><span class="font-semibold">Description :</span> ${event.description || ''}</div>`;
         html += `<div><span class="font-semibold">Début :</span> ${new Date(event.start).toLocaleString('fr-FR')}</div>`;
         html += `<div><span class="font-semibold">Fin :</span> ${new Date(event.end).toLocaleString('fr-FR')}</div>`;
+
         // Boutons modifier/supprimer selon droits
         let canDelete = false, canEdit = false;
         if (user && typeof user.perm === 'number') {
@@ -361,24 +362,40 @@
             div.style.top = `${top}px`;
             div.style.height = `${height}px`;
 
+            // Vérifie les droits de suppression et modification
+            let canDelete = false, canEdit = false;
+            if (user && typeof user.perm === 'number') {
+              if (user.perm === 2) canDelete = canEdit = true;
+              else if (user.perm === 1 && evSlide.createdBy === user.username) canDelete = canEdit = true;
+            }
+
             div.innerHTML = `
-              <div class="slides-container">
+              <div class="slides-container relative h-full">
                 <div class="slide">
                   <div class="font-bold">${evSlide.title}</div>
                   <div><span class="font-semibold">Association :</span> ${evSlide.organizer || ''}</div>
                   <div><span class="font-semibold">Lieu :</span> ${evSlide.location || ''}</div>
                   <div><span class="font-semibold">Description :</span> ${evSlide.description || ''}</div>
                   <div><span class="font-semibold">Heure :</span> ${evSlideStart.getHours().toString().padStart(2, '0')}:${evSlideStart.getMinutes().toString().padStart(2, '0')} - ${evSlideEnd.getHours().toString().padStart(2, '0')}:${evSlideEnd.getMinutes().toString().padStart(2, '0')}</div>
+                  <div class="absolute top-1 right-1 flex gap-1 z-20">
+                    ${canEdit ? `<button type="button" class="edit-assoc-ev bg-yellow-400 hover:bg-yellow-500 text-black rounded-full w-5 h-5 flex items-center justify-center text-xs" data-id="${evSlide._id}">&#9998;</button>` : ''}
+                    ${canDelete ? `<button type="button" class="delete-assoc-ev bg-red-600 hover:bg-red-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-id="${evSlide._id}">✕</button>` : ''}
+                  </div>
                 </div>
+                ${group.length > 1 ? `
+                  <button type="button" data-slide-btn="prev" class="absolute left-0 top-1/2 -translate-y-1/2 bg-white bg-opacity-60 hover:bg-opacity-90 rounded-full shadow p-1 z-30 flex items-center justify-center transition">
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke="#5C83BA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                  <button type="button" data-slide-btn="next" class="absolute right-0 top-1/2 -translate-y-1/2 bg-white bg-opacity-60 hover:bg-opacity-90 rounded-full shadow p-1 z-30 flex items-center justify-center transition">
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke="#5C83BA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                  <div class="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs bg-white bg-opacity-60 rounded px-2 py-0.5 z-30 text-[#5C83BA]">${idx+1} / ${group.length}</div>
+                ` : ''}
               </div>
-              ${group.length > 1 ? `
-              <div class="flex justify-between mt-1">
-                <button type="button" class="prev-slide bg-white text-orange-600 rounded px-1 text-xs">&lt;</button>
-                <button type="button" class="next-slide bg-white text-orange-600 rounded px-1 text-xs">&gt;</button>
-              </div>
-              ` : ''}
             `;
             div.onclick = function(e) {
+              // Si on clique sur une flèche, ne pas ouvrir le modal
+              if (e.target.closest('[data-slide-btn]')) return;
               // Ne pas ouvrir la modale si on clique sur un bouton d'action
               if (
                 (e.target.classList && (
@@ -389,11 +406,13 @@
               openViewEventModal(evSlide, "association");
             };
             if (group.length > 1) {
-              div.querySelector('.prev-slide').onclick = () => {
+              div.querySelector('[data-slide-btn="prev"]').onclick = function(ev) {
+                ev.stopPropagation();
                 current = (current - 1 + group.length) % group.length;
                 renderSlide(current);
               };
-              div.querySelector('.next-slide').onclick = () => {
+              div.querySelector('[data-slide-btn="next"]').onclick = function(ev) {
+                ev.stopPropagation();
                 current = (current + 1) % group.length;
                 renderSlide(current);
               };
@@ -753,6 +772,21 @@
         if (e.target && e.target.id === 'cancel-edit-assoc') {
           assocToEdit = null;
           document.getElementById('edit-assoc-modal').style.display = 'none';
+        }
+        if (e.target && e.target.classList.contains('delete-assoc-ev-modal')) {
+          assocToDeleteId = e.target.getAttribute('data-id');
+          document.getElementById('view-event-modal').style.display = 'none';
+          document.getElementById('delete-assoc-modal').style.display = '';
+        }
+        if (e.target && e.target.classList.contains('edit-assoc-ev-modal')) {
+          const id = e.target.getAttribute('data-id');
+          assocToEdit = assocEventsCache.find(ev => ev._id === id);
+          if (assocToEdit) {
+            fillEditAssocModal(assocToEdit);
+            document.getElementById('view-event-modal').style.display = 'none';
+            document.getElementById('edit-assoc-modal').style.display = '';
+            document.getElementById('edit-assoc-error').style.display = 'none';
+          }
         }
       });
 
