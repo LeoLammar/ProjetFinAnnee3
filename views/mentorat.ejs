@@ -53,20 +53,6 @@
       <div id="mentorats-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4"></div>
     </div>
 
-     <!-- Section créneaux (initialement cachée) -->
-      <div id="creneauxPage" class="hidden flex flex-col items-center p-4 gap-4">
-
-
-      <h2 class="text-lg font-semibold">Les disponibilités de Léo :</h2>
-
-      <div id="creneauxContainer" class="flex flex-col gap-4 w-full max-w-xs">
-        <!-- Les créneaux seront ajoutés ici -->
-      </div>
-
-        <button id="btnRetourCreneaux" class="self-start bg-gray-300 text-black font-semibold px-4 py-1 rounded-full hover:bg-gray-400 transition">
-          ← Retour
-        </button>
-    </div>
 
     <!-- Section confirmation (initialement cachée) -->
     <div id="confirmationPage" class="hidden flex flex-col items-center p-4 gap-4">
@@ -109,6 +95,10 @@
           </select>
         </div>
 
+        <div>
+          <label class="block font-semibold mb-1">Date du cours :</label>
+          <input type="date" name="date" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" required>
+        </div>
 
         <div>
           <label class="block font-semibold mb-1">Module :</label>
@@ -176,7 +166,6 @@
       tabEnseignant.classList.replace('text-white', 'text-black');
       contenuEleve.classList.remove('hidden');
       contenuEnseignant.classList.add('hidden');
-      document.getElementById('creneauxPage').classList.add('hidden');
       document.getElementById('confirmationPage').classList.add('hidden');
       coursPage.classList.add('hidden');
       formulairePage.classList.add('hidden');
@@ -189,16 +178,17 @@
       tabEleve.classList.replace('text-white', 'text-black');
       contenuEleve.classList.add('hidden');
       contenuEnseignant.classList.remove('hidden');
-      document.getElementById('creneauxPage').classList.add('hidden');
       document.getElementById('confirmationPage').classList.add('hidden');
       coursPage.classList.add('hidden');
       formulairePage.classList.add('hidden');
     });
 
-    function addMentorat(matiere, titre, intervenant, duree, heure_debut = null, heure_fin = null){
+    function addMentorat(matiere, titre, intervenant, duree, heure_debut = null, heure_fin = null, id = null, date = null){
+      
       const container = document.getElementById('mentorats-container');
       const card = document.createElement('div');
       card.className = "bg-blue-200 rounded-2xl p-4 flex flex-col items-center text-center shadow-md";
+      card.dataset.id = id;
 
       card.innerHTML = `
         <div class="text-3xl mb-2"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
@@ -209,6 +199,7 @@
           <li>Présenté par : ${intervenant}</li>
           <li>Durée : ${duree}</li>
           ${heure_debut && heure_fin ? `<li>Créneau : ${heure_debut} - ${heure_fin}</li>` : ''}
+          <li>Date : ${new Date(date).toLocaleDateString('fr-FR')}</li>
         </ul>
         <button class="bg-white text-sm font-medium border border-gray-400 px-3 py-1 rounded-full hover:bg-gray-100 transition">
           Réserver un créneau
@@ -218,16 +209,14 @@
       const boutonReserver = card.querySelector('button');
 
       boutonReserver.addEventListener('click', () => {
-        mentoratActif = card; // On garde une référence à cette carte mentorat
-        document.getElementById('contenu-eleve').classList.add('hidden');
-        document.getElementById('creneauxPage').classList.remove('hidden');
+        mentoratActif = card;
+        creneauSelectionne = "horaire à définir"; // Tu peux adapter ce texte
 
-        // Réinitialiser les créneaux (exemple basique)
-        //document.getElementById('creneauxContainer').innerHTML = '';
-        //addCreneau('10h', '12h');
-        //addCreneau('15h', '17h');
-        //addCreneau('16h', '18h');
+        document.getElementById('confirmationText').textContent = `Voulez-vous réserver ce mentorat ?`;
+        document.getElementById('contenu-eleve').classList.add('hidden');
+        document.getElementById('confirmationPage').classList.remove('hidden');
       });
+
 
       container.appendChild(card);
     }
@@ -284,16 +273,6 @@
     // Exemple de cours affichés
     //addMentoratEnseignant('Transformation intégral', '2h');
 
-    function addCreneau(heureDebut, heureFin) {
-      const container = document.getElementById('creneauxContainer');
-      const btn = document.createElement('button');
-      btn.className = "bg-blue-300 text-black font-semibold rounded-full w-full py-2 hover:bg-blue-400 transition";
-      btn.textContent = `${heureDebut} - ${heureFin}`;
-      btn.addEventListener('click', () => {
-        afficherConfirmation(`${heureDebut} - ${heureFin}`);
-      });
-      container.appendChild(btn);
-    }
 
     let creneauSelectionne = null;
     let mentoratActif = null;
@@ -301,7 +280,6 @@
     function afficherConfirmation(creneau) {
       creneauSelectionne = creneau;
       document.getElementById('confirmationText').textContent = `Voulez-vous réserver le créneau : ${creneau} ?`;
-      document.getElementById('creneauxPage').classList.add('hidden');
       document.getElementById('confirmationPage').classList.remove('hidden');
     }
 
@@ -309,30 +287,43 @@
     const btnNon = document.getElementById('btnNon');    
 
 
-    btnOui.addEventListener('click', () => {
+    btnOui.addEventListener('click', async () => {
       if (mentoratActif) {
-        mentoratActif.remove();
-        mentoratActif = null; // On réinitialise la variable
+        const coursId = mentoratActif.dataset.id;
+
+        try {
+          const response = await fetch(`/mentorat/reserver/${coursId}`, {
+            method: 'DELETE'
+          });
+
+          const result = await response.json();
+          console.log("Réponse serveur :", result);
+
+          if (result.success) {
+            mentoratActif.remove();
+          } else {
+            alert("Erreur : " + result.error);
+          }
+        } catch (err) {
+          console.error(err);
+          alert("Erreur lors de la suppression du cours.");
+        }
+
+        mentoratActif = null;
       }
 
-      // Revenir à la liste des mentorats
       document.getElementById('confirmationPage').classList.add('hidden');
       document.getElementById('contenu-eleve').classList.remove('hidden');
     });
+
 
 
     btnNon.addEventListener('click', () => {
       // Revenir à la liste des créneaux
       document.getElementById('confirmationPage').classList.add('hidden');
-      document.getElementById('creneauxPage').classList.remove('hidden');
-    });
-
-    const btnRetourCreneaux = document.getElementById('btnRetourCreneaux');
-
-    btnRetourCreneaux.addEventListener('click', () => {
-      document.getElementById('creneauxPage').classList.add('hidden');
       document.getElementById('contenu-eleve').classList.remove('hidden');
     });
+   
 
     document.getElementById('formCours').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -343,7 +334,8 @@
         duree: form.duree.value,
         module: form.module.value,
         message: form.message.value,
-        heure_debut: form.heure_debut.value
+        heure_debut: form.heure_debut.value,
+        date: form.date.value
       };
 
       const res = await fetch('/mentorat/creer', {
@@ -418,7 +410,9 @@
             `${c.enseignant_prenom} ${c.enseignant_nom}`,
             c.duree,
             c.heure_debut,
-            c.heure_fin
+            c.heure_fin,
+            c._id,
+            c.date
           );
         });
       } else {
