@@ -628,7 +628,7 @@ app.post('/modifier', uploadProfilePhoto.single('photo'), async (req, res) => {
         // Supprimer l'ancienne photo si ce n'est pas la photo par défaut
         if (userActuel.photo && userActuel.photo !== '/default.png') {
             try {
-                const oldPhotoPath = path.join(__dirname, 'public', userActuel.photo);
+                const oldPhotoPath = path.join(__dirname, 'public', userActuel.photo.replace(/^\//, ''));
                 if (fs.existsSync(oldPhotoPath)) {
                     fs.unlinkSync(oldPhotoPath);
                 }
@@ -636,16 +636,8 @@ app.post('/modifier', uploadProfilePhoto.single('photo'), async (req, res) => {
                 console.error("Erreur lors de la suppression de l'ancienne photo:", err);
             }
         }
-        
-        // Ajouter un timestamp au nom de fichier pour éviter le cache
-        const timestamp = Date.now();
-        const newFilename = `${timestamp}_${req.file.filename}`;
-        const newPath = path.join(__dirname, 'public', 'uploads', newFilename);
-        
-        // Renommer le fichier avec le timestamp
-        fs.renameSync(req.file.path, newPath);
-        
-        updateFields.photo = `/uploads/${newFilename}`;
+        // Enregistre le chemin de la nouvelle photo (dans public)
+        updateFields.photo = '/' + req.file.filename;
     }
 
     if (Object.keys(updateFields).length === 0) {
@@ -1500,7 +1492,7 @@ app.get('/messagerie', async (req, res) => {
 
 // Route modifiée pour envoyer des messages avec système de notifications (privé et groupe)
 app.post('/messagerie/send', async (req, res) => {
-    const { to, message, groupId } = req.body;
+    const { to, message, conversationId, groupId } = req.body;
     const currentUser = req.session.user;
 
     if (!currentUser || !message || (!to && !groupId)) {
@@ -1549,7 +1541,7 @@ app.post('/messagerie/send', async (req, res) => {
                 }
             );
 
-            // Émettre via WebSocket à tous les membres du groupe connectés
+            // Émettre le message à tous les membres du groupe
             const messageData = {
                 _id: newMessage._id,
                 groupId: group._id,
@@ -1558,16 +1550,18 @@ app.post('/messagerie/send', async (req, res) => {
                 timestamp: newMessage.timestamp
             };
 
+            // Envoyer à tous les membres connectés du groupe
             group.members.forEach(member => {
-                if (member !== currentUser.username) {
-                    const memberSocketId = userSocketMap.get(member);
-                    if (memberSocketId) {
-                        io.to(memberSocketId).emit('newGroupMessage', messageData);
-                    }
+                const memberSocketId = userSocketMap.get(member);
+                if (memberSocketId) {
+                    io.to(memberSocketId).emit('newGroupMessage', messageData);
                 }
             });
 
-            res.json({ success: true, message: messageData });
+            // Confirmer l'envoi à l'expéditeur
+            socket.emit('messageConfirmed', messageData);
+
+            logWebSocketEvent('sendGroupMessage', { from, groupId, messageId: newMessage._id });
 
         } else {
             // Message privé (code existant)
@@ -1606,7 +1600,7 @@ app.post('/messagerie/send', async (req, res) => {
                 read: false
             });
 
-            // Mettre à jour la conversation
+            // Mettre à jour la dernière activité avec compteur
             await conversationsCollection.updateOne(
                 { _id: conv._id },
                 { 
@@ -1619,7 +1613,7 @@ app.post('/messagerie/send', async (req, res) => {
                 }
             );
 
-            // Émettre via WebSocket avec le compteur de non lus
+            // Émettre le message avec le compteur de non lus
             const messageData = {
                 _id: newMessage._id,
                 conversationId: conv._id,
@@ -1639,7 +1633,10 @@ app.post('/messagerie/send', async (req, res) => {
                 });
             }
 
-            // Notifier du changement de conversation
+            // Confirmer l'envoi à l'expéditeur
+            socket.emit('messageConfirmed', messageData);
+
+            // Notifier les participants du changement de conversation
             const conversationData = {
                 conversationId: conv._id,
                 participants: conv.participants,
@@ -1652,8 +1649,9 @@ app.post('/messagerie/send', async (req, res) => {
             if (recipientSocketId) {
                 io.to(recipientSocketId).emit('conversationUpdated', conversationData);
             }
+            socket.emit('conversationUpdated', conversationData);
 
-            res.json({ success: true, message: messageData });
+            logWebSocketEvent('sendMessage', { from, to, messageId: newMessage._id, unreadCount });
         }
 
     } catch (error) {
@@ -2193,7 +2191,7 @@ app.post('/api/association-events', async (req, res) => {
 
 
 app.delete('/api/association-events/:id', async (req, res) => {
-    if (!req.session.user || typeof req.session.user.perm !== 'number') {
+    if (!req.session.user || req.session.user.perm !== 2) {
         return res.status(403).json({ error: "Non autorisé" });
     }
     const { id } = req.params;
