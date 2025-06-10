@@ -101,6 +101,16 @@
         </div>
 
         <div>
+          <label class="block font-semibold mb-1">Heure de début :</label>
+          <select name="heure_debut" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
+            <% for (let h = 7; h <= 20; h++) { %>
+              <option value="<%= h %>:00"><%= h %>h</option>
+            <% } %>
+          </select>
+        </div>
+
+
+        <div>
           <label class="block font-semibold mb-1">Module :</label>
           <select name="module" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
             <option>Maths</option>
@@ -138,11 +148,21 @@
 
   <%- include("partials/footer.ejs") %>
   <script>
+    let mentoratsTous = [];
+
+
+
     document.addEventListener('DOMContentLoaded', () => {
       if (!contenuEleve.classList.contains('hidden')) {
         chargerMentorats();
       }
     });
+    document.querySelectorAll('.filter-checkbox').forEach(cb => {
+      cb.addEventListener('change', () => {
+        afficherMentoratsFiltres();
+      });
+    });
+
 
     const tabEleve = document.getElementById('tab-eleve');
     const tabEnseignant = document.getElementById('tab-enseignant');
@@ -175,7 +195,7 @@
       formulairePage.classList.add('hidden');
     });
 
-    function addMentorat(matiere, titre, intervenant, duree) {
+    function addMentorat(matiere, titre, intervenant, duree, heure_debut = null, heure_fin = null){
       const container = document.getElementById('mentorats-container');
       const card = document.createElement('div');
       card.className = "bg-blue-200 rounded-2xl p-4 flex flex-col items-center text-center shadow-md";
@@ -188,6 +208,7 @@
         <ul class="text-sm mb-5">
           <li>Présenté par : ${intervenant}</li>
           <li>Durée : ${duree}</li>
+          ${heure_debut && heure_fin ? `<li>Créneau : ${heure_debut} - ${heure_fin}</li>` : ''}
         </ul>
         <button class="bg-white text-sm font-medium border border-gray-400 px-3 py-1 rounded-full hover:bg-gray-100 transition">
           Réserver un créneau
@@ -321,7 +342,8 @@
         matiere: form.matiere.value,
         duree: form.duree.value,
         module: form.module.value,
-        message: form.message.value
+        message: form.message.value,
+        heure_debut: form.heure_debut.value
       };
 
       const res = await fetch('/mentorat/creer', {
@@ -379,19 +401,56 @@
     async function chargerMentorats() {
       const res = await fetch('/mentorat/liste');
       const result = await res.json();
+      
+
 
       if (result.success) {
+        mentoratsTous = result.cours; // stocke tous les cours
+        afficherMentoratsFiltres();   // affiche selon les filtres actifs
         const container = document.getElementById('mentorats-container');
         container.innerHTML = '';
 
         result.cours.forEach(c => {
           const intervenant = `${c.enseignant_prenom || ''} ${c.enseignant_nom || ''}`.trim();
-          addMentorat(c.module, c.matiere, intervenant, c.duree);
+          addMentorat(
+            c.module,
+            c.matiere,
+            `${c.enseignant_prenom} ${c.enseignant_nom}`,
+            c.duree,
+            c.heure_debut,
+            c.heure_fin
+          );
         });
       } else {
         alert('Erreur lors du chargement des cours.');
       }
     }
+    function afficherMentoratsFiltres() {
+      const container = document.getElementById('mentorats-container');
+      container.innerHTML = '';
+
+      // Récupère les modules cochés
+      const modulesActifs = Array.from(document.querySelectorAll('.filter-checkbox:checked'))
+        .map(input => input.nextElementSibling.textContent.trim());
+
+      // Filtrer les cours
+      const mentoratsFiltres = modulesActifs.length === 0
+        ? mentoratsTous
+        : mentoratsTous.filter(c => modulesActifs.includes(c.module));
+
+      // Afficher les cours filtrés
+      mentoratsFiltres.forEach(c => {
+        addMentorat(
+          c.module,
+          c.matiere,
+          `${c.enseignant_prenom} ${c.enseignant_nom}`,
+          c.duree,
+          c.heure_debut,
+          c.heure_fin
+        );
+      });
+    }
+
 
   </script>
 
