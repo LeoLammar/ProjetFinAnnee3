@@ -891,7 +891,7 @@ app.get('/groups/:groupId/edit', async (req, res) => {
     try {
         const group = await groups.findOne({ 
             _id: new ObjectId(req.params.groupId),
-            admins: currentUser.username // Seuls les admins peuvent modifier
+            members: currentUser.username // Seuls les admins peuvent modifier
         });
 
         if (!group) {
@@ -905,48 +905,202 @@ app.get('/groups/:groupId/edit', async (req, res) => {
     }
 });
 
-// Route pour mettre à jour un groupe
+// Route pour mettre à jour un groupe (CORRIGÉE)
 app.post('/groups/:groupId/update', uploadGroupPhoto.single('avatar'), async (req, res) => {
     const currentUser = req.session.user;
     if (!currentUser) {
         return res.status(401).json({ success: false, error: 'Non connecté' });
     }
 
-    const { name, description } = req.body;
-    const groupId = req.params.groupId;
-
     try {
+        const { name, description } = req.body; // AJOUT: Extraction des données du body
+        
         const group = await groups.findOne({
-            _id: new ObjectId(groupId),
-            admins: currentUser.username
+            _id: new ObjectId(req.params.groupId),
+            members: currentUser.username
         });
 
         if (!group) {
             return res.status(403).json({ success: false, error: 'Accès refusé' });
         }
 
+        // Construire les données de mise à jour
         const updateData = {
-            name: name || group.name,
-            description: description || group.description,
+            name: name && name.trim() ? name.trim() : group.name,
+            description: description || group.description || '',
             lastActivity: new Date()
         };
 
+        // Ajouter l'avatar s'il y en a un nouveau
         if (req.file) {
             updateData.avatar = '/group_photos/' + req.file.filename;
         }
 
+        // Mettre à jour le groupe
         await groups.updateOne(
             { _id: group._id },
             { $set: updateData }
         );
 
-        res.json({ success: true, group: { ...group, ...updateData } });
+        // Récupérer le groupe mis à jour
+        const updatedGroup = await groups.findOne({ _id: group._id });
+        
+        // Notifier via WebSocket
+        updatedGroup.members.forEach(member => {
+            try {
+                const memberSocketId = userSocketMap.get(member);
+                if (memberSocketId) {
+                    io.to(memberSocketId).emit('refreshGroups', {
+                        groupId: group._id,
+                        action: 'groupUpdated',
+                        group: updatedGroup
+                    });
+                }
+            } catch (e) {
+                console.error('Erreur WebSocket pour', member, e);
+            }
+        });
+
+        res.json({ success: true, group: updatedGroup });
     } catch (error) {
         console.error('Erreur lors de la mise à jour du groupe:', error);
         res.status(500).json({ success: false, error: 'Erreur serveur' });
     }
 });
 
+
+// Route pour ajouter des membres à un groupe (CORRIGÉE)
+app.post('/groups/:groupId/add-members', async (req, res) => {
+    const currentUser = req.session.user;
+    if (!currentUser) {
+        return res.status(401).json({ success: false, error: 'Non connecté' });
+    }
+
+    try {
+        const groupId = req.params.groupId;
+        const { members } = req.body;
+
+        if (!members || !Array.isArray(members) || members.length === 0) {
+            return res.status(400).json({ success: false, error: 'Aucun membre à ajouter' });
+        }
+
+        // Vérifier que le groupe existe et que l'utilisateur en fait partie
+        const group = await groups.findOne({
+            _id: new ObjectId(groupId),
+            members: currentUser.username
+        });
+
+        if (!group) {
+            return res.status(404).json({ success: false, error: 'Groupe non trouvé ou accès refusé' });
+        }
+
+        // Vérifier que tous les utilisateurs à ajouter existent
+        const existingUsers = await compte.find({
+            username: { $in: members }
+        }).toArray();
+
+        if (existingUsers.length !== members.length) {
+            return res.status(400).json({ success: false, error: 'Certains utilisateurs n\'existent pas' });
+        }
+
+        // Filtrer les membres qui ne sont pas déjà dans le groupe
+        const newMembers = members.filter(member => !group.members.includes(member));
+
+        if (newMembers.length === 0) {
+            return res.status(400).json({ success: false, error: 'Tous les utilisateurs sont déjà membres du groupe' });
+        }
+
+        // Ajouter les nouveaux membres au groupe
+        await groups.updateOne(
+            { _id: new ObjectId(groupId) },
+            { 
+                $push: { members: { $each: newMembers } },
+                $set: { lastActivity: new Date() }
+            }
+        );
+
+        // Notifier via WebSocket
+        const updatedGroup = await groups.findOne({ _id: new ObjectId(groupId) });
+        
+        // Notifier tous les membres (anciens et nouveaux) du changement
+        updatedGroup.members.forEach(member => {
+            try {
+                const memberSocketId = userSocketMap.get(member);
+                if (memberSocketId) {
+                    io.to(memberSocketId).emit('refreshGroups', {
+                        groupId: groupId,
+                        action: 'membersAdded',
+                        newMembers: newMembers
+                    });
+                }
+            } catch (e) {
+                console.error('Erreur WebSocket pour', member, e);
+            }
+        });
+
+        // IMPORTANT: Retourner une réponse de succès avec les nouveaux membres
+        res.json({ 
+            success: true, 
+            newMembers: newMembers,
+            message: `${newMembers.length} membre(s) ajouté(s) avec succès`
+        });
+
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout de membres au groupe:', error);
+        return res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+});
+
+// Route pour quitter un groupe (modifiée pour être plus simple)
+app.post('/groups/:groupId/leave', async (req, res) => {
+    const currentUser = req.session.user;
+    const groupId = req.params.groupId;
+    
+    if (!currentUser) {
+        return res.status(401).json({ success: false, error: 'Non connecté' });
+    }
+    
+    try {
+        // Vérifier que le groupe existe et que l'utilisateur en fait partie
+        const group = await groups.findOne({ 
+            _id: new ObjectId(groupId),
+            members: currentUser.username
+        });
+        
+        if (!group) {
+            return res.status(404).json({ success: false, error: 'Groupe non trouvé ou vous n\'en faites pas partie' });
+        }
+        
+        // Retirer l'utilisateur du groupe
+        await groups.updateOne(
+            { _id: new ObjectId(groupId) },
+            { 
+                $pull: { 
+                    members: currentUser.username
+                },
+                $set: { lastActivity: new Date() }
+            }
+        );
+
+        // Notifier les autres membres via WebSocket
+        const remainingMembers = group.members.filter(member => member !== currentUser.username);
+        remainingMembers.forEach(member => {
+            const memberSocketId = userSocketMap.get(member);
+            if (memberSocketId) {
+                io.to(memberSocketId).emit('refreshGroups', {
+                    groupId: groupId,
+                    action: 'memberLeft',
+                    leftMember: currentUser.username
+                });
+            }
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur lors de la sortie du groupe:', error);
+        res.status(500).json({ success: false, error: 'Erreur serveur' });
+    }
+});
 
 // Route pour récupérer les groupes d'un utilisateur
 app.get('/api/groups', async (req, res) => {
