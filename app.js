@@ -494,7 +494,7 @@ app.post('/mentorat/creer', async (req, res) => {
         return res.status(401).json({ success: false, error: 'Utilisateur non connecté' });
     }
 
-    const { matiere, duree, module, message } = req.body;
+    const { matiere, duree, module, message, heure_debut } = req.body;
 
     if (!matiere || !duree || !module) {
         return res.status(400).json({ success: false, error: 'Champs manquants' });
@@ -511,6 +511,18 @@ app.post('/mentorat/creer', async (req, res) => {
             enseignant_prenom: req.session.user.prenom,
             date_creation: new Date()
         };
+
+        let heure_fin = null;
+        if (heure_debut && duree) {
+            const [startHour, startMin] = heure_debut.split(':').map(Number);
+            const [dureeHour, dureeMin] = duree.split(':').map(Number);
+            const end = new Date(0, 0, 0, startHour + dureeHour, startMin + dureeMin);
+            heure_fin = end.getHours().toString().padStart(2, '0') + ':' + end.getMinutes().toString().padStart(2, '0');
+        }
+
+        cours.heure_debut = heure_debut;
+        cours.heure_fin = heure_fin;
+
 
         await mentorat.insertOne(cours);
 
