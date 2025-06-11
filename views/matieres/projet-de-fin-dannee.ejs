@@ -3,12 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <%- include('../partials/header.ejs') %>
-  <%- include('../partials/head.ejs') %>
-  <br>
-  <br>
-  <br>
-  <br>
   <title>Projet de Fin d'Année</title>
   <link href="/stylesheets/style.css" rel="stylesheet">
   <style>
@@ -149,10 +143,28 @@
         font-size: 1.1rem;
       }
     }
+    /* Ajout pour rendre le quiz scrollable */
+    .quiz-scroll-container {
+      max-height: 60vh;
+      overflow-y: auto;
+      padding-right: 8px;
+      margin-bottom: 1em;
+    }
+    .quiz-scroll-container::-webkit-scrollbar {
+      width: 8px;
+      background: #f1f5f9;
+    }
+    .quiz-scroll-container::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+  <%- include('../partials/header.ejs') %>
+  <%- include('../partials/head.ejs') %>
   <main class="p-2 sm:p-4 md:p-8 max-w-4xl mx-auto">
+    <div class="mt-16 sm:mt-24"></div>
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
       <h1 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-4 text-center sm:text-left">Projet de Fin d'Année</h1>
       <button onclick="openModal()" class="w-full sm:w-auto bg-[#5C83BA] text-white px-4 py-2 rounded hover:bg-[#466a99] transition">
@@ -160,7 +172,6 @@
       </button>
     </div>
     <p class="text-base sm:text-lg text-center sm:text-left">Bienvenue sur la page de projet de fin d'année.</p>
-    <br>
     
     <section class="mb-6">
       <button type="button" onclick="toggleContent('cours-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
@@ -169,20 +180,27 @@
       <div id="cours-content" class="hidden mt-2">
         <% if (cours && cours.length > 0) { %>
           <ul style="margin-left: 1.5rem;">
-            <% cours.forEach(function(file, idx) { %>
+            <% cours.forEach(function(file, idx) { 
+              var fileId = file.link && file.link.split('/').pop();
+              var safeName = (file.name || '').replace(/'/g, "\'").replace(/"/g, '&quot;');
+            %>
               <li style="margin-bottom: 1rem;">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'cours-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
+                  <a href="javascript:void(0)" onclick="togglePdfMulti('<%= fileId %>', 'cours-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1">
                     <%= file.name %>
                   </a>
-                  <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;" title="Télécharger">
-                    <!-- Icône SVG de téléchargement -->
+                  <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" title="Télécharger">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
                       <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
                     </svg>
                   </a>
+                  <button type="button" class="inline-block px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition mb-1"
+                    onclick="openQuizModal('<%= fileId %>', '<%= safeName %>')"
+                    title="Quiz IA">
+                    Quiz IA
+                  </button>
                 </div>
-                <div id="cours-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none; margin-left: 0.5rem;">
+                <div id="cours-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none;">
                   <iframe src="" class="pdf-frame" allowfullscreen></iframe>
                 </div>
               </li>
@@ -357,6 +375,19 @@
       </form>
     </div>
   </div>
+  <!-- Modal Quiz IA -->
+  <div id="quizModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
+    <div class="bg-white custom-modal p-3 sm:p-6 shadow-lg w-full max-w-lg relative" style="margin-top: 6rem;">
+      <button type="button" class="close-btn" onclick="closeQuizModal()" title="Fermer">&times;</button>
+      <h2 class="text-lg sm:text-xl font-bold mb-4" id="quizModalTitle">Quiz IA</h2>
+      <div id="quizLoading" class="text-center text-blue-600 font-semibold" style="display:none;">Génération du quiz en cours...</div>
+      <div id="quizError" class="text-center text-red-600 font-semibold" style="display:none;"></div>
+      <div id="quizContent" class="quiz-scroll-container"></div>
+      <div class="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+        <button type="button" onclick="closeQuizModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 w-full sm:w-auto">Fermer</button>
+      </div>
+    </div>
+  </div>
   <%- include("../partials/footer.ejs") %>
   <script>
     function openModal() {
@@ -400,6 +431,45 @@
         viewer.style.display = 'block';
       }
     }
+    // Quiz IA Front
+    function openQuizModal(fileId, fileName) {
+      document.getElementById('quizModal').style.display = 'flex';
+      document.getElementById('quizModalTitle').textContent = 'Quiz IA : ' + fileName;
+      document.getElementById('quizLoading').style.display = '';
+      document.getElementById('quizError').style.display = 'none';
+      document.getElementById('quizContent').innerHTML = '';
+      fetchQuizIA(fileId);
+    }
+    function closeQuizModal() {
+      document.getElementById('quizModal').style.display = 'none';
+    }
+    async function fetchQuizIA(fileId) {
+      try {
+        const res = await fetch('/api/quiz-from-doc/' + fileId, { method: 'GET' });
+        document.getElementById('quizLoading').style.display = 'none';
+        if (!res.ok) {
+          let err = { error: 'Erreur lors de la génération du quiz.' };
+          try { err = await res.json(); } catch {}
+          document.getElementById('quizError').style.display = '';
+          document.getElementById('quizError').textContent = err.error || 'Erreur lors de la génération du quiz.';
+          return;
+        }
+        const data = await res.json();
+        if (!data.quiz || !Array.isArray(data.quiz) || data.quiz.length === 0) {
+          document.getElementById('quizError').style.display = '';
+          document.getElementById('quizError').textContent = 'Aucun quiz généré.';
+          return;
+        }
+        renderQuiz(data.quiz);
+      } catch (e) {
+        document.getElementById('quizLoading').style.display = 'none';
+        document.getElementById('quizError').style.display = '';
+        document.getElementById('quizError').textContent = 'Erreur réseau ou serveur.';
+      }
+    }
+    // À copier/coller dans chaque page matière pour le quiz IA (fonctionne partout) :
+
+    
   </script>
   <script src="/socket.io/socket.io.js"></script>
   <script>

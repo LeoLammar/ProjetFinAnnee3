@@ -2,15 +2,9 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <%- include('../partials/header.ejs') %>
-  <%- include('../partials/head.ejs') %>
-  <br>
-  <br>
-  <br>
-  <br>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
   <title>Transformations d'Intégrales</title>
-  <link href="/stylesheets/style.css" rel="stylesheet">
+  <link href="/stylesheets/style.css" rel="stylesheet" type="text/css">
   <style>
     .hidden { display: none; }
     #uploadModal {
@@ -27,6 +21,8 @@
       position: relative;
       padding-top: 2.5rem;
       width: 100%;
+      max-width: 100vw;
+      box-sizing: border-box;
     }
     .close-btn {
       position: absolute;
@@ -114,29 +110,95 @@
       min-height: 350px;
       max-height: 80vh;
       margin-bottom: 1rem;
+      padding: 0;
+      background: #fff;
+      box-sizing: border-box;
+      overflow: hidden;
     }
     .pdf-frame {
       width: 100%;
       height: 100%;
       border: none;
       display: block;
+      background: #fff;
+    }
+    @media (max-width: 1200px) {
+      .pdf-viewer-container {
+        height: 48vh;
+        min-height: 220px;
+        max-height: 60vh;
+      }
+      .custom-modal {
+        max-width: 90vw;
+      }
     }
     @media (max-width: 900px) {
       .pdf-viewer-container {
         height: 45vh;
-        min-height: 220px;
+        min-height: 180px;
+        max-height: 55vh;
+      }
+      .custom-modal {
+        max-width: 96vw;
       }
     }
     @media (max-width: 600px) {
       .pdf-viewer-container {
-        height: 32vh;
-        min-height: 140px;
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 40vh !important;
+        min-height: 120px !important;
+        max-height: 50vh !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+      }
+      .pdf-frame {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        min-height: 100% !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff;
+      }
+      .custom-modal {
+        max-width: 99vw !important;
+        left: 0.5vw !important;
+        right: 0.5vw !important;
+        padding: 0.5rem !important;
+        font-size: 0.97rem;
+      }
+      .quiz-scroll-container {
+        max-height: 40vh;
+      }
+      .flex.flex-col.sm\:flex-row {
+        flex-direction: column !important;
+      }
+      .max-w-4xl {
+        max-width: 98vw !important;
+      }
+      .p-2, .sm\:p-4, .md\:p-8 {
+        padding: 0.5rem !important;
       }
     }
     @media (max-width: 400px) {
       .pdf-viewer-container {
         height: 22vh;
-        min-height: 90px;
+        min-height: 80px;
+        max-height: 28vh;
+      }
+      .custom-modal {
+        font-size: 0.93rem;
+      }
+      .quiz-scroll-container {
+        max-height: 24vh;
       }
     }
     @media (max-width: 640px) {
@@ -156,7 +218,6 @@
       padding-right: 8px;
       margin-bottom: 1em;
     }
-    /* Optionnel : barre de scroll plus discrète */
     .quiz-scroll-container::-webkit-scrollbar {
       width: 8px;
       background: #f1f5f9;
@@ -168,7 +229,10 @@
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+  <%- include('../partials/header.ejs') %>
+  <%- include('../partials/head.ejs') %>
   <main class="p-2 sm:p-4 md:p-8 max-w-4xl mx-auto">
+    <div class="mt-16 sm:mt-24"></div>
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
       <h1 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-4 text-center sm:text-left">Transformations d'Intégrales</h1>
       <button onclick="openModal()" class="w-full sm:w-auto bg-[#5C83BA] text-white px-4 py-2 rounded hover:bg-[#466a99] transition">
@@ -176,7 +240,6 @@
       </button>
     </div>
     <p class="text-base sm:text-lg text-center sm:text-left">Bienvenue sur la page de transformations d'intégrales.</p>
-    <br>
     
     <section class="mb-6">
       <button type="button" onclick="toggleContent('cours-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
@@ -187,7 +250,7 @@
           <ul style="margin-left: 1.5rem;">
             <% cours.forEach(function(file, idx) { 
               var fileId = file.link && file.link.split('/').pop();
-              var safeName = (file.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+              var safeName = (file.name || '').replace(/'/g, "\'").replace(/"/g, '&quot;');
             %>
               <li style="margin-bottom: 1rem;">
                 <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
@@ -195,7 +258,6 @@
                     <%= file.name %>
                   </a>
                   <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" title="Télécharger">
-                    <!-- Icône SVG de téléchargement -->
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
                       <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
                     </svg>
@@ -208,6 +270,9 @@
                 </div>
                 <div id="cours-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none;">
                   <iframe src="" class="pdf-frame" allowfullscreen></iframe>
+                  <noscript>
+                    <a href="<%= file.link.replace('/download/', '/view/') %>" target="_blank" style="color:#5C83BA;">Ouvrir le PDF dans un nouvel onglet</a>
+                  </noscript>
                 </div>
               </li>
             <% }); %>
@@ -239,6 +304,9 @@
                 </div>
                 <div id="tds-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none; margin-left: 0.5rem;">
                   <iframe src="" class="pdf-frame" allowfullscreen></iframe>
+                  <noscript>
+                    <a href="<%= file.link.replace('/download/', '/view/') %>" target="_blank" style="color:#5C83BA;">Ouvrir le PDF dans un nouvel onglet</a>
+                  </noscript>
                 </div>
               </li>
             <% }); %>
@@ -270,6 +338,9 @@
                 </div>
                 <div id="tps-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none; margin-left: 0.5rem;">
                   <iframe src="" class="pdf-frame" allowfullscreen></iframe>
+                  <noscript>
+                    <a href="<%= file.link.replace('/download/', '/view/') %>" target="_blank" style="color:#5C83BA;">Ouvrir le PDF dans un nouvel onglet</a>
+                  </noscript>
                 </div>
               </li>
             <% }); %>
@@ -301,6 +372,9 @@
                 </div>
                 <div id="annales-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none; margin-left: 0.5rem;">
                   <iframe src="" class="pdf-frame" allowfullscreen></iframe>
+                  <noscript>
+                    <a href="<%= file.link.replace('/download/', '/view/') %>" target="_blank" style="color:#5C83BA;">Ouvrir le PDF dans un nouvel onglet</a>
+                  </noscript>
                 </div>
               </li>
             <% }); %>
@@ -445,7 +519,7 @@
   </div>
   <!-- Modal Quiz IA -->
   <div id="quizModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
-    <div class="bg-white custom-modal p-3 sm:p-6 shadow-lg w-full max-w-lg relative">
+    <div class="bg-white custom-modal p-3 sm:p-6 shadow-lg w-full max-w-lg relative" style="margin-top: 6rem;">
       <button type="button" class="close-btn" onclick="closeQuizModal()" title="Fermer">&times;</button>
       <h2 class="text-lg sm:text-xl font-bold mb-4" id="quizModalTitle">Quiz IA</h2>
       <div id="quizLoading" class="text-center text-blue-600 font-semibold" style="display:none;">Génération du quiz en cours...</div>
@@ -513,7 +587,6 @@
     }
     async function fetchQuizIA(fileId) {
       try {
-        // Passe de POST à GET
         const res = await fetch('/api/quiz-from-doc/' + fileId, { method: 'GET' });
         document.getElementById('quizLoading').style.display = 'none';
         if (!res.ok) {
@@ -569,6 +642,7 @@
       };
       container.appendChild(btn);
     }
+    
   </script>
   <script src="/socket.io/socket.io.js"></script>
   <script>
