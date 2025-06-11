@@ -8,7 +8,6 @@
   <%- include('partials/head.ejs') %>
   <%- include('partials/header.ejs') %>
 
-  <!-- Modale d'affichage d'un événement (cours ou association) -->
   <div id="view-event-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
     <div class="bg-white rounded shadow-lg p-6 max-w-sm w-full relative">
       <button type="button" id="close-view-event" class="absolute top-2 right-2 text-gray-400 hover:text-black text-2xl leading-none">&times;</button>
@@ -25,7 +24,6 @@
 
     <h1 class="text-[#5C83BA] font-bold text-3xl mb-4 text-center">EMPLOI DU TEMPS</h1>
 
-    <!-- Bloc mot de passe Aurion, visible uniquement dans l'onglet Cours -->
     <div id="cours-login-block" style="display:block;">
       <% if (!planning || planning.length === 0 || error) { %>
         <% if (error) { %>
@@ -56,6 +54,27 @@
             <input type="hidden" name="password_mauria" value="<%= typeof password_mauria !== 'undefined' ? password_mauria : '' %>">
             <input type="hidden" name="start" value="<%= (() => { const d = new Date(start); d.setDate(d.getDate() + 7); return d.toISOString().slice(0,10); })() %>">
             <button type="submit" class="text-2xl px-2" title="Semaine suivante" style="color:#5C83BA;">&#8594;</button>
+          </form>
+        </div>
+
+        <div class="mb-6 bg-blue-50 p-3 rounded shadow max-w-2xl w-full flex flex-col items-center">
+          <div class="w-full mb-2 text-[#5C83BA] font-semibold text-center">
+            Veuillez remplir ce formulaire pour obtenir votre planning sur une période voulue.
+          </div>
+          <form id="custom-period-form" class="flex flex-col md:flex-row flex-wrap gap-2 items-end w-full justify-center">
+            <label class="flex flex-col text-sm font-medium text-gray-700">
+              Début :
+              <input type="date" id="custom-start" class="border rounded px-2 py-1 mt-1" required>
+            </label>
+            <label class="flex flex-col text-sm font-medium text-gray-700">
+              Fin :
+              <input type="date" id="custom-end" class="border rounded px-2 py-1 mt-1" required>
+            </label>
+            <label class="flex flex-col text-sm font-medium text-gray-700">
+              Mot de passe Aurion :
+              <input type="password" id="custom-password" placeholder="Mot de passe Aurion" class="border rounded px-2 py-1 mt-1" required>
+            </label>
+            <button type="submit" class="bg-[#5C83BA] text-white px-4 py-1 rounded h-10 mt-4 md:mt-0">Afficher le planning sur la période</button>
           </form>
         </div>
 
@@ -110,7 +129,6 @@
       <% } %>
     </div>
 
-    <!-- ASSOCIATIONS -->
     <div id="associations-content" style="display:none; width:100%;">
       <div class="flex items-center justify-center mb-4 gap-4" id="associations-nav">
         <button id="associations-prev" class="text-2xl px-2" style="color:#5C83BA;">&#8592;</button>
@@ -156,10 +174,26 @@
         <% } %>
       </div>
     </div>
-    <!-- FIN ASSOCIATIONS -->
+
+    <div id="custom-period-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-start justify-center z-50" style="display:none;">
+      <div class="bg-white rounded shadow-lg p-6 max-w-5xl w-full relative overflow-auto mt-24" style="max-height:80vh;">
+        <button type="button" id="close-custom-period" class="absolute top-2 right-2 text-gray-400 hover:text-black text-2xl leading-none">&times;</button>
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="font-bold text-2xl text-[#5C83BA]">Emploi du temps personnalisé</h2>
+          <button id="print-custom-period" class="bg-[#5C83BA] text-white px-4 py-1 rounded">Imprimer</button>
+        </div>
+        <div id="custom-period-loading" class="flex items-center justify-center text-[#5C83BA] font-semibold" style="display:none;">
+          <svg class="animate-spin mr-2 h-5 w-5 text-[#5C83BA]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+          </svg>
+          Chargement du planning...
+        </div>
+        <div id="custom-period-content"></div>
+      </div>
+    </div>
   </main>
 
-  <!-- MODALE DE CONFIRMATION SUPPRESSION ASSOCIATION -->
   <div id="delete-assoc-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
     <div class="bg-white rounded shadow-lg p-6 max-w-sm w-full">
       <div class="font-bold mb-2 text-lg text-[#5C83BA]">Supprimer l'événement ?</div>
@@ -171,7 +205,6 @@
     </div>
   </div>
 
-  <!-- MODALE DE MODIFICATION ASSOCIATION -->
   <div id="edit-assoc-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
     <form id="edit-assoc-form" class="bg-white rounded shadow-lg p-6 max-w-sm w-full">
       <div class="font-bold mb-2 text-lg text-[#5C83BA]">Modifier l'événement</div>
@@ -210,7 +243,6 @@
     const planning = <%- JSON.stringify(planning || []) %>;
     const user = <%- JSON.stringify(user || null) %>;
 
-    // Ouvre la modale d'affichage d'un événement
     function openViewEventModal(event, type, index = null) {
       const contentDiv = document.getElementById('view-event-content');
       const actionsDiv = document.getElementById('view-event-actions');
@@ -220,7 +252,6 @@
         html += `<div class="font-bold text-lg mb-2">${event.title}</div>`;
         html += `<div><span class="font-semibold">Début :</span> ${new Date(event.start).toLocaleString('fr-FR')}</div>`;
         html += `<div><span class="font-semibold">Fin :</span> ${new Date(event.end).toLocaleString('fr-FR')}</div>`;
-        // Bouton supprimer pour cours perso
         if (index !== null) {
           actionsDiv.innerHTML += `<button type="button" class="delete-personal-course-modal bg-red-600 hover:bg-red-700 text-white rounded px-3 py-1" data-index="${index}">Supprimer</button>`;
         }
@@ -232,7 +263,6 @@
         html += `<div><span class="font-semibold">Début :</span> ${new Date(event.start).toLocaleString('fr-FR')}</div>`;
         html += `<div><span class="font-semibold">Fin :</span> ${new Date(event.end).toLocaleString('fr-FR')}</div>`;
 
-        // Boutons modifier/supprimer selon droits
         let canDelete = false, canEdit = false;
         if (user && typeof user.perm === 'number') {
           if (user.perm === 2) canDelete = canEdit = true;
@@ -249,14 +279,11 @@
       document.getElementById('view-event-modal').style.display = '';
     }
 
-    // Ferme la modale d'affichage
     document.getElementById('close-view-event').onclick = function() {
       document.getElementById('view-event-modal').style.display = 'none';
     };
 
-    // Gestion des boutons dans la modale
     document.getElementById('view-event-actions').onclick = function(e) {
-      // Supprimer cours perso
       if (e.target && e.target.classList.contains('delete-personal-course-modal')) {
         const idx = parseInt(e.target.getAttribute('data-index'), 10);
         if (!isNaN(idx)) {
@@ -266,13 +293,11 @@
           document.getElementById('view-event-modal').style.display = 'none';
         }
       }
-      // Supprimer association
       if (e.target && e.target.classList.contains('delete-assoc-ev-modal')) {
         assocToDeleteId = e.target.getAttribute('data-id');
         document.getElementById('view-event-modal').style.display = 'none';
         document.getElementById('delete-assoc-modal').style.display = '';
       }
-      // Modifier association
       if (e.target && e.target.classList.contains('edit-assoc-ev-modal')) {
         const id = e.target.getAttribute('data-id');
         assocToEdit = assocEventsCache.find(ev => ev._id === id);
@@ -285,7 +310,6 @@
       }
     };
 
-    // --- ASSOCIATIONS : gestion de la semaine affichée ---
     function getMonday(d) {
       d = new Date(d);
       var day = d.getDay();
@@ -307,7 +331,6 @@
       loadAssociationEvents(start.toISOString(), end.toISOString());
     }
 
-    // Carrousel pour événements qui se chevauchent
     function renderAssociationEvents(events) {
       assocEventsCache = events;
       let eventsByDay = [[],[],[],[],[],[]];
@@ -331,7 +354,6 @@
           const evStart = new Date(ev.start).getTime();
           const evEnd = new Date(ev.end).getTime();
 
-          // Trouve tous les événements qui se chevauchent avec celui-ci
           let group = [j];
           for (let k = 0; k < dayEvents.length; k++) {
             if (k === j) continue;
@@ -343,10 +365,8 @@
               group.push(k);
             }
           }
-          // Marque tous comme utilisés
           group.forEach(idx => used.add(idx));
 
-          // Affiche UN SEUL bloc pour le groupe, qui change de place/taille au slide
           let current = 0;
           const div = document.createElement('div');
           div.className = "absolute left-1 right-1 bg-orange-600 text-white text-xs rounded p-1 shadow border border-white overflow-hidden";
@@ -362,7 +382,6 @@
             div.style.top = `${top}px`;
             div.style.height = `${height}px`;
 
-            // Vérifie les droits de suppression et modification
             let canDelete = false, canEdit = false;
             if (user && typeof user.perm === 'number') {
               if (user.perm === 2) canDelete = canEdit = true;
@@ -394,9 +413,7 @@
               </div>
             `;
             div.onclick = function(e) {
-              // Si on clique sur une flèche, ne pas ouvrir le modal
               if (e.target.closest('[data-slide-btn]')) return;
-              // Ne pas ouvrir la modale si on clique sur un bouton d'action
               if (
                 (e.target.classList && (
                   e.target.classList.contains('delete-assoc-ev') ||
@@ -478,9 +495,7 @@
         courseDiv.style.position = "absolute";
       }
       courseDiv.innerHTML = html;
-      // Ajoute le clic pour ouvrir la modale
       courseDiv.onclick = function(e) {
-        // Ne pas ouvrir la modale si on clique sur le bouton supprimer
         if (e.target.classList.contains('delete-personal-course')) return;
         openViewEventModal(event, color === "bg-black" ? "cours" : "cours", index);
       };
@@ -513,7 +528,6 @@
       const associationsContent = document.getElementById('associations-content');
       const coursLoginBlock = document.getElementById('cours-login-block');
 
-      // Navigation semaine Associations
       document.getElementById('associations-prev').onclick = function() {
         associationMonday.setDate(associationMonday.getDate() - 7);
         updateAssociationsWeek();
@@ -523,7 +537,6 @@
         updateAssociationsWeek();
       };
 
-      // Affichage initial de la semaine Associations
       updateAssociationsWeek();
 
       tabCours.addEventListener('click', () => {
@@ -546,7 +559,6 @@
         updateAssociationsWeek();
       });
 
-      // Affichage des cours Aurion et persos seulement si planning chargé
       if (planning && planning.length > 0) {
         planning.forEach(event => {
           addCourseToGrid(event, "bg-[#5C83BA]");
@@ -554,7 +566,6 @@
         renderPersonalCourses();
       }
 
-      // Ajout d'un cours perso
       document.getElementById('add-personal-course-form')?.addEventListener('submit', function(e) {
         e.preventDefault();
         showInternalError("");
@@ -642,7 +653,6 @@
         }
       });
 
-      // Ajout d'un événement d'association (dans la semaine affichée)
       const addForm = document.getElementById('add-association-event-form');
       if (addForm) {
         addForm.addEventListener('submit', async function(e) {
@@ -662,7 +672,6 @@
           const [startHourVal, startMin] = start.split(':').map(Number);
           const [endHourVal, endMin] = end.split(':').map(Number);
 
-          // Empêcher avant 8h ou après 4h du matin
           const startTotal = startHourVal + startMin / 60;
           const endTotal = endHourVal + endMin / 60;
           if (startTotal < 8 || startTotal > 28 || endTotal < 8 || endTotal > 28) {
@@ -673,7 +682,6 @@
             showAssociationError("L'heure de fin doit être après l'heure de début.");
             return;
           }
-          // Calcule la date du jour choisi dans la semaine affichée
           let monday = getMonday(associationMonday);
           let dayDate = new Date(monday);
           dayDate.setDate(monday.getDate() + day);
@@ -682,7 +690,6 @@
           const endDate = new Date(dayDate);
           endDate.setHours(endHourVal, endMin, 0, 0);
 
-          // Envoi à l'API
           const res = await fetch('/api/association-events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -700,13 +707,11 @@
             showAssociationError(data.error || "Erreur lors de l'ajout.");
             return;
           }
-          // Recharge les événements de la semaine affichée
           updateAssociationsWeek();
           this.reset();
         });
       }
 
-      // Suppression et modification d'un événement d'association avec modales
       let assocToDeleteId = null;
       let assocToEdit = null;
 
@@ -724,17 +729,14 @@
       }
 
       document.addEventListener('click', function(e) {
-        // Ouvre la modale de suppression
         if (e.target && e.target.classList.contains('delete-assoc-ev')) {
           assocToDeleteId = e.target.getAttribute('data-id');
           document.getElementById('delete-assoc-modal').style.display = '';
         }
-        // Annule la suppression
         if (e.target && e.target.id === 'cancel-delete-assoc') {
           assocToDeleteId = null;
           document.getElementById('delete-assoc-modal').style.display = 'none';
         }
-        // Confirme la suppression
         if (e.target && e.target.id === 'confirm-delete-assoc') {
           if (!assocToDeleteId) return;
           fetch('/api/association-events/' + assocToDeleteId, {
@@ -758,7 +760,6 @@
           });
         }
 
-        // Ouvre la modale d'édition
         if (e.target && e.target.classList.contains('edit-assoc-ev')) {
           const id = e.target.getAttribute('data-id');
           assocToEdit = assocEventsCache.find(ev => ev._id === id);
@@ -768,7 +769,6 @@
             document.getElementById('edit-assoc-error').style.display = 'none';
           }
         }
-        // Annule l'édition
         if (e.target && e.target.id === 'cancel-edit-assoc') {
           assocToEdit = null;
           document.getElementById('edit-assoc-modal').style.display = 'none';
@@ -821,7 +821,6 @@
         const endDate = new Date(dayDate);
         endDate.setHours(endHourVal, endMin, 0, 0);
 
-        // Envoi à l'API
         const res = await fetch('/api/association-events/' + assocToEdit._id, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -844,6 +843,67 @@
         document.getElementById('edit-assoc-modal').style.display = 'none';
         updateAssociationsWeek();
       });
+
+      document.getElementById('custom-period-form')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const start = document.getElementById('custom-start').value;
+        const end = document.getElementById('custom-end').value;
+        const password = document.getElementById('custom-password').value;
+        if (!start || !end || start > end || !password) {
+          alert("Veuillez choisir une période valide et saisir votre mot de passe Aurion.");
+          return;
+        }
+        document.getElementById('custom-period-content').innerHTML = '';
+        document.getElementById('custom-period-modal').style.display = '';
+        document.getElementById('custom-period-loading').style.display = '';
+        try {
+          const res = await fetch('/api/custom-planning', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ start, end, password_mauria: password })
+          });
+          const data = await res.json();
+          document.getElementById('custom-period-loading').style.display = 'none';
+          if (!data.success) {
+            document.getElementById('custom-period-content').innerHTML = `<div class="text-red-600 font-semibold">${data.error || "Erreur lors de la récupération de l'emploi du temps."}</div>`;
+            return;
+          }
+          let html = `<div class="mb-2 font-semibold">Période du ${new Date(start).toLocaleDateString('fr-FR')} au ${new Date(end).toLocaleDateString('fr-FR')}</div>`;
+          html += `<div class="overflow-x-auto"><table class="min-w-full border"><thead><tr>
+            <th class="border px-2 py-1">Titre</th>
+            <th class="border px-2 py-1">Début</th>
+            <th class="border px-2 py-1">Fin</th>
+            <th class="border px-2 py-1">Lieu</th>
+          </tr></thead><tbody>`;
+          data.planning.forEach(ev => {
+            let salle = '';
+            let titre = ev.title || '';
+            const salleMatch = titre.match(/^((?:IC\d?|ALG|NS|Amphi|Salle)[ _-]?[A-Z]?\d{1,4}(?:[ _-][A-Z0-9]+)*(?:\s*-\s*\d{3})?)/i);
+            if (salleMatch) {
+              salle = salleMatch[1].trim();
+              titre = titre.replace(salleMatch[0], '').replace(/^(\s*-\s*|\s+)/, '');
+            }
+            if (ev.location && ev.location.trim() !== '') salle = ev.location;
+            html += `<tr>
+              <td class="border px-2 py-1">${titre}</td>
+              <td class="border px-2 py-1">${new Date(ev.start).toLocaleString('fr-FR')}</td>
+              <td class="border px-2 py-1">${new Date(ev.end).toLocaleString('fr-FR')}</td>
+              <td class="border px-2 py-1">${salle}</td>
+            </tr>`;
+          });
+          html += `</tbody></table></div>`;
+          document.getElementById('custom-period-content').innerHTML = html;
+        } catch (err) {
+          document.getElementById('custom-period-loading').style.display = 'none';
+          document.getElementById('custom-period-content').innerHTML = `<div class="text-red-600 font-semibold">Erreur lors de la récupération de l'emploi du temps.</div>`;
+        }
+      });
+
+      document.getElementById('close-custom-period').onclick = function() {
+        document.getElementById('custom-period-modal').style.display = 'none';
+        document.getElementById('custom-period-content').innerHTML = '';
+        document.getElementById('custom-period-loading').style.display = 'none';
+      };
     });
   </script>
 

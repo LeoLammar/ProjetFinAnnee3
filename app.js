@@ -2297,3 +2297,23 @@ app.put('/api/association-events/:id', async (req, res) => {
     }
     return res.status(403).json({ error: "Non autorisé à modifier cet événement" });
 });
+app.post('/api/custom-planning', async (req, res) => {
+  if (!req.session.user) return res.json({ success: false, error: "Non connecté" });
+  const { start, end, password_mauria } = req.body;
+  if (!start || !end || !password_mauria) return res.json({ success: false, error: "Période ou mot de passe manquant" });
+  try {
+    const response = await axios.post(
+      `https://mauriaapi.fly.dev/exactPlanning?start=${start}&end=${end}`,
+      {
+        username: req.session.user.email,
+        password: password_mauria
+      },
+      {
+        headers: { 'accept': '/', 'Content-Type': 'application/json' }
+      }
+    );
+    res.json({ success: true, planning: response.data });
+  } catch (err) {
+    res.json({ success: false, error: "Erreur d'accès à Aurion ou mot de passe incorrect." });
+  }
+});
