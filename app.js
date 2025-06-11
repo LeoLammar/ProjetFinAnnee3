@@ -2,13 +2,15 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const fs = require('fs');
+const { GoogleGenerativeAI, Part } = require("@google/generative-ai");
+const { file } = require("buffer");
+require('dotenv').config();
 const multer = require('multer');
 const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const crypto = require('crypto');
-require('dotenv').config();
 const axios = require('axios');
 
 // Connexion à MongoDB
@@ -2213,6 +2215,208 @@ socket.on('groupUpdated', (data) => {
 
 // Exposer io globalement
 global.io = io;
+
+const pdfParse = require('pdf-parse');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Route pour générer un quiz à partir d'un document PDF (par ID)
+// Passe de POST à GET pour l'appel AJAX
+console.log("Clé GoogleAI chargée : ", process.env.GEMINI_API_KEY);
+app.get('/api/quiz-from-doc/:id', async (req, res) => {
+    const docId = req.params.id;
+    if (!docId || !/^[a-fA-F0-9]{24}$/.test(docId)) {
+        return res.status(400).json({ error: 'ID invalide' });
+    }
+    if (!process.env.GEMINI_API_KEY) {
+        // Change OPENROUTER_API_KEY à GEMINI_API_KEY
+        return res.status(500).json({ error: "Clé API Gemini manquante. Assurez-vous que GEMINI_API_KEY est définie." });
+    }
+    try {
+        const doc = await Ressources.findOne({ _id: new ObjectId(docId) });
+        if (!doc || !doc.file || !doc.file.buffer) {
+            return res.status(404).json({ error: 'Document non trouvé' });
+        }
+        // Extraction du texte du PDF
+        let fileBuffer;
+        if (Buffer.isBuffer(doc.file.buffer)) {
+            fileBuffer = doc.file.buffer;
+        } else if (doc.file.buffer && doc.file.buffer.buffer) {
+            fileBuffer = Buffer.from(doc.file.buffer.buffer);
+        } else if (doc.file.buffer instanceof Uint8Array) {
+            fileBuffer = Buffer.from(doc.file.buffer);
+        } else {
+            fileBuffer = null;
+            try {
+                fileBuffer = Buffer.from(doc.file.buffer);
+            } catch (e) {}
+        }
+        if (!fileBuffer || !Buffer.isBuffer(fileBuffer) || fileBuffer.length < 100) {
+            return res.status(500).json({ error: "Fichier PDF vide ou corrompu." });
+        }
+        // --- Début de l'intégration spécifique à Gemini ---
+
+        // Choisis le modèle Gemini adapté à la multimodalité et aux longs contextes
+        // 'gemini-1.5-flash' est rapide et économique. 'gemini-1.5-pro' est plus puissant.
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Ou "gemini-1.5-pro"
+
+        let filePart;
+        // Vérifie la taille du fichier pour savoir si un upload via File API est nécessaire
+        const MAX_INLINE_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
+
+        if (fileBuffer.length <= MAX_INLINE_FILE_SIZE_BYTES) {
+            // Pour les petits PDF (< 20MB), on l'envoie directement (inline)
+            filePart = {
+                inlineData: {
+                    data: fileBuffer.toString('base64'),
+                    mimeType: doc.file.mimetype || 'application/pdf', // Assure-toi que mimetype est correct
+                },
+            };
+        } else {
+            // Pour les grands PDF (> 20MB), il faut l'uploader via File API d'abord
+            // L'upload est asynchrone et renvoie un URI
+            // NOTE: Les fichiers uploadés sont disponibles 48h. Pour une utilisation persistante,
+            // tu devras implémenter un mécanisme pour les uploader une fois et stocker l'URI.
+            console.log(`Fichier trop grand (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB), upload via File API...`);
+            try {
+                // Utilise la méthode uploadFile du SDK de Gemini
+                // L'uploadFile nécessite un chemin de fichier ou un objet File (dans un environnement de navigateur)
+                // Pour Node.js avec un buffer, il faut créer un fichier temporaire ou utiliser une astuce
+                // Le SDK n'expose pas directement l'upload de buffer pour l'API File
+                // La meilleure approche est de passer par un service de stockage intermédiaire
+                // OU, si le buffer est vraiment nécessaire, on devrait appeler l'API REST `/v1beta/files` manuellement
+                // Pour simplifier ici, je vais montrer une version théorique ou assumer une version future du SDK
+                // qui supporterait mieux les buffers.
+
+                // Solution provisoire pour les buffers en attendant de meilleurs outils ou un service de stockage:
+                // Pour l'instant, le SDK ne supporte pas directement l'upload de buffer
+                // via `genAI.uploadFile()`. Il faut soit un chemin de fichier, soit un File web API.
+                // Donc, si le fichier est > 20MB, tu devras soit :
+                // 1. Sauvegarder temporairement le buffer sur disque, puis passer le chemin à `genAI.uploadFile()`.
+                // 2. Utiliser une base de données vectorielle avec des chunks pour les très longs documents.
+                // 3. Revenir à l'extraction de texte et "chunking" manuel pour les modèles avec fenêtre de contexte plus petite.
+
+                // Pour les besoins de cet exemple, je vais te donner une version simplifiée
+                // et noter que la gestion des fichiers > 20MB avec un buffer en Node.js
+                // nécessite des étapes supplémentaires (création de fichier temp ou appel REST direct).
+                // Si la taille est un problème récurrent, envisage le service de stockage de Google Cloud (GCS).
+
+                // Pour l'instant, je vais laisser cette branche en commentaire et te suggérer une approche plus robuste
+                // pour les fichiers très volumineux. Pour la plupart des cours, <20MB est courant.
+                // Si tes fichiers sont souvent > 20MB, dis-le moi, et je détaillerai la stratégie.
+
+                // Temporairement, si un fichier est > 20MB, nous allons retourner une erreur pour cet exemple
+                // car l'upload direct de buffer en Node.js pour l'API File n'est pas simple avec le SDK actuel.
+                return res.status(413).json({ error: "Le fichier PDF est trop volumineux (>20MB) pour un traitement direct. " +
+                                                 "Veuillez implémenter l'upload via l'API File de Gemini ou une solution de stockage temporaire." });
+
+                // Exemple théorique si genAI.uploadFile supportait les buffers directement:
+                // const uploadedFile = await genAI.uploadFile({
+                //     data: fileBuffer,
+                //     mimeType: doc.file.mimetype || 'application/pdf',
+                //     displayName: `quiz_doc_${docId}.pdf` // Nom pour l'affichage dans Google AI Studio
+                // });
+                // console.log(`Fichier uploadé avec URI: ${uploadedFile.uri}`);
+                // filePart = uploadedFile; // L'objet retourné par uploadFile est directement utilisable
+            } catch (uploadErr) {
+                console.error("Erreur lors de l'upload du fichier via l'API File:", uploadErr);
+                return res.status(500).json({ error: "Erreur lors de l'upload du fichier PDF volumineux." });
+            }
+        }
+
+
+        // Prompt IA pour générer un quiz (5 questions QCM)
+        // Le prompt est maintenant plus court car le PDF est passé comme contenu.
+        const prompt = `À partir du document PDF ci-joint, génère un quiz de 5 questions à choix multiples avec 4 options par question.
+Indique la bonne réponse pour chaque question.
+Assure-toi que les questions sont pertinentes au contenu du document.
+Réponds en JSON :
+[
+  {
+    "question": "...",
+    "choices": ["...", "...", "...", "..."],
+    "answer": "..."
+  }
+]
+`.trim();
+
+        let response;
+        try {
+            // Envoie le prompt et le fichier PDF au modèle Gemini
+            // Le tableau `parts` permet de combiner texte et données binaires
+            response = await model.generateContent({
+                contents: [
+                    {
+                        role: "user",
+                        parts: [
+                            filePart, // Le PDF lui-même
+                            { text: prompt }, // Le prompt textuel
+                        ],
+                    },
+                ],
+                // Spécifie la sortie JSON structurée, c'est une fonctionnalité très puissante de Gemini 1.5
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                question: { type: "string" },
+                                choices: {
+                                    type: "array",
+                                    items: { type: "string" }
+                                },
+                                answer: { type: "string" }
+                            },
+                            required: ["question", "choices", "answer"]
+                        }
+                    }
+                }
+            });
+
+            const apiResponse = response.response; // Accède à l'objet réel contenant les candidats
+
+
+            // Vérifie si des candidats sont présents avant d'accéder à l'index 0
+            if (!apiResponse.candidates || apiResponse.candidates.length === 0) {
+                if (apiResponse.promptFeedback && apiResponse.promptFeedback.blockReason) {
+                    const blockReason = apiResponse.promptFeedback.blockReason;
+                    const safetyRatings = apiResponse.promptFeedback.safetyRatings || [];
+                    console.error(`Contenu bloqué par Gemini. Raison: ${blockReason}`);
+                    safetyRatings.forEach(rating => {
+                        console.error(`Catégorie: ${rating.category}, Seuil: ${rating.threshold}, Probabilité: ${rating.probability}`);
+                    });
+                    return res.status(400).json({
+                        error: `La génération du quiz a été bloquée par les filtres de sécurité de l'IA. Raison: ${blockReason}`,
+                        details: safetyRatings
+                    });
+                } else {
+                    return res.status(500).json({ error: "L'IA n'a pas pu générer de contenu (pas de candidats)." });
+                }
+            }
+
+            // Accède au contenu généré
+            const generatedContent = apiResponse.candidates[0].content.parts[0].text;
+            const quiz = JSON.parse(generatedContent);
+
+            res.json({ quiz });
+
+        } catch (err) {
+            console.error('Erreur lors de l\'appel à l\'API Gemini :', err);
+            // Si l'erreur vient de Gemini, elle peut contenir des détails utiles
+            if (err.response && err.response.data) {
+                console.error('Détails de l\'erreur Gemini:', err.response.data);
+                return res.status(500).json({ error: "Erreur IA: " + JSON.stringify(err.response.data) });
+            }
+            res.status(500).json({ error: "Erreur lors de la génération du quiz avec Gemini." });
+        }
+
+    } catch (err) {
+        console.error('Erreur générale dans la route /api/quiz-from-doc :', err);
+        res.status(500).json({ error: "Une erreur interne est survenue." });
+    }
+});
+
 
 // Démarrer le serveur WebSocket + Express
 http.listen(3000, () => {
