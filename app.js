@@ -469,6 +469,44 @@ app.delete('/mentorat/supprimer/:id', async (req, res) => {
     }
 });
 
+app.delete('/mentorat/reserver/:id', async (req, res) => {
+  try {
+    if (!req.session || !req.session.user) {
+      return res.status(403).json({ success: false, error: 'Non autorisé' });
+    }
+
+    const coursId = req.params.id;
+    const cours = await mentorat.findOne({ _id: new ObjectId(coursId) });
+
+    if (!cours) {
+      return res.status(404).json({ success: false, error: 'Cours introuvable' });
+    }
+
+    await mentorat.deleteOne({ _id: new ObjectId(coursId) });
+
+    // Incrément score élève
+    await compte.updateOne(
+      { _id: new ObjectId(req.session.user._id) },
+      { $inc: { score: 1 } }
+    );
+
+    // Incrément score enseignant
+    await compte.updateOne(
+      { _id: cours.enseignant_id },
+      { $inc: { score: 1 } }
+    );
+
+    console.log("Réservation traitée avec succès");
+    res.json({ success: true }); // 👈 cette ligne est essentielle
+  } catch (err) {
+    console.error("Erreur dans /mentorat/reserver/:id :", err);
+    res.status(500).json({ success: false, error: "Erreur serveur" });
+  }
+});
+
+
+
+
 app.get('/mentorat/liste', async (req, res) => {
     if (!req.session.user || !req.session.user._id) {
         return res.status(401).json({ success: false, error: 'Non connecté' });
@@ -494,7 +532,7 @@ app.post('/mentorat/creer', async (req, res) => {
         return res.status(401).json({ success: false, error: 'Utilisateur non connecté' });
     }
 
-    const { matiere, duree, module, message } = req.body;
+    const { matiere, duree, module, message, heure_debut, date } = req.body;
 
     if (!matiere || !duree || !module) {
         return res.status(400).json({ success: false, error: 'Champs manquants' });
@@ -509,8 +547,21 @@ app.post('/mentorat/creer', async (req, res) => {
             enseignant_id: new ObjectId(req.session.user._id),
             enseignant_nom: req.session.user.nom,
             enseignant_prenom: req.session.user.prenom,
-            date_creation: new Date()
+            date_creation: new Date(),
+            date: new Date(date)
         };
+
+        let heure_fin = null;
+        if (heure_debut && duree) {
+            const [startHour, startMin] = heure_debut.split(':').map(Number);
+            const [dureeHour, dureeMin] = duree.split(':').map(Number);
+            const end = new Date(0, 0, 0, startHour + dureeHour, startMin + dureeMin);
+            heure_fin = end.getHours().toString().padStart(2, '0') + ':' + end.getMinutes().toString().padStart(2, '0');
+        }
+
+        cours.heure_debut = heure_debut;
+        cours.heure_fin = heure_fin;
+
 
         await mentorat.insertOne(cours);
 
@@ -525,8 +576,18 @@ app.get('/salles', (req, res) => {
     res.render('salleDeClasse');
 });
 
-app.get('/classement', (req, res) => {
-    res.render('classement');
+app.get('/classement', async (req, res) => {
+  try {
+    const utilisateurs = await compte
+      .find({}, { nom: 1, prenom: 1, score: 1, _id: 0 })
+      .sort({ score: -1 })
+      .toArray();
+
+    res.render('classement', { utilisateurs });
+  } catch (err) {
+    console.error('Erreur chargement classement:', err);
+    res.status(500).send('Erreur serveur');
+  }
 });
   
 app.use('/icons', express.static(path.join(__dirname, 'icons')));

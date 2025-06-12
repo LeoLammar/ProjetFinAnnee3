@@ -8,7 +8,7 @@
     <%- include('partials/header.ejs') %>
 
     <main class="pt-24 px-4 bg-white min-h-screen">
-        <div class="max-w-4xl mx-auto">
+        <div class="max-w-4xl mx-auto mt-10">
           <h1 class="text-3xl font-bold text-[#5C83BA] mb-8 text-center">Classement des Contributeurs</h1>
           <div class="overflow-x-auto shadow rounded-lg">
             <table class="min-w-full bg-white border border-gray-200 rounded-lg">
@@ -20,19 +20,19 @@
                 </tr>
               </thead>
               <tbody id="ranking-body" class="text-gray-700">
+                <% utilisateurs.forEach((user, index) => { %>
+                  <tr class="<%= index % 2 === 0 ? 'bg-gray-50' : 'bg-white' %>">
+                    <td class="px-6 py-4 font-medium text-gray-900"><%= index + 1 %></td>
+                    <td class="px-6 py-4"><%= user.prenom %> <%= user.nom %></td>
+                    <td class="px-6 py-4"><%= user.score %></td>
+                  </tr>
+                <% }) %>
               </tbody>
             </table>
           </div>
         </div>
       </main>
       <script>
-        const contributors = [
-          { nom: "DELRUE", prenom: "Cyprien", contributions: 32 },
-          { nom: "LAMMAR", prenom: "Léo", contributions: 28 },
-          { nom: "HUBERT ", prenom: "Matthieu", contributions: 24 },
-          { nom: "BASSET", prenom: "Maxime", contributions: 19 },
-          { nom: "DUMAS", prenom: "Antonin", contributions: 14 },
-        ];
       
         const tbody = document.getElementById('ranking-body');
       
