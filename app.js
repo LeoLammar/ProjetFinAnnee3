@@ -12,6 +12,10 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const crypto = require('crypto');
 const axios = require('axios');
+const compression = require('compression');
+
+// Active la compression gzip/brotli
+app.use(compression());
 
 // Connexion à MongoDB
 const uri = `mongodb+srv://${process.env.DB_ID}:${process.env.DB_PASSWORD}@cluster0.rphccsl.mongodb.net`;
@@ -187,7 +191,7 @@ const matieres = [
 app.set('view engine', 'ejs');
 // Indiquer le dossier des vues
 app.set('views', path.join(__dirname, 'views'));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '7d' }));
 
 // Middleware pour parser les formulaires
 app.use(express.urlencoded({ extended: true }));
@@ -278,6 +282,7 @@ app.get('/download/:id', async (req, res) => {
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Length', fileBuffer.length);
         res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); // 7 jours
         res.send(fileBuffer);
     } catch (e) {
         return res.status(400).send('ID invalide');
@@ -328,6 +333,7 @@ app.get('/view/:id', async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
     res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); // 7 jours
     res.send(fileBuffer);
 });
 
@@ -2219,22 +2225,23 @@ global.io = io;
 const pdfParse = require('pdf-parse');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Route pour générer un quiz à partir d'un document PDF (par ID)
-// Passe de POST à GET pour l'appel AJAX
-console.log("Clé GoogleAI chargée : ", process.env.GEMINI_API_KEY);
 app.get('/api/quiz-from-doc/:id', async (req, res) => {
     const docId = req.params.id;
+    const force = req.query.force === '1' || req.query.force === 'true';
     if (!docId || !/^[a-fA-F0-9]{24}$/.test(docId)) {
         return res.status(400).json({ error: 'ID invalide' });
     }
     if (!process.env.GEMINI_API_KEY) {
-        // Change OPENROUTER_API_KEY à GEMINI_API_KEY
         return res.status(500).json({ error: "Clé API Gemini manquante. Assurez-vous que GEMINI_API_KEY est définie." });
     }
     try {
         const doc = await Ressources.findOne({ _id: new ObjectId(docId) });
         if (!doc || !doc.file || !doc.file.buffer) {
             return res.status(404).json({ error: 'Document non trouvé' });
+        }
+        // Vérifie si un quiz est déjà sauvegardé et force n'est pas demandé
+        if (!force && doc.quizIA && Array.isArray(doc.quizIA) && doc.quizIA.length > 0) {
+            return res.json({ quiz: doc.quizIA });
         }
         // Extraction du texte du PDF
         let fileBuffer;
@@ -2248,7 +2255,9 @@ app.get('/api/quiz-from-doc/:id', async (req, res) => {
             fileBuffer = null;
             try {
                 fileBuffer = Buffer.from(doc.file.buffer);
-            } catch (e) {}
+            } catch (e) {
+                fileBuffer = null;
+            }
         }
         if (!fileBuffer || !Buffer.isBuffer(fileBuffer) || fileBuffer.length < 100) {
             return res.status(500).json({ error: "Fichier PDF vide ou corrompu." });
@@ -2327,8 +2336,11 @@ app.get('/api/quiz-from-doc/:id', async (req, res) => {
         // Prompt IA pour générer un quiz (5 questions QCM)
         // Le prompt est maintenant plus court car le PDF est passé comme contenu.
         const prompt = `À partir du document PDF ci-joint, génère un quiz de 5 questions à choix multiples avec 4 options par question.
-Indique la bonne réponse pour chaque question.
+Indique la bonne réponse pour chaque question. Il faut que le quiz soit en francais.
 Assure-toi que les questions sont pertinentes au contenu du document.
+Indique la bonne réponse pour chaque question. Il faut que le quiz soit en francais. Il faut que les questions soient des questions de cours (concepts, définitions, méthodes, formules, applications, etc).
+Ne pose jamais de questions sur l'organisation du cours, les emplois du temps, les horaires, les jours, la structure des séances, ou la répartition des heures (exemple : "Comment est organisé le temps de cours chaque semaine ?").
+Assure-toi que les questions portent uniquement sur le contenu pédagogique, les notions, les connaissances ou les compétences à acquérir, et non sur la logistique ou l'organisation du module.
 Réponds en JSON :
 [
   {
@@ -2399,6 +2411,11 @@ Réponds en JSON :
             const generatedContent = apiResponse.candidates[0].content.parts[0].text;
             const quiz = JSON.parse(generatedContent);
 
+            // Sauvegarde le quiz dans la BDD
+            await Ressources.updateOne(
+                { _id: new ObjectId(docId) },
+                { $set: { quizIA: quiz, quizIAUpdatedAt: new Date() } }
+            );
             res.json({ quiz });
 
         } catch (err) {
@@ -2417,6 +2434,84 @@ Réponds en JSON :
     }
 });
 
+// === API IA Résumé PDF ===
+app.get('/api/resume-from-doc/:id', async (req, res) => {
+    const docId = req.params.id;
+    const force = req.query.force === '1' || req.query.force === 'true';
+    if (!docId || !/^[a-fA-F0-9]{24}$/.test(docId)) {
+        return res.status(400).json({ error: 'ID invalide' });
+    }
+    if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({ error: "Clé API Gemini manquante. Assurez-vous que GEMINI_API_KEY est définie." });
+    }
+    try {
+        const doc = await Ressources.findOne({ _id: new ObjectId(docId) });
+        if (!doc || !doc.file || !doc.file.buffer) {
+            return res.status(404).json({ error: 'Document non trouvé' });
+        }
+        // Si résumé déjà généré et force non demandé
+        if (!force && doc.resumeIA && typeof doc.resumeIA === 'string' && doc.resumeIA.length > 0) {
+            return res.json({ resume: doc.resumeIA });
+        }
+        // Extraction du texte du PDF
+        let fileBuffer;
+        if (Buffer.isBuffer(doc.file.buffer)) {
+            fileBuffer = doc.file.buffer;
+        } else if (doc.file.buffer && doc.file.buffer.buffer) {
+            fileBuffer = Buffer.from(doc.file.buffer.buffer);
+        } else if (doc.file.buffer instanceof Uint8Array) {
+            fileBuffer = Buffer.from(doc.file.buffer);
+        } else {
+            fileBuffer = null;
+            try { fileBuffer = Buffer.from(doc.file.buffer); } catch (e) {}
+        }
+        if (!fileBuffer || !Buffer.isBuffer(fileBuffer) || fileBuffer.length < 100) {
+            return res.status(500).json({ error: "Fichier PDF vide ou corrompu." });
+        }
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const filePart = {
+            inlineData: {
+                data: fileBuffer.toString('base64'),
+                mimeType: doc.file.mimetype || 'application/pdf',
+            },
+        };
+        const prompt = `Lis le document PDF ci-joint et produis un résumé clair, concis et structuré du contenu du cours, en français. Le résumé doit faire ressortir les points clés, les notions importantes et l'essentiel à retenir pour un étudiant.`;
+        let response;
+        try {
+            response = await model.generateContent({
+                contents: [
+                    {
+                        role: "user",
+                        parts: [
+                            filePart,
+                            { text: prompt },
+                        ],
+                    },
+                ],
+                generationConfig: {
+                    responseMimeType: "text/plain"
+                }
+            });
+            const apiResponse = response.response;
+            if (!apiResponse.candidates || apiResponse.candidates.length === 0) {
+                return res.status(500).json({ error: "L'IA n'a pas pu générer de résumé." });
+            }
+            const generatedContent = apiResponse.candidates[0].content.parts[0].text;
+
+            // Sauvegarde le résumé dans la BDD
+            await Ressources.updateOne(
+                { _id: new ObjectId(docId) },
+                { $set: { resumeIA: generatedContent, resumeIAUpdatedAt: new Date() } }
+            );
+            res.json({ resume: generatedContent });
+        } catch (err) {
+            console.error('Erreur Gemini résumé:', err);
+            res.status(500).json({ error: "Erreur lors de la génération du résumé avec Gemini." });
+        }
+    } catch (err) {
+        res.status(500).json({ error: "Une erreur interne est survenue." });
+    }
+});
 
 // Démarrer le serveur WebSocket + Express
 http.listen(3000, () => {
