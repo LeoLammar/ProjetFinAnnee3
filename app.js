@@ -2240,7 +2240,13 @@ app.get('/api/quiz-from-doc/:id', async (req, res) => {
             return res.status(404).json({ error: 'Document non trouvé' });
         }
         // Vérifie si un quiz est déjà sauvegardé et force n'est pas demandé
-        if (!force && doc.quizIA && Array.isArray(doc.quizIA) && doc.quizIA.length > 0) {
+        if (
+            !force &&
+            doc.quizIA &&
+            Array.isArray(doc.quizIA) &&
+            doc.quizIA.length > 0 &&
+            doc.quizIA.some(q => q && q.question && q.choices && q.answer)
+        ) {
             return res.json({ quiz: doc.quizIA });
         }
         // Extraction du texte du PDF
@@ -2264,9 +2270,7 @@ app.get('/api/quiz-from-doc/:id', async (req, res) => {
         }
         // --- Début de l'intégration spécifique à Gemini ---
 
-        // Choisis le modèle Gemini adapté à la multimodalité et aux longs contextes
-        // 'gemini-1.5-flash' est rapide et économique. 'gemini-1.5-pro' est plus puissant.
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Ou "gemini-1.5-pro"
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // Ou "gemini-1.5-pro"
 
         let filePart;
         // Vérifie la taille du fichier pour savoir si un upload via File API est nécessaire
@@ -2287,46 +2291,9 @@ app.get('/api/quiz-from-doc/:id', async (req, res) => {
             // tu devras implémenter un mécanisme pour les uploader une fois et stocker l'URI.
             console.log(`Fichier trop grand (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB), upload via File API...`);
             try {
-                // Utilise la méthode uploadFile du SDK de Gemini
-                // L'uploadFile nécessite un chemin de fichier ou un objet File (dans un environnement de navigateur)
-                // Pour Node.js avec un buffer, il faut créer un fichier temporaire ou utiliser une astuce
-                // Le SDK n'expose pas directement l'upload de buffer pour l'API File
-                // La meilleure approche est de passer par un service de stockage intermédiaire
-                // OU, si le buffer est vraiment nécessaire, on devrait appeler l'API REST `/v1beta/files` manuellement
-                // Pour simplifier ici, je vais montrer une version théorique ou assumer une version future du SDK
-                // qui supporterait mieux les buffers.
-
-                // Solution provisoire pour les buffers en attendant de meilleurs outils ou un service de stockage:
-                // Pour l'instant, le SDK ne supporte pas directement l'upload de buffer
-                // via `genAI.uploadFile()`. Il faut soit un chemin de fichier, soit un File web API.
-                // Donc, si le fichier est > 20MB, tu devras soit :
-                // 1. Sauvegarder temporairement le buffer sur disque, puis passer le chemin à `genAI.uploadFile()`.
-                // 2. Utiliser une base de données vectorielle avec des chunks pour les très longs documents.
-                // 3. Revenir à l'extraction de texte et "chunking" manuel pour les modèles avec fenêtre de contexte plus petite.
-
-                // Pour les besoins de cet exemple, je vais te donner une version simplifiée
-                // et noter que la gestion des fichiers > 20MB avec un buffer en Node.js
-                // nécessite des étapes supplémentaires (création de fichier temp ou appel REST direct).
-                // Si la taille est un problème récurrent, envisage le service de stockage de Google Cloud (GCS).
-
-                // Pour l'instant, je vais laisser cette branche en commentaire et te suggérer une approche plus robuste
-                // pour les fichiers très volumineux. Pour la plupart des cours, <20MB est courant.
-                // Si tes fichiers sont souvent > 20MB, dis-le moi, et je détaillerai la stratégie.
-
-                // Temporairement, si un fichier est > 20MB, nous allons retourner une erreur pour cet exemple
-                // car l'upload direct de buffer en Node.js pour l'API File n'est pas simple avec le SDK actuel.
                 return res.status(413).json({ error: "Le fichier PDF est trop volumineux (>20MB) pour un traitement direct. " +
                                                  "Veuillez implémenter l'upload via l'API File de Gemini ou une solution de stockage temporaire." });
-
-                // Exemple théorique si genAI.uploadFile supportait les buffers directement:
-                // const uploadedFile = await genAI.uploadFile({
-                //     data: fileBuffer,
-                //     mimeType: doc.file.mimetype || 'application/pdf',
-                //     displayName: `quiz_doc_${docId}.pdf` // Nom pour l'affichage dans Google AI Studio
-                // });
-                // console.log(`Fichier uploadé avec URI: ${uploadedFile.uri}`);
-                // filePart = uploadedFile; // L'objet retourné par uploadFile est directement utilisable
-            } catch (uploadErr) {
+                } catch (uploadErr) {
                 console.error("Erreur lors de l'upload du fichier via l'API File:", uploadErr);
                 return res.status(500).json({ error: "Erreur lors de l'upload du fichier PDF volumineux." });
             }
@@ -2335,12 +2302,14 @@ app.get('/api/quiz-from-doc/:id', async (req, res) => {
 
         // Prompt IA pour générer un quiz (5 questions QCM)
         // Le prompt est maintenant plus court car le PDF est passé comme contenu.
+        const randomSeed = Math.floor(Math.random() * 1000000); // Ajout d'une seed aléatoire
         const prompt = `À partir du document PDF ci-joint, génère un quiz de 5 questions à choix multiples avec 4 options par question.
 Indique la bonne réponse pour chaque question. Il faut que le quiz soit en francais.
 Assure-toi que les questions sont pertinentes au contenu du document.
 Indique la bonne réponse pour chaque question. Il faut que le quiz soit en francais. Il faut que les questions soient des questions de cours (concepts, définitions, méthodes, formules, applications, etc).
 Ne pose jamais de questions sur l'organisation du cours, les emplois du temps, les horaires, les jours, la structure des séances, ou la répartition des heures (exemple : "Comment est organisé le temps de cours chaque semaine ?").
 Assure-toi que les questions portent uniquement sur le contenu pédagogique, les notions, les connaissances ou les compétences à acquérir, et non sur la logistique ou l'organisation du module.
+IMPORTANT : Si ce prompt est appelé plusieurs fois, génère des questions différentes à chaque appel, même pour le même document. Utilise la valeur suivante pour varier la génération : seed=${randomSeed}
 Réponds en JSON :
 [
   {
@@ -2365,9 +2334,9 @@ Réponds en JSON :
                         ],
                     },
                 ],
-                // Spécifie la sortie JSON structurée, c'est une fonctionnalité très puissante de Gemini 1.5
                 generationConfig: {
                     responseMimeType: "application/json",
+                    temperature: 0.9, // Augmente la température pour plus de variété
                     responseSchema: {
                         type: "array",
                         items: {
@@ -2385,7 +2354,6 @@ Réponds en JSON :
                     }
                 }
             });
-
             const apiResponse = response.response; // Accède à l'objet réel contenant les candidats
 
 
@@ -2450,7 +2418,11 @@ app.get('/api/resume-from-doc/:id', async (req, res) => {
             return res.status(404).json({ error: 'Document non trouvé' });
         }
         // Si résumé déjà généré et force non demandé
-        if (!force && doc.resumeIA && typeof doc.resumeIA === 'string' && doc.resumeIA.length > 0) {
+        if (
+            !force &&
+            typeof doc.resumeIA === 'string' &&
+            doc.resumeIA.trim().length > 0
+        ) {
             return res.json({ resume: doc.resumeIA });
         }
         // Extraction du texte du PDF
@@ -2554,7 +2526,7 @@ app.delete('/api/association-events/:id', async (req, res) => {
     if (!req.session.user || req.session.user.perm !== 2) {
         return res.status(403).json({ error: "Non autorisé" });
     }
-    const { id } = req.params;
+    const id = req.params.id;
     if (!ObjectId.isValid(id)) {
         return res.status(400).json({ error: "ID invalide" });
     }
@@ -2570,10 +2542,10 @@ app.delete('/api/association-events/:id', async (req, res) => {
 });
 
 app.put('/api/association-events/:id', async (req, res) => {
-    if (!req.session.user || typeof req.session.user.perm !== 'number') {
+    if (!req.session.user || req.session.user.perm !== 2) {
         return res.status(403).json({ error: "Non autorisé" });
     }
-    const { id } = req.params;
+    const id = req.params.id;
     if (!ObjectId.isValid(id)) {
         return res.status(400).json({ error: "ID invalide" });
     }

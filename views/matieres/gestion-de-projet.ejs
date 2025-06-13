@@ -477,8 +477,13 @@
         viewer.style.display = 'block';
       }
     }
-    // Quiz IA Front
+
+    let currentQuizFileId = null;
+    let currentQuizFileName = null;
+
     function openQuizModal(fileId, fileName) {
+      currentQuizFileId = fileId;
+      currentQuizFileName = fileName;
       document.getElementById('quizModal').style.display = 'flex';
       document.getElementById('quizModalTitle').textContent = 'Quiz IA : ' + fileName;
       document.getElementById('quizLoading').style.display = '';
@@ -489,9 +494,19 @@
     function closeQuizModal() {
       document.getElementById('quizModal').style.display = 'none';
     }
-    async function fetchQuizIA(fileId) {
+    function regenerateQuizIA() {
+      if (currentQuizFileId && currentQuizFileName) {
+        document.getElementById('quizLoading').style.display = '';
+        document.getElementById('quizError').style.display = 'none';
+        document.getElementById('quizContent').innerHTML = '';
+        fetchQuizIA(currentQuizFileId, true); // true pour forcer la régénération
+      }
+    }
+    async function fetchQuizIA(fileId, force) {
       try {
-        const res = await fetch('/api/quiz-from-doc/' + fileId, { method: 'GET' });
+        let url = '/api/quiz-from-doc/' + fileId;
+        if (force) url += '?force=1';
+        const res = await fetch(url, { method: 'GET' });
         document.getElementById('quizLoading').style.display = 'none';
         if (!res.ok) {
           let err = { error: 'Erreur lors de la génération du quiz.' };
@@ -513,6 +528,7 @@
         document.getElementById('quizError').textContent = 'Erreur réseau ou serveur.';
       }
     }
+
     function renderQuiz(quiz) {
       const container = document.getElementById('quizContent');
       container.innerHTML = '';
@@ -569,13 +585,17 @@
       document.getElementById('resumeError').style.display = 'none';
       document.getElementById('resumeContent').innerHTML = '';
       fetchResumeIA(fileId);
+      window.currentResumeFileId = fileId;
+      window.currentResumeFileName = fileName;
     }
     function closeResumeModal() {
       document.getElementById('resumeModal').style.display = 'none';
     }
-    async function fetchResumeIA(fileId) {
+    async function fetchResumeIA(fileId, force) {
       try {
-        const res = await fetch('/api/resume-from-doc/' + fileId, { method: 'GET' });
+        let url = '/api/resume-from-doc/' + fileId;
+        if (force) url += '?force=1';
+        const res = await fetch(url, { method: 'GET' });
         document.getElementById('resumeLoading').style.display = 'none';
         if (!res.ok) {
           let err = { error: 'Erreur lors de la génération du résumé.' };
@@ -598,8 +618,26 @@
       }
     }
     function renderResume(resume) {
+      // Supprime la première phrase si elle ressemble à une introduction générique
+      let cleaned = resume;
+      // Expression régulière : phrase d'intro jusqu'au premier point suivie d'une majuscule (début du vrai résumé)
+      cleaned = cleaned.replace(
+        /^(Ce cours porte sur|Ce document porte sur|Ce support porte sur|Ce polycopié porte sur|Ce chapitre porte sur|Ce module porte sur|Ce fichier porte sur|Ce résumé porte sur|Ce texte porte sur)[^.]*\.\s+/i,
+        ''
+      );
+      // Variante : supprime aussi les phrases d'intro type "Il s'adresse à ..."
+      cleaned = cleaned.replace(/^Il s'adresse[^.]*\.\s+/i, '');
       const container = document.getElementById('resumeContent');
-      container.innerHTML = `<div class="text-gray-800 whitespace-pre-line">${resume}</div>`;
+      container.innerHTML = `<div class="text-gray-800 whitespace-pre-line">${cleaned}</div>`;
+    }
+    // Ajout : fonction pour régénérer le résumé IA
+    function regenerateResumeIA() {
+      if (window.currentResumeFileId && window.currentResumeFileName) {
+        document.getElementById('resumeLoading').style.display = '';
+        document.getElementById('resumeError').style.display = 'none';
+        document.getElementById('resumeContent').innerHTML = '';
+        fetchResumeIA(window.currentResumeFileId, true); // true pour forcer la régénération
+      }
     }
   </script>
 </body>
