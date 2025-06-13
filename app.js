@@ -2447,7 +2447,8 @@ app.get('/api/resume-from-doc/:id', async (req, res) => {
                 mimeType: doc.file.mimetype || 'application/pdf',
             },
         };
-        const prompt = `Lis le document PDF ci-joint et produis un résumé clair, concis et structuré du contenu du cours, en français. Le résumé doit faire ressortir les points clés, les notions importantes et l'essentiel à retenir pour un étudiant.`;
+        const prompt = `Lis le document PDF ci-joint et produis un résumé clair, concis et structuré du contenu du cours, en français. Le résumé doit faire ressortir les points clés, les notions importantes et l'essentiel à retenir pour un étudiant.
+        Ne parle pas de l'organisation du cours, les emplois du temps, les horaires, les jours, la structure des séances, ou la répartition des heures`;
         let response;
         try {
             response = await model.generateContent({
