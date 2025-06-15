@@ -75,7 +75,7 @@
         </button>
       </div>
       
-      <form id="create-group-form" enctype="multipart/form-data">
+      <form id="create-group-form" enctype="multipart/form-data" autocomplete="off">
         <div class="mb-4">
           <label class="block text-sm font-medium text-gray-700 mb-2">Nom du groupe</label>
           <input type="text" id="group-name" name="name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Entrez le nom du groupe" required>
@@ -129,7 +129,7 @@
       </button>
     </div>
     
-    <form id="edit-group-form" enctype="multipart/form-data">
+    <form id="edit-group-form" enctype="multipart/form-data" autocomplete="off">
       <input type="hidden" id="edit-group-id" name="groupId" value="">
       
       <div class="mb-4">
@@ -155,7 +155,7 @@
         </div>
       </div>
 
-      <!-- NOUVEAU : Section pour ajouter des membres -->
+      <!-- Section pour ajouter des membres -->
       <div class="mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-2">Ajouter des membres</label>
         <div class="relative">
@@ -166,7 +166,7 @@
       </div>
       
       <div class="flex justify-between gap-3">
-        <!-- NOUVEAU : Bouton pour quitter le groupe -->
+        <!-- Bouton pour quitter le groupe -->
         <button type="button" onclick="leaveGroup()" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
           Quitter le groupe
         </button>
@@ -333,7 +333,7 @@
         
         <!-- Formulaire de saisie -->
         <div class="flex-shrink-0 px-4 py-3">
-          <form id="mobile-message-form" class="flex items-center gap-3 bg-[#F1F7FD] rounded-full px-4 py-2">
+          <form id="mobile-message-form" class="flex items-center gap-3 bg-[#F1F7FD] rounded-full px-4 py-2" autocomplete="off">
             <input type="hidden" id="mobile-message-to" name="to" value="" />
             <input type="hidden" id="mobile-message-group-id" name="groupId" value="" />
             <input type="text" id="mobile-message-input" name="message" placeholder="Type your message here..." class="flex-1 text-sm bg-transparent outline-none text-gray-700" required />
@@ -355,6 +355,7 @@
               type="text"
               placeholder="Search"
               class="w-full outline-none text-sm md:text-base text-gray-700 bg-transparent"
+              autocomplete="off"
             />
           </div>
           <div id="search-results-desktop"
@@ -490,7 +491,7 @@
           </div>
 
           <!-- Formulaire de saisie -->
-          <form id="desktop-message-form" class="flex items-center gap-3 px-4 py-3 bg-[#F1F7FD] rounded-full shadow flex-shrink-0">
+          <form id="desktop-message-form" class="flex items-center gap-3 px-4 py-3 bg-[#F1F7FD] rounded-full shadow flex-shrink-0" autocomplete="off">
             <input type="hidden" name="to" value="<%= selectedUser.username %>" />
             <input type="text" name="message" placeholder="Type your message here..." class="flex-1 text-sm bg-transparent outline-none text-gray-700" required />
             <button type="submit">
@@ -531,7 +532,7 @@
          </div>
 
          <!-- Formulaire de saisie -->
-         <form id="desktop-group-message-form" class="flex items-center gap-3 px-4 py-3 bg-[#F1F7FD] rounded-full shadow flex-shrink-0">
+         <form id="desktop-group-message-form" class="flex items-center gap-3 px-4 py-3 bg-[#F1F7FD] rounded-full shadow flex-shrink-0" autocomplete="off">
            <input type="hidden" name="groupId" value="<%= selectedGroup._id %>" />
            <input type="text" name="message" placeholder="Écrivez votre message..." class="flex-1 text-sm bg-transparent outline-none text-gray-700" required />
            <button type="submit">
@@ -622,7 +623,7 @@
  // Variables pour la gestion des membres dans le modal d'édition
 let editSelectedMembers = new Set();
 
-// Fonction modifiée pour ouvrir le modal d'édition avec recherche de membres
+// Fonction pour ouvrir le modal d'édition avec recherche de membres
 function openEditGroupModal(groupId) {
   fetch(`/groups/${groupId}/edit`)
     .then(response => response.json())
@@ -725,7 +726,7 @@ async function addMembersToGroup() {
   }
 }
 
-// Gestionnaire CORRIGÉ du formulaire d'édition de groupe
+// Gestionnaire du formulaire d'édition de groupe
 document.addEventListener('DOMContentLoaded', () => {
   // Initialiser la recherche de membres pour l'édition
   setupEditMemberSearch();
@@ -747,7 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         let membersAddResult = { success: true };
         
-        // ÉTAPE 1: D'abord ajouter les nouveaux membres s'il y en a
+        // D'abord ajouter les nouveaux membres s'il y en a
         if (editSelectedMembers.size > 0) {
           console.log('Ajout de nouveaux membres:', Array.from(editSelectedMembers));
           membersAddResult = await addMembersToGroup();
@@ -758,7 +759,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
         
-        // ÉTAPE 2: Ensuite mettre à jour les infos du groupe
+        // Ensuite mettre à jour les infos du groupe
         console.log('Mise à jour des informations du groupe...');
         const response = await fetch(`/groups/${groupId}/update`, {
           method: 'POST',
@@ -1016,7 +1017,7 @@ document.addEventListener('DOMContentLoaded', () => {
    }
  }
 
- // Fonction corrigée pour créer un groupe avec photo
+ // Fonction pour créer un groupe avec photo
  async function createGroup(formData) {
    try {
      // Créer FormData pour envoyer le fichier
@@ -1102,9 +1103,9 @@ document.addEventListener('DOMContentLoaded', () => {
  socket.on('newMessage', (messageData) => {
    console.log('Nouveau message reçu:', messageData);
    
-   // IMPORTANT: Ne traiter que les messages reçus d'autres utilisateurs
+   // Ne traiter que les messages reçus d'autres utilisateurs
    if (messageData.from === currentUser) {
-     // C'est notre propre message confirmé, on ne fait que mettre à jour les listes
+     // mettre à jour les listes
      refreshConversationsList();
      return;
    }
@@ -1139,9 +1140,9 @@ document.addEventListener('DOMContentLoaded', () => {
  socket.on('newGroupMessage', (messageData) => {
    console.log('Nouveau message de groupe reçu:', messageData);
    
-   // IMPORTANT: Ne traiter que les messages reçus d'autres utilisateurs
+   // Ne traiter que les messages reçus d'autres utilisateurs
    if (messageData.from === currentUser) {
-     // C'est notre propre message confirmé, on ne fait que mettre à jour les listes
+     // Mettre à jour les listes
      refreshGroupsList();
      return;
    }
@@ -1192,7 +1193,7 @@ document.addEventListener('DOMContentLoaded', () => {
    refreshGroupsList();
  });
 
- // Nouveau : Événement pour les messages marqués comme lus
+ // Événement pour les messages marqués comme lus
  socket.on('messagesMarkedAsRead', (data) => {
    console.log('Messages marqués comme lus:', data);
    if (data.conversationId) {
@@ -1521,7 +1522,9 @@ async function openMobileGroupChat(groupId) {
         // Gérer le bouton d'édition en mobile
         const editBtn = document.getElementById('mobile-edit-group-btn');
         if (editBtn && currentGroup) {
-            // Vérifier si l'utilisateur est admin du groupe
+            // Vérifier si l'utilisateur est membre du groupe
+            // Changer par currentGroup.admin.includes... pour n'autoriser que l'admin à modifier le groupe
+         // if (currentGroup.admin && currentGroup.admin.includes('<%= currentUser.username %>')) {
             if (currentGroup.members && currentGroup.members.includes('<%= currentUser.username %>')) {
                 editBtn.classList.remove('hidden');
             } else {
