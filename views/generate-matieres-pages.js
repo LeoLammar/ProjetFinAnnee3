@@ -55,21 +55,41 @@ matieres.forEach(matiere => {
       <div id="cours-content" class="hidden mt-2">
         <% if (cours && cours.length > 0) { %>
           <ul style="margin-left: 1.5rem;">
-            <% cours.forEach(function(file, idx) { %>
+            <% cours.forEach(function(file, idx) { 
+              var fileId = file.link && file.link.split('/').pop();
+              var safeName = (file.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            %>
               <li style="margin-bottom: 1rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'cours-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
-                    <%= file.name %>
-                  </a>
-                  <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;" title="Télécharger">
-                    <!-- Icône SVG de téléchargement -->
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
-                      <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
-                    </svg>
-                  </a>
+                  <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                    <a href="javascript:void(0)" onclick="togglePdfMulti('<%= fileId %>', 'cours-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1">
+                      <%= file.name %>
+                    </a>
+                  </span>
+                  <span style="display:flex; gap:0.5rem; align-items:center;">
+                    <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" title="Télécharger">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
+                        <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
+                      </svg>
+                    </a>
+                    <button type="button" class="inline-block px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition mb-1"
+                      onclick="openQuizModal('<%= fileId %>', '<%= safeName %>')"
+                      title="Quiz IA">
+                      Quiz IA
+                    </button>
+                    <button type="button" class="inline-block px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition mb-1"
+                      onclick="openResumeModal('<%= fileId %>', '<%= safeName %>')"
+                      title="Résumé IA">
+                      Résumé IA
+                    </button>
+                  </span>
                 </div>
-                <div id="cours-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none; margin-left: 0.5rem;">
-                  <iframe src="" class="pdf-frame" allowfullscreen></iframe>
+                <div id="cours-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none;">
+                  <iframe src="/view/<%= fileId %>#zoom=90" class="pdf-frame" allowfullscreen style="display:none;"></iframe>
+                  <div class="pdf-fallback-message" style="display:none; color:#b91c1c; background:#fff0f0; border:1px solid #fca5a5; border-radius:8px; padding:1em; text-align:center;">
+                    <span>La prévisualisation du PDF n'est pas disponible sur votre appareil.<br>
+                    <a href="<%= file.link.replace('/download/', '/view/') %>" target="_blank" style="color:#5C83BA;text-decoration:underline;">Cliquez ici pour télécharger ou ouvrir le document dans un nouvel onglet</a></span>
+                  </div>
                 </div>
               </li>
             <% }); %>
@@ -295,12 +315,6 @@ matieres.forEach(matiere => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <%- include('../partials/header.ejs') %>
-  <%- include('../partials/head.ejs') %>
-  <br>
-  <br>
-  <br>
-  <br>
   <title>${titre}</title>
   <link href="/stylesheets/style.css" rel="stylesheet">
   <style>
@@ -441,10 +455,28 @@ matieres.forEach(matiere => {
         font-size: 1.1rem;
       }
     }
+    /* Ajout pour rendre le quiz scrollable */
+    .quiz-scroll-container {
+      max-height: 60vh;
+      overflow-y: auto;
+      padding-right: 8px;
+      margin-bottom: 1em;
+    }
+    .quiz-scroll-container::-webkit-scrollbar {
+      width: 8px;
+      background: #f1f5f9;
+    }
+    .quiz-scroll-container::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+  <%- include('../partials/header.ejs') %>
+  <%- include('../partials/head.ejs') %>
   <main class="p-2 sm:p-4 md:p-8 max-w-4xl mx-auto">
+    <div class="mt-16 sm:mt-24"></div>
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
       <h1 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-4 text-center sm:text-left">${titre}</h1>
       <button onclick="openModal()" class="w-full sm:w-auto bg-[#5C83BA] text-white px-4 py-2 rounded hover:bg-[#466a99] transition">
@@ -452,7 +484,6 @@ matieres.forEach(matiere => {
       </button>
     </div>
     <p class="text-base sm:text-lg text-center sm:text-left">${phraseAccueil}</p>
-    <br>
     ${sections}
   </main>
   <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
@@ -491,93 +522,36 @@ matieres.forEach(matiere => {
       </form>
     </div>
   </div>
+  <!-- Modal Quiz IA -->
+  <div id="quizModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
+    <div class="bg-white custom-modal p-3 sm:p-6 shadow-lg w-full max-w-lg relative" style="margin-top: 6rem;">
+      <button type="button" class="close-btn" onclick="closeQuizModal()" title="Fermer">&times;</button>
+      <h2 class="text-lg sm:text-xl font-bold mb-4" id="quizModalTitle">Quiz IA</h2>
+      <div id="quizLoading" class="text-center text-blue-600 font-semibold" style="display:none;">Génération du quiz en cours...</div>
+      <div id="quizError" class="text-center text-red-600 font-semibold" style="display:none;"></div>
+      <div id="quizContent" class="quiz-scroll-container"></div>
+      <div class="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+        <button type="button" onclick="regenerateQuizIA()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-700 w-full sm:w-auto">Régénérer</button>
+        <button type="button" onclick="closeQuizModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 w-full sm:w-auto">Fermer</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modal Résumé IA -->
+  <div id="resumeModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
+    <div class="bg-white custom-modal p-3 sm:p-6 shadow-lg w-full max-w-lg relative" style="margin-top: 6rem;">
+      <button type="button" class="close-btn" onclick="closeResumeModal()" title="Fermer">&times;</button>
+      <h2 class="text-lg sm:text-xl font-bold mb-4" id="resumeModalTitle">Résumé IA</h2>
+      <div id="resumeLoading" class="text-center text-blue-600 font-semibold" style="display:none;">Génération du résumé en cours...</div>
+      <div id="resumeError" class="text-center text-red-600 font-semibold" style="display:none;"></div>
+      <div id="resumeContent" class="quiz-scroll-container"></div>
+      <div class="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+        <button type="button" onclick="regenerateResumeIA()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-700 w-full sm:w-auto">Régénérer</button>
+        <button type="button" onclick="closeResumeModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 w-full sm:w-auto">Fermer</button>
+      </div>
+    </div>
+  </div>
   <%- include("../partials/footer.ejs") %>
-  <script>
-    function openModal() {
-      document.getElementById('uploadModal').style.display = 'flex';
-    }
-    function closeModal() {
-      document.getElementById('uploadModal').style.display = 'none';
-    }
-    function toggleContent(id) {
-      const content = document.getElementById(id);
-      if (content.classList.contains('hidden')) {
-        content.classList.remove('hidden');
-      } else {
-        content.classList.add('hidden');
-      }
-    }
-    function updateFileName(input) {
-      const fileChosen = document.getElementById('file-chosen');
-      if (input.files && input.files.length > 0) {
-        if (input.files.length === 1) {
-          fileChosen.textContent = input.files[0].name;
-        } else {
-          fileChosen.textContent = input.files.length + ' fichiers sélectionnés';
-        }
-        fileChosen.className = 'file-chosen';
-      } else {
-        fileChosen.textContent = 'Aucun fichier choisi';
-        fileChosen.className = 'file-none';
-      }
-    }
-    function togglePdfMulti(pdfId, viewerId) {
-      const viewer = document.getElementById(viewerId);
-      if (!viewer) return;
-      const frame = viewer.querySelector('iframe');
-      if (!frame) return;
-      if (viewer.style.display === 'block') {
-        viewer.style.display = 'none';
-        frame.src = '';
-      } else {
-        frame.src = '/view/' + pdfId + '#zoom=90';
-        viewer.style.display = 'block';
-      }
-    }
-  </script>
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-
-    document.addEventListener('DOMContentLoaded', function() {
-      document.querySelectorAll('.forum-message-form').forEach(form => {
-        form.addEventListener('submit', async function(e) {
-          e.preventDefault();
-          const discussionId = this.getAttribute('data-discussion-id');
-          const input = this.querySelector('input[name="text"]');
-          const text = input.value.trim();
-          if (!text) return;
-          const res = await fetch(\`/forum/${matiere}/\${discussionId}/message\`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ text })
-          });
-          if (res.ok) {
-            input.value = '';
-          }
-        });
-      });
-
-      socket.on('forumMessage', function(data) {
-        if (data && data.discussionId && data.text && data.author) {
-          addForumMessageToDOM(data.discussionId, data.author, data.text);
-        }
-      });
-
-      function addForumMessageToDOM(discussionId, author, text) {
-        const ul = document.getElementById('forum-messages-' + discussionId);
-        if (ul) {
-          const li = document.createElement('li');
-          li.innerHTML = '<span class="font-bold text-[#5C83BA]">' + author + ' :</span> <span>' + text + '</span>';
-          ul.appendChild(li);
-        }
-        const noMsg = document.getElementById('no-msg-' + discussionId);
-        if (noMsg) {
-          noMsg.style.display = 'none';
-        }
-      }
-    });
-  </script>
+  Ajout script
 </body>
 </html>
 `;

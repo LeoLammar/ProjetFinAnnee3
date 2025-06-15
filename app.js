@@ -2,14 +2,20 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const fs = require('fs');
+const { GoogleGenerativeAI, Part } = require("@google/generative-ai");
+const { file } = require("buffer");
+require('dotenv').config();
 const multer = require('multer');
 const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const crypto = require('crypto');
-require('dotenv').config();
 const axios = require('axios');
+const compression = require('compression');
+
+// Active la compression gzip/brotli
+app.use(compression());
 
 // Connexion à MongoDB
 const uri = `mongodb+srv://${process.env.DB_ID}:${process.env.DB_PASSWORD}@cluster0.rphccsl.mongodb.net`;
@@ -185,7 +191,7 @@ const matieres = [
 app.set('view engine', 'ejs');
 // Indiquer le dossier des vues
 app.set('views', path.join(__dirname, 'views'));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '7d' }));
 
 // Middleware pour parser les formulaires
 app.use(express.urlencoded({ extended: true }));
@@ -276,6 +282,7 @@ app.get('/download/:id', async (req, res) => {
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Length', fileBuffer.length);
         res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); // 7 jours
         res.send(fileBuffer);
     } catch (e) {
         return res.status(400).send('ID invalide');
@@ -326,6 +333,7 @@ app.get('/view/:id', async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
     res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); // 7 jours
     res.send(fileBuffer);
 });
 
@@ -2214,6 +2222,270 @@ socket.on('groupUpdated', (data) => {
 // Exposer io globalement
 global.io = io;
 
+const pdfParse = require('pdf-parse');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+app.get('/api/quiz-from-doc/:id', async (req, res) => {
+    const docId = req.params.id;
+    const force = req.query.force === '1' || req.query.force === 'true';
+    if (!docId || !/^[a-fA-F0-9]{24}$/.test(docId)) {
+        return res.status(400).json({ error: 'ID invalide' });
+    }
+    if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({ error: "Clé API Gemini manquante. Assurez-vous que GEMINI_API_KEY est définie." });
+    }
+    try {
+        const doc = await Ressources.findOne({ _id: new ObjectId(docId) });
+        if (!doc || !doc.file || !doc.file.buffer) {
+            return res.status(404).json({ error: 'Document non trouvé' });
+        }
+        // Vérifie si un quiz est déjà sauvegardé et force n'est pas demandé
+        if (
+            !force &&
+            doc.quizIA &&
+            Array.isArray(doc.quizIA) &&
+            doc.quizIA.length > 0 &&
+            doc.quizIA.some(q => q && q.question && q.choices && q.answer)
+        ) {
+            return res.json({ quiz: doc.quizIA });
+        }
+        // Extraction du texte du PDF
+        let fileBuffer;
+        if (Buffer.isBuffer(doc.file.buffer)) {
+            fileBuffer = doc.file.buffer;
+        } else if (doc.file.buffer && doc.file.buffer.buffer) {
+            fileBuffer = Buffer.from(doc.file.buffer.buffer);
+        } else if (doc.file.buffer instanceof Uint8Array) {
+            fileBuffer = Buffer.from(doc.file.buffer);
+        } else {
+            fileBuffer = null;
+            try {
+                fileBuffer = Buffer.from(doc.file.buffer);
+            } catch (e) {
+                fileBuffer = null;
+            }
+        }
+        if (!fileBuffer || !Buffer.isBuffer(fileBuffer) || fileBuffer.length < 100) {
+            return res.status(500).json({ error: "Fichier PDF vide ou corrompu." });
+        }
+        // --- Début de l'intégration spécifique à Gemini ---
+
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // Ou "gemini-1.5-pro"
+
+        let filePart;
+        // Vérifie la taille du fichier pour savoir si un upload via File API est nécessaire
+        const MAX_INLINE_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
+
+        if (fileBuffer.length <= MAX_INLINE_FILE_SIZE_BYTES) {
+            // Pour les petits PDF (< 20MB), on l'envoie directement (inline)
+            filePart = {
+                inlineData: {
+                    data: fileBuffer.toString('base64'),
+                    mimeType: doc.file.mimetype || 'application/pdf', // Assure-toi que mimetype est correct
+                },
+            };
+        } else {
+            // Pour les grands PDF (> 20MB), il faut l'uploader via File API d'abord
+            // L'upload est asynchrone et renvoie un URI
+            // NOTE: Les fichiers uploadés sont disponibles 48h. Pour une utilisation persistante,
+            // tu devras implémenter un mécanisme pour les uploader une fois et stocker l'URI.
+            console.log(`Fichier trop grand (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB), upload via File API...`);
+            try {
+                return res.status(413).json({ error: "Le fichier PDF est trop volumineux (>20MB) pour un traitement direct. " +
+                                                 "Veuillez implémenter l'upload via l'API File de Gemini ou une solution de stockage temporaire." });
+                } catch (uploadErr) {
+                console.error("Erreur lors de l'upload du fichier via l'API File:", uploadErr);
+                return res.status(500).json({ error: "Erreur lors de l'upload du fichier PDF volumineux." });
+            }
+        }
+
+
+        // Prompt IA pour générer un quiz (5 questions QCM)
+        // Le prompt est maintenant plus court car le PDF est passé comme contenu.
+        const randomSeed = Math.floor(Math.random() * 1000000); // Ajout d'une seed aléatoire
+        const prompt = `À partir du document PDF ci-joint, génère un quiz de 5 questions à choix multiples avec 4 options par question.
+Indique la bonne réponse pour chaque question. Il faut que le quiz soit en francais.
+Assure-toi que les questions sont pertinentes au contenu du document.
+Indique la bonne réponse pour chaque question. Il faut que le quiz soit en francais. Il faut que les questions soient des questions de cours (concepts, définitions, méthodes, formules, applications, etc).
+Ne pose jamais de questions sur l'organisation du cours, les emplois du temps, les horaires, les jours, la structure des séances, ou la répartition des heures (exemple : "Comment est organisé le temps de cours chaque semaine ?").
+Assure-toi que les questions portent uniquement sur le contenu pédagogique, les notions, les connaissances ou les compétences à acquérir, et non sur la logistique ou l'organisation du module.
+IMPORTANT : Si ce prompt est appelé plusieurs fois, génère des questions différentes à chaque appel, même pour le même document. Utilise la valeur suivante pour varier la génération : seed=${randomSeed}
+Réponds en JSON :
+[
+  {
+    "question": "...",
+    "choices": ["...", "...", "...", "..."],
+    "answer": "..."
+  }
+]
+`.trim();
+
+        let response;
+        try {
+            // Envoie le prompt et le fichier PDF au modèle Gemini
+            // Le tableau `parts` permet de combiner texte et données binaires
+            response = await model.generateContent({
+                contents: [
+                    {
+                        role: "user",
+                        parts: [
+                            filePart, // Le PDF lui-même
+                            { text: prompt }, // Le prompt textuel
+                        ],
+                    },
+                ],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    temperature: 0.9, // Augmente la température pour plus de variété
+                    responseSchema: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                question: { type: "string" },
+                                choices: {
+                                    type: "array",
+                                    items: { type: "string" }
+                                },
+                                answer: { type: "string" }
+                            },
+                            required: ["question", "choices", "answer"]
+                        }
+                    }
+                }
+            });
+            const apiResponse = response.response; // Accède à l'objet réel contenant les candidats
+
+
+            // Vérifie si des candidats sont présents avant d'accéder à l'index 0
+            if (!apiResponse.candidates || apiResponse.candidates.length === 0) {
+                if (apiResponse.promptFeedback && apiResponse.promptFeedback.blockReason) {
+                    const blockReason = apiResponse.promptFeedback.blockReason;
+                    const safetyRatings = apiResponse.promptFeedback.safetyRatings || [];
+                    console.error(`Contenu bloqué par Gemini. Raison: ${blockReason}`);
+                    safetyRatings.forEach(rating => {
+                        console.error(`Catégorie: ${rating.category}, Seuil: ${rating.threshold}, Probabilité: ${rating.probability}`);
+                    });
+                    return res.status(400).json({
+                        error: `La génération du quiz a été bloquée par les filtres de sécurité de l'IA. Raison: ${blockReason}`,
+                        details: safetyRatings
+                    });
+                } else {
+                    return res.status(500).json({ error: "L'IA n'a pas pu générer de contenu (pas de candidats)." });
+                }
+            }
+
+            // Accède au contenu généré
+            const generatedContent = apiResponse.candidates[0].content.parts[0].text;
+            const quiz = JSON.parse(generatedContent);
+
+            // Sauvegarde le quiz dans la BDD
+            await Ressources.updateOne(
+                { _id: new ObjectId(docId) },
+                { $set: { quizIA: quiz, quizIAUpdatedAt: new Date() } }
+            );
+            res.json({ quiz });
+
+        } catch (err) {
+            console.error('Erreur lors de l\'appel à l\'API Gemini :', err);
+            // Si l'erreur vient de Gemini, elle peut contenir des détails utiles
+            if (err.response && err.response.data) {
+                console.error('Détails de l\'erreur Gemini:', err.response.data);
+                return res.status(500).json({ error: "Erreur IA: " + JSON.stringify(err.response.data) });
+            }
+            res.status(500).json({ error: "Erreur lors de la génération du quiz avec Gemini." });
+        }
+
+    } catch (err) {
+        console.error('Erreur générale dans la route /api/quiz-from-doc :', err);
+        res.status(500).json({ error: "Une erreur interne est survenue." });
+    }
+});
+
+// === API IA Résumé PDF ===
+app.get('/api/resume-from-doc/:id', async (req, res) => {
+    const docId = req.params.id;
+    const force = req.query.force === '1' || req.query.force === 'true';
+    if (!docId || !/^[a-fA-F0-9]{24}$/.test(docId)) {
+        return res.status(400).json({ error: 'ID invalide' });
+    }
+    if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({ error: "Clé API Gemini manquante. Assurez-vous que GEMINI_API_KEY est définie." });
+    }
+    try {
+        const doc = await Ressources.findOne({ _id: new ObjectId(docId) });
+        if (!doc || !doc.file || !doc.file.buffer) {
+            return res.status(404).json({ error: 'Document non trouvé' });
+        }
+        // Si résumé déjà généré et force non demandé
+        if (
+            !force &&
+            typeof doc.resumeIA === 'string' &&
+            doc.resumeIA.trim().length > 0
+        ) {
+            return res.json({ resume: doc.resumeIA });
+        }
+        // Extraction du texte du PDF
+        let fileBuffer;
+        if (Buffer.isBuffer(doc.file.buffer)) {
+            fileBuffer = doc.file.buffer;
+        } else if (doc.file.buffer && doc.file.buffer.buffer) {
+            fileBuffer = Buffer.from(doc.file.buffer.buffer);
+        } else if (doc.file.buffer instanceof Uint8Array) {
+            fileBuffer = Buffer.from(doc.file.buffer);
+        } else {
+            fileBuffer = null;
+            try { fileBuffer = Buffer.from(doc.file.buffer); } catch (e) {}
+        }
+        if (!fileBuffer || !Buffer.isBuffer(fileBuffer) || fileBuffer.length < 100) {
+            return res.status(500).json({ error: "Fichier PDF vide ou corrompu." });
+        }
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const filePart = {
+            inlineData: {
+                data: fileBuffer.toString('base64'),
+                mimeType: doc.file.mimetype || 'application/pdf',
+            },
+        };
+        const prompt = `Lis le document PDF ci-joint et produis un résumé clair, concis et structuré du contenu du cours, en français. Le résumé doit faire ressortir les points clés, les notions importantes et l'essentiel à retenir pour un étudiant.
+        Ne parle pas de l'organisation du cours, les emplois du temps, les horaires, les jours, la structure des séances, ou la répartition des heures`;
+        let response;
+        try {
+            response = await model.generateContent({
+                contents: [
+                    {
+                        role: "user",
+                        parts: [
+                            filePart,
+                            { text: prompt },
+                        ],
+                    },
+                ],
+                generationConfig: {
+                    responseMimeType: "text/plain"
+                }
+            });
+            const apiResponse = response.response;
+            if (!apiResponse.candidates || apiResponse.candidates.length === 0) {
+                return res.status(500).json({ error: "L'IA n'a pas pu générer de résumé." });
+            }
+            const generatedContent = apiResponse.candidates[0].content.parts[0].text;
+
+            // Sauvegarde le résumé dans la BDD
+            await Ressources.updateOne(
+                { _id: new ObjectId(docId) },
+                { $set: { resumeIA: generatedContent, resumeIAUpdatedAt: new Date() } }
+            );
+            res.json({ resume: generatedContent });
+        } catch (err) {
+            console.error('Erreur Gemini résumé:', err);
+            res.status(500).json({ error: "Erreur lors de la génération du résumé avec Gemini." });
+        }
+    } catch (err) {
+        res.status(500).json({ error: "Une erreur interne est survenue." });
+    }
+});
+
 // Démarrer le serveur WebSocket + Express
 http.listen(3000, () => {
     console.log('http://localhost:3000');
@@ -2255,7 +2527,7 @@ app.delete('/api/association-events/:id', async (req, res) => {
     if (!req.session.user || req.session.user.perm !== 2) {
         return res.status(403).json({ error: "Non autorisé" });
     }
-    const { id } = req.params;
+    const id = req.params.id;
     if (!ObjectId.isValid(id)) {
         return res.status(400).json({ error: "ID invalide" });
     }
@@ -2271,10 +2543,10 @@ app.delete('/api/association-events/:id', async (req, res) => {
 });
 
 app.put('/api/association-events/:id', async (req, res) => {
-    if (!req.session.user || typeof req.session.user.perm !== 'number') {
+    if (!req.session.user || req.session.user.perm !== 2) {
         return res.status(403).json({ error: "Non autorisé" });
     }
-    const { id } = req.params;
+    const id = req.params.id;
     if (!ObjectId.isValid(id)) {
         return res.status(400).json({ error: "ID invalide" });
     }
