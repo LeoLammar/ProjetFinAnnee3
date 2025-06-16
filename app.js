@@ -433,7 +433,7 @@ app.get('/logout', (req, res) => {
 });
 
 app.get('/mentorat', (req, res) => {
-    res.render('mentorat');
+    res.render('mentorat', { userId: req.session.user?._id });
 });
 
 app.get('/mentorat/mes-cours', async (req, res) => {
@@ -477,9 +477,9 @@ app.delete('/mentorat/supprimer/:id', async (req, res) => {
     }
 });
 
-app.delete('/mentorat/reserver/:id', async (req, res) => {
+app.patch('/mentorat/reserver/:id', async (req, res) => {
   try {
-    if (!req.session || !req.session.user) {
+    if (!req.session?.user?._id) {
       return res.status(403).json({ success: false, error: 'Non autorisé' });
     }
 
@@ -490,48 +490,56 @@ app.delete('/mentorat/reserver/:id', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Cours introuvable' });
     }
 
-    await mentorat.deleteOne({ _id: new ObjectId(coursId) });
+    if (cours.enseignant_id.toString() === req.session.user._id.toString()) {
+      return res.status(403).json({ success: false, error: "Tu ne peux pas réserver ton propre cours." });
+    }
 
-    // Incrément score élève
-    await compte.updateOne(
-      { _id: new ObjectId(req.session.user._id) },
-      { $inc: { score: 1 } }
+    if (cours.reserve) {
+      return res.status(400).json({ success: false, error: "Ce cours est déjà réservé." });
+    }
+
+    // Marquer comme réservé
+    await mentorat.updateOne(
+      { _id: new ObjectId(coursId) },
+      { $set: { reserve: true, eleve_id: new ObjectId(req.session.user._id) } }
     );
 
-    // Incrément score enseignant
-    await compte.updateOne(
-      { _id: cours.enseignant_id },
-      { $inc: { score: 1 } }
-    );
+    // Incrément des scores
+    await compte.updateOne({ _id: new ObjectId(req.session.user._id) }, { $inc: { score: 1 } });
+    await compte.updateOne({ _id: cours.enseignant_id }, { $inc: { score: 1 } });
 
-    console.log("Réservation traitée avec succès");
-    res.json({ success: true }); // 👈 cette ligne est essentielle
+    res.json({ success: true });
   } catch (err) {
-    console.error("Erreur dans /mentorat/reserver/:id :", err);
+    console.error(err);
     res.status(500).json({ success: false, error: "Erreur serveur" });
   }
 });
 
 
-
-
 app.get('/mentorat/liste', async (req, res) => {
-    if (!req.session.user || !req.session.user._id) {
-        return res.status(401).json({ success: false, error: 'Non connecté' });
-    }
+  if (!req.session?.user?._id) {
+    return res.status(401).json({ success: false, error: 'Non connecté' });
+  }
 
-    try {
-        const cours = await mentorat.find({
-            enseignant_id: { $ne: new ObjectId(req.session.user._id) }
-        }).toArray();
+  try {
+    // 🧽 Supprimer tous les cours passés
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
+    await mentorat.deleteMany({
+      date: { $lt: today }
+    });
 
-        res.json({ success: true, cours });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ success: false, error: 'Erreur serveur' });
-    }
+    // 🧾 Ensuite, on récupère les cours à jour
+    const cours = await mentorat.find({}).toArray();
+
+    res.json({ success: true, cours });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
 });
+
 
 
 
