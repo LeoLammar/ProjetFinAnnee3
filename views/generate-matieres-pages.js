@@ -1,10 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 
-// Table de correspondance pour les titres et les sections à afficher
+// ===============================
+// Table de correspondance matières
+// ===============================
 // Format : titre, cours, tds, tps, annales, forum (true = afficher, false = masquer)
 const titres = {
-    'transformations-integrales': ["Transformations d'Intégrales", true, true, true, true, true],
+    //'transformations-integrales': ["Transformations d'Intégrales", true, true, true, true, true],
     'mecanique-du-solide': ['Mécanique du Solide', true, true, true, true, true],
     'probabilites-statistiques': ['Probabilités Statistiques', true, true, true, true, true],
     'anglais': ['Anglais', true, true, false, true, true],
@@ -35,17 +37,21 @@ const titres = {
 };
 
 const matieres = Object.keys(titres);
-const viewsDir = path.join(__dirname, 'matieres'); // <-- place les fichiers générés dans le dossier "views/matieres"
+const viewsDir = path.join(__dirname, 'matieres'); // Dossier de destination des fichiers générés
 
-// Correction : inclure les partials depuis la racine "views/partials" même pour les sous-dossiers
+// ===============================
+// Génération automatique des pages
+// ===============================
 matieres.forEach(matiere => {
+    // Récupération des paramètres pour la matière
     const [titre, showCours, showTds, showTps, showAnnales, showForum] = titres[matiere];
     const titreMin = titre.toLowerCase();
     const deOuDStr = deOuD(titreMin);
     const phraseAccueil = `Bienvenue sur la page ${deOuDStr}${titreMin}.`;
 
-    // Génération du contenu des sections selon les booléens
+    // Génération dynamique des sections selon les booléens (cours, tds, tps, annales, forum)
     let sections = '';
+    // Section Cours
     if (showCours) {
         sections += `
     <section class="mb-6">
@@ -101,6 +107,7 @@ matieres.forEach(matiere => {
     </section>
     `;
     }
+    // Section TDs
     if (showTds) {
         sections += `
     <section class="mb-6">
@@ -135,6 +142,7 @@ matieres.forEach(matiere => {
     </section>
     `;
     }
+    // Section TPs
     if (showTps) {
         sections += `
     <section class="mb-6">
@@ -169,6 +177,7 @@ matieres.forEach(matiere => {
     </section>
     `;
     }
+    // Section Annales
     if (showAnnales) {
         sections += `
     <section class="mb-6">
@@ -203,6 +212,7 @@ matieres.forEach(matiere => {
     </section>
     `;
     }
+    // Section Forum
     if (showForum) {
         sections += `
     <section class="mb-6">
@@ -302,7 +312,7 @@ matieres.forEach(matiere => {
     `;
     }
 
-    // Génération dynamique des options du select avec EJS natif
+    // Génération dynamique des options du select pour l'upload
     let selectOptions = '';
     selectOptions += `<% if (${showCours}) { %><option value="cours">Cours</option><% } %>`;
     selectOptions += `<% if (${showTds}) { %><option value="tds">Tds</option><% } %>`;
@@ -310,11 +320,16 @@ matieres.forEach(matiere => {
     selectOptions += `<% if (${showAnnales}) { %><option value="annales">Annales</option><% } %>`;
     selectOptions += `<% if (${showForum}) { %><option value="forum">Forum</option><% } %>`;
 
+    // ===========================
+    // Génération du contenu EJS
+    // ===========================
     const content = `<!DOCTYPE html>
 <html lang="fr">
+<%- include('../partials/header.ejs') %>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <%- include('../partials/head.ejs') %>
   <title>${titre}</title>
   <link href="/stylesheets/style.css" rel="stylesheet">
   <style>
@@ -472,9 +487,7 @@ matieres.forEach(matiere => {
     }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-  <%- include('../partials/header.ejs') %>
-  <%- include('../partials/head.ejs') %>
+<body class="bg-[#FAF3E5] min-h-screen">
   <main class="p-2 sm:p-4 md:p-8 max-w-4xl mx-auto">
     <div class="mt-16 sm:mt-24"></div>
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
@@ -550,18 +563,22 @@ matieres.forEach(matiere => {
       </div>
     </div>
   </div>
-  <%- include("../partials/footer.ejs") %>
   Ajout script
 </body>
+<%- include("../partials/footer.ejs") %>
 </html>
 `;
 
+    // Écriture du fichier EJS pour la matière
     fs.writeFileSync(path.join(viewsDir, `${matiere}.ejs`), content, 'utf8');
     console.log(`Page générée : matieres/${matiere}.ejs`);
 });
 
-// Fonction pour choisir "de" ou "d'" selon la première lettre du titre
+// ===============================
+// Fonction utilitaire pour "de" ou "d'"
+// ===============================
 function deOuD(titre) {
+    // Retourne "de" ou "d'" selon la première lettre du titre (voyelle ou non)
     const voyelles = ['a', 'e', 'i', 'o', 'u', 'y', 'é', 'è', 'ê', 'â', 'î', 'ô', 'û', 'ù', 'ë', 'ï', 'ü', 'œ'];
     const firstLetter = titre.trim().toLowerCase()[0];
     return voyelles.includes(firstLetter) ? "d'" : "de ";

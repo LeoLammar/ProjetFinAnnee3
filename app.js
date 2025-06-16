@@ -226,7 +226,10 @@ const profilePhotoStorage = multer.diskStorage({
 });
 const uploadProfilePhoto = multer({ storage: profilePhotoStorage });
 
-// Génération dynamique des routes pour chaque matière
+// =======================
+// === PAGES DES MATIERES
+// =======================
+// Génération dynamique des routes pour chaque matière (affichage des documents et forum)
 matieres.forEach(matiere => {
     app.get(`/${matiere}`, async (req, res) => {
         // Les fichiers sont récupérés depuis la BDD, pas depuis le filesystem
@@ -242,7 +245,11 @@ matieres.forEach(matiere => {
     });
 });
 
-// Route pour télécharger un fichier depuis la BDD
+// ===================================
+// === GESTION UPLOAD/DOWNLOAD/VIEW ===
+// ===================================
+
+// Téléchargement d'un document PDF depuis la BDD
 app.get('/download/:id', async (req, res) => {
     if (!Ressources) return res.status(500).send('DB non connectée');
     let doc;
