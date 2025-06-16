@@ -325,7 +325,7 @@ matieres.forEach(matiere => {
     // ===========================
     const content = `<!DOCTYPE html>
 <html lang="fr">
-<%- include('../partials/header.ejs') %>
+<%- include('../partials/head.ejs') %>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -488,6 +488,7 @@ matieres.forEach(matiere => {
   </style>
 </head>
 <body class="bg-[#FAF3E5] min-h-screen">
+  <%- include('../partials/header.ejs') %>
   <main class="p-2 sm:p-4 md:p-8 max-w-4xl mx-auto">
     <div class="mt-16 sm:mt-24"></div>
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">

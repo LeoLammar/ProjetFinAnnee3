@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<%- include('partials/head.ejs') %>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -8,7 +9,6 @@
 </head>
 <!---->
 <body class="bg-[#FAF3E5]">
-    <%- include('partials/head.ejs') %>
     <%- include('partials/header.ejs') %>
     <div class="flex flex-col items-center justify-center min-h-screen">
     <img src="logoargos.png" alt="Logo Argos"
@@ -31,5 +31,6 @@
             <a href="/inscription" class="text-[#5C83BA] underline hover:text-[#3b5a7a]">Inscrivez-vous ici</a>
         </p>
     </div>
+    <%- include("partials/footer.ejs") %>
 </body>
 </html>
