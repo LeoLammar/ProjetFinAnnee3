@@ -1,6 +1,6 @@
 <header class="font-regular">
     <div class="nav">
-        <input type="checkbox" id="nav-check" class="hidden peer" />
+        <input type="checkbox" id="nav-check" />
         <div class="nav-header">
             <div class="nav-title">
                 <p class="font-wide text-3xl text-white" id="mobile"><a href="/">Argos</a></p>
@@ -24,22 +24,24 @@
             <div class="bar" id="bar3"></div>
         </label>
 
-        <div class="nav-links no-scrollbar fixed top-0 left-0 w-screen h-screen bg-[#5C83BA] z-20 transition-all duration-300
-            -translate-x-full peer-checked:translate-x-0
-            lg:left-auto lg:right-0 lg:w-[320px] lg:h-screen lg:rounded-bl-2xl lg:border-l-2 lg:border-white lg:translate-x-0">
+        <div class="nav-links no-scrollbar 
+                    /* Mobile: comportement normal (pleine largeur) */
+                    w-full
+                    /* Desktop: 1/4 de l'écran à droite */
+                    md:w-1/4 md:right-0 md:left-auto">
             <table class="mx-auto text-center w-full">
                 <tr class="border-t-2 border-b-2 border-white">
                 <tr class="border-b-2 border-white">
                     <td><a href="/" id="accueil">Accueil</a></td>
                 </tr>
                 <tr class="border-b-2 border-white">
+                    <td><a href="/Connexion" id="connexion">Connexion</a></td>
+                </tr>
+                <tr class="border-b-2 border-white">
                     <td><a href="/emploidutemps" id="emploidutemps">Emploi du temps</a></td>
                 </tr>
                 <tr class="border-b-2 border-white">
                     <td><a href="/mentorat" id="mentorat">Mentorat</a></td>
-                </tr>
-                <tr class="border-b-2 border-white">
-                    <td><a href="/salles" id="salles">Salles disponibles</a> </td>
                 </tr>
                 <tr class="border-b-2 border-white">
                     <td><a href="/ressources-educatives" id="ressources">Ressources éducatives</a> </td>
@@ -49,11 +51,6 @@
                 </tr>
                 <tr class="border-b-2 border-white">
                     <td><a href="/classement" id="classement">Classement </a> </td>
-                </tr>
-                <tr class="border-b-2 border-white">
-                    <% if (user && user.perm === 2) { %>
-                        <td><a href="/admin" id="admin">Page admin</a></td>
-                    <% } %>
                 </tr>
             </table>
         </div>
