@@ -9,7 +9,12 @@
     <%- include('partials/header.ejs') %>
 
   <main class="flex flex-col items-center p-4 pt-20">
-    <div class="relative flex rounded-full bg-gray-200 p-1 w-fit mt-10">
+
+    <div id="alertBox" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white border px-6 py-3 rounded-xl shadow-lg hidden z-50 max-w-md text-center">
+      <span id="alertText" class="text-sm font-medium"></span>
+    </div>
+
+    <div id="ongletsRole" class="relative flex rounded-full bg-gray-200 p-1 w-fit mt-10">
    <!-- Slider de fond -->
     <div id="slider" class="absolute left-0 top-0 h-full w-1/2 bg-[#5C83BA] rounded-full transition-all duration-300 ease-in-out z-0"></div>
 
@@ -49,9 +54,17 @@
           </span>
         </label>
       </div>
+
+      <div id="connexionInvite" class="hidden my-8">
+        <a href="/connexion" class="bg-blue-500 text-white px-6 py-2 rounded-full hover:bg-blue-600 transition">
+          Se connecter pour accéder aux cours
+        </a>
+      </div>
       
       <div id="mentorats-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4"></div>
     </div>
+
+
 
 
     <!-- Section confirmation (initialement cachée) -->
@@ -126,7 +139,6 @@
     <p class="font-bold text-lg mt-4">Mes cours disponibles :</p>
 
     <div id="coursContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl">
-      <!-- Les cartes de cours seront injectées ici -->
     </div>
   </div>
 
@@ -139,14 +151,22 @@
   <%- include("partials/footer.ejs") %>
   <script>
     let mentoratsTous = [];
-
+    const currentUserId = "<%= userId %>";
+    const estConnecte = Boolean(currentUserId);
 
 
     document.addEventListener('DOMContentLoaded', () => {
-      if (!contenuEleve.classList.contains('hidden')) {
+      if (!estConnecte) {
+        // Cacher les onglets, filtres, et afficher bouton connexion
+        document.getElementById('ongletsRole')?.classList.add('hidden');
+        document.getElementById('filtreModules')?.classList.add('hidden');
+        document.getElementById('connexionInvite')?.classList.remove('hidden');
+      } else {
         chargerMentorats();
       }
     });
+
+
     document.querySelectorAll('.filter-checkbox').forEach(cb => {
       cb.addEventListener('change', () => {
         afficherMentoratsFiltres();
@@ -183,17 +203,47 @@
       formulairePage.classList.add('hidden');
     });
 
-    function addMentorat(matiere, titre, intervenant, duree, heure_debut = null, heure_fin = null, id = null, date = null){
-      
+    function showAlert(message, type = "error") {
+      const box = document.getElementById('alertBox');
+      const text = document.getElementById('alertText');
+
+      text.textContent = message;
+
+      // Reset classes
+      box.className = "fixed bottom-6 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-xl shadow-lg z-50 max-w-md text-center";
+
+      if (type === "error") {
+        box.classList.add("bg-red-100", "border-red-300", "text-red-700");
+      } else if (type === "success") {
+        box.classList.add("bg-green-100", "border-green-300", "text-green-700");
+      } else if (type === "info") {
+        box.classList.add("bg-blue-100", "border-blue-300", "text-blue-700");
+      }
+
+      box.classList.remove("hidden");
+
+      setTimeout(() => {
+        box.classList.add("hidden");
+      }, 4000);
+    }
+
+   function addMentorat(matiere, titre, intervenant, duree, heure_debut = null, heure_fin = null, id = null, date = null, enseignant_id = null, estAuteur = false, estReserve = false) {
       const container = document.getElementById('mentorats-container');
       const card = document.createElement('div');
-      card.className = "bg-blue-200 rounded-2xl p-4 flex flex-col items-center text-center shadow-md";
+
+      // Couleur selon le statut
+      const bgColor = estAuteur
+        ? "#79f17b"
+        : estReserve
+          ? "#f9dc71"
+          : "#bfdbfe";
+
+      card.className = "rounded-2xl p-4 flex flex-col items-center text-center shadow-md";
+      card.style.backgroundColor = bgColor;
       card.dataset.id = id;
 
       card.innerHTML = `
-        <div class="text-3xl mb-2"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" />
-            </svg></div>
+        <div class="text-3xl mb-2">👤</div>
         <h3 class="text-lg font-semibold mb-3">${titre}</h3>
         <ul class="text-sm mb-5">
           <li>Présenté par : ${intervenant}</li>
@@ -206,32 +256,30 @@
         </button>
       `;
 
+
       const boutonReserver = card.querySelector('button');
 
-      boutonReserver.addEventListener('click', () => {
-        mentoratActif = card;
-        creneauSelectionne = "horaire à définir"; // Tu peux adapter ce texte
-
-        document.getElementById('confirmationText').textContent = `Voulez-vous réserver ce mentorat ?`;
-        document.getElementById('contenu-eleve').classList.add('hidden');
-        document.getElementById('confirmationPage').classList.remove('hidden');
-      });
-
+      if (estAuteur) {
+        boutonReserver.disabled = true;
+        boutonReserver.textContent = "C'est ton cours";
+        boutonReserver.classList.add("opacity-50", "cursor-not-allowed");
+      } else if (estReserve) {
+        boutonReserver.disabled = true;
+        boutonReserver.textContent = "Déjà réservé";
+        boutonReserver.classList.add("opacity-50", "cursor-not-allowed");
+      } else {
+        boutonReserver.addEventListener('click', () => {
+          mentoratActif = card;
+          creneauSelectionne = "horaire à définir";
+          document.getElementById('confirmationText').textContent = `Voulez-vous réserver ce mentorat ?`;
+          document.getElementById('contenu-eleve').classList.add('hidden');
+          document.getElementById('confirmationPage').classList.remove('hidden');
+        });
+      }
 
       container.appendChild(card);
     }
-
-
-    
-    // Exemple d'ajout
-    //document.addEventListener('DOMContentLoaded', () => {
-    //    addMentorat('Maths', 'Transformation intégral', 'Léo Lammar', '2h');
-    //    addMentorat('Physique', 'Analyse des signaux', 'Léo Lammar', '1h30');
-    //    addMentorat('Informatique', 'Algorithmique avancée', 'Léo Lammar', '2h');
-    //    addMentorat('Maths', 'Probabilités', 'Léo Lammar', '1h45');
-    //});
-
-        // Références des pages
+    // Références des pages
     const homePage = document.getElementById('homePage');
     const formulairePage = document.getElementById('formulairePage');
     const coursPage = document.getElementById('coursPage');
@@ -246,19 +294,25 @@
     });
 
 
-    // Exemple de données de cours pour affichage
+   
     const coursContainer = document.getElementById('coursContainer');
 
-    function addMentoratEnseignant(titre, duree, module = '', message = '', id = '') {
+    function addMentoratEnseignant(titre, duree, module = '', message = '', id = '', heure_debut = '', heure_fin = '', date = '', intervenant = '') {
       const card = document.createElement('div');
       card.className = "bg-blue-200 rounded-2xl p-4 text-center shadow-md";
+
       card.innerHTML = `
-        <div class="text-2xl mb-2">👤</div>
-        <h3 class="text-lg font-semibold mb-1">${titre}</h3>
-        <p class="text-sm mb-1">Durée : ${duree}</p>
-        ${module ? `<p class="text-sm mb-1">Module : ${module}</p>` : ''}
-        ${message ? `<p class="text-sm italic">"${message}"</p>` : ''}
-        <button class="btn-supprimer bg-white text-red-500 font-semibold border border-red-500 px-3 py-1 rounded-md hover:bg-red-100 transition">
+        <div class="text-3xl mb-2">👤</div>
+        <h3 class="text-lg font-semibold mb-3">${titre}</h3>
+        <ul class="text-sm mb-5">
+          <li>Module : ${module}</li>
+          <li>Présenté par : ${intervenant}</li>
+          <li>Durée : ${duree}</li>
+          ${heure_debut && heure_fin ? `<li>Créneau : ${heure_debut} - ${heure_fin}</li>` : ''}
+          <li>Date : ${new Date(date).toLocaleDateString('fr-FR')}</li>
+          ${message ? `<li>Message : ${message}</li>` : ''}
+        </ul>
+        <button class="btn-supprimer bg-red-400 text-white text-sm font-medium px-3 py-1 rounded-full hover:bg-red-500 transition">
           Supprimer
         </button>
       `;
@@ -268,11 +322,6 @@
 
       coursContainer.appendChild(card);
     }
-
-
-    // Exemple de cours affichés
-    //addMentoratEnseignant('Transformation intégral', '2h');
-
 
     let creneauSelectionne = null;
     let mentoratActif = null;
@@ -293,22 +342,28 @@
 
         try {
           const response = await fetch(`/mentorat/reserver/${coursId}`, {
-            method: 'DELETE'
+            method: 'PATCH'
           });
 
           const result = await response.json();
           console.log("Réponse serveur :", result);
 
           if (result.success) {
-            mentoratActif.remove();
+            mentoratActif.style.backgroundColor = '#f9dc71';
+            const bouton = mentoratActif.querySelector('button');
+            bouton.disabled = true;
+            bouton.textContent = 'Déjà réservé';
+            bouton.classList.add('opacity-50', 'cursor-not-allowed');
+            showAlert("Réservation effectuée !", "success");
           } else {
-            alert("Erreur : " + result.error);
+            showAlert(result.error || "Erreur lors de la réservation", "error");
           }
         } catch (err) {
           console.error(err);
-          alert("Erreur lors de la suppression du cours.");
+          showAlert("Erreur lors de la réservation", "error");
         }
 
+        
         mentoratActif = null;
       }
 
@@ -346,10 +401,9 @@
 
       const result = await res.json();
       if (result.success) {
-        alert('Cours enregistré avec succès');
-        form.reset();
+        showAlert('Cours enregistré avec succès', 'success');
       } else {
-        alert(result.error || 'Erreur lors de la création');
+        showAlert(result.error || 'Erreur lors de la création', 'error');
       }
     });
 
@@ -361,10 +415,12 @@
       if (result.success) {
         coursContainer.innerHTML = '';
         result.cours.forEach(c => {
-          addMentoratEnseignant(c.matiere, c.duree, c.module, c.message, c._id);
+          const intervenant = `${c.enseignant_prenom || ''} ${c.enseignant_nom || ''}`.trim();
+          addMentoratEnseignant(c.matiere, c.duree, c.module, c.message, c._id, c.heure_debut, c.heure_fin, c.date, intervenant);
         });
+
       } else {
-        alert('Erreur lors du chargement des cours');
+        showAlert('Erreur lors du chargement des cours');
       }
     }
 
@@ -386,7 +442,7 @@
       if (result.success) {
         element.remove();
       } else {
-        alert(result.error || "Échec de la suppression.");
+        showAlert(result.error || "Échec de la suppression.");
       }
     }
 
@@ -403,20 +459,30 @@
         container.innerHTML = '';
 
         result.cours.forEach(c => {
+          const estAuteur = c.enseignant_id === currentUserId;
+          const estReserve = c.reserve === true;
           const intervenant = `${c.enseignant_prenom || ''} ${c.enseignant_nom || ''}`.trim();
+
           addMentorat(
             c.module,
             c.matiere,
-            `${c.enseignant_prenom} ${c.enseignant_nom}`,
+            intervenant,
             c.duree,
             c.heure_debut,
             c.heure_fin,
             c._id,
-            c.date
+            c.date,
+            c.enseignant_id,
+            estAuteur,
+            estReserve
           );
         });
+
+
+
+
       } else {
-        alert('Erreur lors du chargement des cours.');
+        showAlert('Erreur lors du chargement des cours.');
       }
     }
     function afficherMentoratsFiltres() {
@@ -434,13 +500,22 @@
 
       // Afficher les cours filtrés
       mentoratsFiltres.forEach(c => {
+        const estAuteur = c.enseignant_id === currentUserId;
+        const estReserve = c.reserve === true;
+        const intervenant = `${c.enseignant_prenom || ''} ${c.enseignant_nom || ''}`.trim();
+
         addMentorat(
           c.module,
           c.matiere,
-          `${c.enseignant_prenom} ${c.enseignant_nom}`,
+          intervenant,
           c.duree,
           c.heure_debut,
-          c.heure_fin
+          c.heure_fin,
+          c._id,
+          c.date,
+          c.enseignant_id,
+          estAuteur,
+          estReserve
         );
       });
     }
