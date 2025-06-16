@@ -463,7 +463,7 @@ app.delete('/mentorat/supprimer/:id', async (req, res) => {
     try {
         const resultat = await mentorat.deleteOne({
             _id: new ObjectId(coursId),
-            enseignant_id: new ObjectId(req.session.user._id) // Sécurité : on supprime que ses propres cours
+            enseignant_id: new ObjectId(req.session.user._id)
         });
 
         if (resultat.deletedCount === 1) {
@@ -522,7 +522,7 @@ app.get('/mentorat/liste', async (req, res) => {
   }
 
   try {
-    // 🧽 Supprimer tous les cours passés
+    // Supprimer tous les cours passés
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -530,7 +530,7 @@ app.get('/mentorat/liste', async (req, res) => {
       date: { $lt: today }
     });
 
-    // 🧾 Ensuite, on récupère les cours à jour
+    // Récupère les cours à jour
     const cours = await mentorat.find({}).toArray();
 
     res.json({ success: true, cours });

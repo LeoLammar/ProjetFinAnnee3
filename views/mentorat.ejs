@@ -139,7 +139,6 @@
     <p class="font-bold text-lg mt-4">Mes cours disponibles :</p>
 
     <div id="coursContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl">
-      <!-- Les cartes de cours seront injectées ici -->
     </div>
   </div>
 
@@ -280,19 +279,7 @@
 
       container.appendChild(card);
     }
-
-
-
-    
-    // Exemple d'ajout
-    //document.addEventListener('DOMContentLoaded', () => {
-    //    addMentorat('Maths', 'Transformation intégral', 'Léo Lammar', '2h');
-    //    addMentorat('Physique', 'Analyse des signaux', 'Léo Lammar', '1h30');
-    //    addMentorat('Informatique', 'Algorithmique avancée', 'Léo Lammar', '2h');
-    //    addMentorat('Maths', 'Probabilités', 'Léo Lammar', '1h45');
-    //});
-
-        // Références des pages
+    // Références des pages
     const homePage = document.getElementById('homePage');
     const formulairePage = document.getElementById('formulairePage');
     const coursPage = document.getElementById('coursPage');
@@ -307,7 +294,7 @@
     });
 
 
-    // Exemple de données de cours pour affichage
+   
     const coursContainer = document.getElementById('coursContainer');
 
     function addMentoratEnseignant(titre, duree, module = '', message = '', id = '', heure_debut = '', heure_fin = '', date = '', intervenant = '') {
@@ -335,12 +322,6 @@
 
       coursContainer.appendChild(card);
     }
-
-
-
-    // Exemple de cours affichés
-    //addMentoratEnseignant('Transformation intégral', '2h');
-
 
     let creneauSelectionne = null;
     let mentoratActif = null;
