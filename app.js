@@ -1390,188 +1390,132 @@ app.get('/messagerie/create', async (req, res) => {
 // Route messagerie avec marquage automatique des messages comme lus
 app.get('/messagerie', async (req, res) => {
     const currentUser = req.session.user;
-    if (!currentUser) return res.redirect('/connexion');
+    if (!currentUser) {
+        return res.redirect('/connexion');
+    }
 
-    const conversationsCollection = database.collection('Conversations');
+    // Le 'messages' global est la collection. Ne pas le réutiliser comme nom de variable.
     const messagesCollection = database.collection('Messages');
-    const selectedUsername = req.query.user;
-    const selectedGroupId = req.query.group;
 
-    let selectedUser = null;
-    let selectedGroup = null;
-    let messages = [];
+    try {
+        const selectedUsername = req.query.user;
+        const selectedGroupId = req.query.group;
 
-    // Toutes les conversations où l'utilisateur connecté participe
-    const conversations = await conversationsCollection.find({
-        participants: currentUser.username
-    }).sort({
-        lastActivity: -1,
-        createdAt: -1
-    }).toArray();
+        let selectedUser = null;
+        let selectedGroup = null;
+        let messageList = []; // CORRECTION : Nom de variable changé pour éviter le conflit.
 
-    // Tous les groupes où l'utilisateur connecté participe
-    const userGroups = await groups.find({
-        members: currentUser.username
-    }).sort({
-        lastActivity: -1,
-        createdAt: -1
-    }).toArray();
+        // --- Récupération des conversations et des groupes en parallèle ---
+        const [conversationList, userGroups] = await Promise.all([
+            // Récupérer et enrichir les conversations privées
+            conversations.aggregate([
+                { $match: { participants: currentUser.username } },
+                { $sort: { lastActivity: -1, createdAt: -1 } },
+                { $lookup: {
+                    from: 'Compte',
+                    let: { otherUsername: { $arrayElemAt: [{ $filter: { input: '$participants', as: 'p', cond: { $ne: ['$$p', currentUser.username] } } }, 0] } },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ['$username', '$$otherUsername'] } } },
+                        { $project: { photo: 1 } }
+                    ],
+                    as: 'otherUserInfo'
+                }},
+                { $lookup: {
+                    from: 'Messages',
+                    let: { convId: '$_id' },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ['$conversationId', '$$convId'] } } },
+                        { $sort: { timestamp: -1 } },
+                        { $limit: 1 }
+                    ],
+                    as: 'lastMessageDetails'
+                }},
+                { $lookup: {
+                    from: 'Messages',
+                    let: { convId: '$_id' },
+                    pipeline: [
+                        { $match: { $expr: { $and: [ { $eq: ['$conversationId', '$$convId'] }, { $eq: ['$to', currentUser.username] }, { $eq: ['$read', false] } ] } } },
+                        { $count: 'count' }
+                    ],
+                    as: 'unreadInfo'
+                }},
+                { $project: {
+                    participants: 1,
+                    lastActivity: 1,
+                    photo: { $ifNull: [{ $arrayElemAt: ['$otherUserInfo.photo', 0] }, '/default.png'] },
+                    lastMessage: { $ifNull: [{ $arrayElemAt: ['$lastMessageDetails.text', 0] }, 'Pas encore de message'] },
+                    lastMessageTime: { $ifNull: [{ $arrayElemAt: ['$lastMessageDetails.timestamp', 0] }, '$createdAt'] },
+                    unreadCount: { $ifNull: [{ $arrayElemAt: ['$unreadInfo.count', 0] }, 0] }
+                }}
+            ]).toArray(),
 
-    // Enrichir chaque conversation avec le dernier message, compteur non lus ET la photo de l'autre utilisateur
-    for (const conv of conversations) {
-        const lastMsg = await messagesCollection.findOne(
-            { conversationId: conv._id },
-            { sort: { timestamp: -1 } }
-        );
-
-        // Compter les messages non lus
-        const unreadCount = await messagesCollection.countDocuments({
-            conversationId: conv._id,
-            to: currentUser.username,
-            read: false
-        });
-
-        if (lastMsg) {
-            conv.lastMessage = lastMsg.text;
-            conv.lastMessageTime = lastMsg.timestamp;
-        } else {
-            conv.lastMessage = "Pas encore de message";
-            conv.lastMessageTime = conv.createdAt;
-        }
-
-        conv.unreadCount = unreadCount;
-
-        // AJOUT : récupérer la photo de l'autre utilisateur
-        const otherUsername = conv.participants.find(p => p !== currentUser.username);
-        if (otherUsername) {
-            const otherUser = await compte.findOne({ username: otherUsername }, { projection: { photo: 1 } });
-            conv.photo = otherUser && otherUser.photo ? otherUser.photo : '/default.png';
-        } else {
-            conv.photo = '/default.png';
-        }
-    }
-
-    // Enrichir chaque groupe avec le dernier message et compteur non lus
-    for (const group of userGroups) {
-        const lastMsg = await messagesCollection.findOne(
-            { groupId: group._id },
-            { sort: { timestamp: -1 } }
-        );
-
-        // Compter les messages non lus pour l'utilisateur actuel
-        const unreadCount = await messagesCollection.countDocuments({
-            groupId: group._id,
-            from: { $ne: currentUser.username },
-            readBy: { $not: { $elemMatch: { username: currentUser.username } } }
-        });
-
-        if (lastMsg) {
-            group.lastMessage = lastMsg.text;
-            group.lastMessageTime = lastMsg.timestamp;
-            group.lastMessageFrom = lastMsg.from;
-        } else {
-            group.lastMessage = "Pas encore de message";
-            group.lastMessageTime = group.createdAt;
-            group.lastMessageFrom = null;
-        }
-
-        group.unreadCount = unreadCount;
-    }
-
-    // Si on a cliqué sur un utilisateur
-    if (selectedUsername) {
-        selectedUser = await compte.findOne({ username: selectedUsername });
-
-        if (selectedUser && !selectedUser.photo) {
-            selectedUser.photo = '/default.png';
-        }
-
-        if (selectedUser) {
-            let conv = await conversationsCollection.findOne({
-                participants: { $all: [currentUser.username, selectedUsername] }
-            });
-            
-            if (!conv) {
-                // Créer une nouvelle conversation vide
-                const insertResult = await conversationsCollection.insertOne({
-                    participants: [currentUser.username, selectedUsername],
-                    createdAt: new Date(),
-                    lastActivity: new Date()
-                });
-                conv = await conversationsCollection.findOne({ _id: insertResult.insertedId });
-            }
-
-            // Récupérer les messages de cette conversation
-            messages = await messagesCollection.find({
-                conversationId: conv._id
-            }).sort({ timestamp: 1 }).toArray();
-            
-            // NOUVEAU : Marquer tous les messages de cette conversation comme lus
-            await messagesCollection.updateMany(
-                {
-                    conversationId: conv._id,
-                    to: currentUser.username,
-                    read: false
-                },
-                {
-                    $set: {
-                        read: true,
-                        readAt: new Date()
-                    }
-                }
-            );
-            
-            // Remettre le compteur à zéro pour cette conversation
-            await conversationsCollection.updateOne(
-                { _id: conv._id },
-                { $set: { [`unreadCount.${currentUser.username}`]: 0 } }
-            );
-        }
-    }
-
-    // Si on a cliqué sur un groupe
-    if (selectedGroupId) {
-        selectedGroup = await groups.findOne({ _id: new ObjectId(selectedGroupId) });
-
-        if (selectedGroup && selectedGroup.members.includes(currentUser.username)) {
-            // Récupérer les messages de ce groupe
-            messages = await messagesCollection.find({
-                groupId: selectedGroup._id
-            }).sort({ timestamp: 1 }).toArray();
-            
-            // Marquer tous les messages de ce groupe comme lus pour cet utilisateur
-            await messagesCollection.updateMany(
-                {
-                    groupId: selectedGroup._id,
-                    from: { $ne: currentUser.username },
-                    readBy: { $not: { $elemMatch: { username: currentUser.username } } }
-                },
-                {
-                    $push: {
-                        readBy: {
-                            username: currentUser.username,
-                            readAt: new Date()
+            // Récupérer et enrichir les groupes
+            groups.aggregate([
+                { $match: { members: currentUser.username } },
+                { $sort: { lastActivity: -1, createdAt: -1 } },
+                { $lookup: {
+                    from: 'Messages',
+                    let: { groupId: '$_id' },
+                    pipeline: [
+                      { $match: {
+                          $expr: { $eq: ['$groupId', '$$groupId'] },
+                          'readBy.username': { $ne: currentUser.username } // CORRECTION: Logique de comptage améliorée
                         }
-                    }
-                }
-            );
-            
-            // Mettre à jour l'activité du groupe
-            await groups.updateOne(
-                { _id: selectedGroup._id },
-                { $set: { lastActivity: new Date() } }
-            );
-        }
-    }
+                      },
+                      { $count: 'count' }
+                    ],
+                    as: 'unreadInfo'
+                }},
+                { $project: {
+                    name: 1, members: 1, description: 1, avatar: 1,
+                    lastMessage: { $ifNull: ['$lastMessage', 'Pas encore de message'] },
+                    lastMessageTime: { $ifNull: ['$lastMessageTime', '$createdAt'] },
+                    lastMessageFrom: { $ifNull: ['$lastMessageFrom', null] },
+                    unreadCount: { $ifNull: [{ $arrayElemAt: ['$unreadInfo.count', 0] }, 0] }
+                }}
+            ]).toArray()
+        ]);
 
-    res.render('messagerie', {
-        currentUser,
-        selectedUser,
-        selectedGroup,
-        messages,
-        conversations,
-        groups: userGroups
-    });
+        // --- Logique pour la conversation ou le groupe sélectionné ---
+        if (selectedUsername) {
+            selectedUser = await compte.findOne({ username: selectedUsername });
+            if (selectedUser) {
+                const conv = conversationList.find(c => c.participants.includes(selectedUsername));
+                if (conv) {
+                    // CORRECTION : Utilisation de messagesCollection et stockage dans messageList
+                    messageList = await messagesCollection.find({ conversationId: conv._id }).sort({ timestamp: 1 }).toArray();
+                    await messagesCollection.updateMany(
+                        { conversationId: conv._id, to: currentUser.username, read: false },
+                        { $set: { read: true, readAt: new Date() } }
+                    );
+                }
+            }
+        } else if (selectedGroupId) {
+            selectedGroup = userGroups.find(g => g._id.toString() === selectedGroupId);
+            if (selectedGroup) {
+                // CORRECTION : Utilisation de messagesCollection et stockage dans messageList
+                messageList = await messagesCollection.find({ groupId: selectedGroup._id }).sort({ timestamp: 1 }).toArray();
+                await messagesCollection.updateMany(
+                   { groupId: selectedGroup._id, readBy: { $not: { $elemMatch: { username: currentUser.username } } } },
+                   { $push: { readBy: { username: currentUser.username, readAt: new Date() } } }
+                );
+            }
+        }
+
+        // Rendu final avec toutes les données prêtes et sécurisées
+        res.render('messagerie', {
+            currentUser,
+            selectedUser,
+            selectedGroup,
+            messages: messageList, // CORRECTION : Passage de la bonne variable
+            conversations: conversationList,
+            groups: userGroups
+        });
+
+    } catch (error) {
+        console.error("ERREUR FATALE DANS LA ROUTE /messagerie :", error);
+        res.status(500).render('error', { message: "Une erreur est survenue lors du chargement de la messagerie.", error }); // Avoir une page d'erreur est une bonne pratique
+    }
 });
 
 // Route modifiée pour envoyer des messages avec système de notifications (privé et groupe)
