@@ -31,11 +31,11 @@
 
     <h1 class="text-[#5C83BA] font-bold text-3xl mb-8 text-center">EMPLOI DU TEMPS</h1>
 
-    <div id="cours-login-block" class="flex flex-col items-center w-full" style="display:block;">
+    <div id="cours-login-block" class="flex flex-col items-center w-full" style="display:<%= planning && planning.length > 0 ? 'none' : 'block' %>;">
       <% if (error) { %>
         <div id="aurion-error" class="mb-4 text-red-600 font-semibold text-center w-full"><%= error %></div>
       <% } %>
-      <form method="POST" action="/emploidutemps" class="mb-6 flex flex-row items-center justify-center w-full max-w-sm mx-auto bg-white p-3 rounded shadow border">
+      <form method="POST" action="/emploidutemps" class="mb-6 flex flex-row items-center justify-center w-full max-w-sm mx-auto bg-[#FAF3E5] p-3 rounded shadow border">
         <input
           type="password"
           name="password_mauria"
@@ -54,6 +54,20 @@
         </button>
       </form>
     </div>
+    <div id="loading-planning-msg" class="text-[#5C83BA] font-semibold text-center my-4" style="display:none;">
+      Chargement de l'emploi du temps, veuillez patienter...
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const planningForm = document.querySelector('form[action="/emploidutemps"]');
+        if (planningForm) {
+          planningForm.addEventListener('submit', function() {
+            document.getElementById('loading-planning-msg').style.display = '';
+          });
+        }
+      });
+    </script>
 
     <script>
       // Efface le message d'erreur au rechargement de la page (hard refresh ou navigation)
@@ -130,7 +144,7 @@
         <div class="flex w-full max-w-7xl">
           <div class="w-16 relative">
             <div class="h-10"></div>
-            <% for (let hour = 8; hour <= 18; hour++) { %>
+            <% for (let hour = 7; hour <= 22; hour++) { %>
               <div class="h-[100px] text-xs text-gray-600 border-t text-right pr-1 pt-1"><%= hour %>h</div>
             <% } %>
           </div>
@@ -152,7 +166,7 @@
               <div class="h-10 bg-[#5C83BA] text-white text-center font-semibold leading-10 border-b sticky top-0 z-10">
                 <%= days[i] %>
               </div>
-              <div class="relative h-[1100px]" id="day-<%= i %>"></div>
+              <div class="relative h-[1600px]" id="day-<%= i %>"></div>
             </div>
           <% } %>
         </div>
@@ -269,8 +283,8 @@
 
   <script>
     const pixelsPerHour = 100;
-    const startHour = 8;
-    const endHour = 28;
+    const startHour = 7; // Début à 7h
+    const endHour = 22;  // Fin à 22h
     const planning = <%- JSON.stringify(planning || []) %>;
     const user = <%- JSON.stringify(user || null) %>;
 
@@ -614,6 +628,11 @@
         const [endHourVal, endMin] = end.split(':').map(Number);
         const startDec = startHourVal + startMin / 60;
         const endDec = endHourVal + endMin / 60;
+
+        if (startDec < 7 || endDec > 22) {
+          showInternalError("Les cours personnels doivent être entre 07:00 et 22:00.");
+          return;
+        }
 
         if (endDec <= startDec) {
           showInternalError("L'heure de fin doit être après l'heure de début.");

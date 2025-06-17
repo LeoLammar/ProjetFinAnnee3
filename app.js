@@ -366,43 +366,54 @@ app.get('/pdf/:id', async (req, res) => {
     res.send(fileBuffer);
 });
 
-// Définir une route
 app.get('/', (req, res) => {
-    res.render('accueil'); // index.ejs dans le dossier "views"
+    res.render('accueil');
 });
+
+// Gère les requêtes GET pour la page de l'emploi du temps
 app.get('/emploidutemps', async (req, res) => {
+    // Redirige vers la page de connexion si l'utilisateur n'est pas connecté
     if (!req.session.user) {
         return res.redirect('/connexion');
     }
-    // Affiche juste le formulaire, pas d'appel API ici
+
+    // Affiche la page de l'emploi du temps avec un planning vide et sans erreur
     res.render('emploidutemps', { planning: [], error: null, user: req.session.user});
 });
 
+// Gère les requêtes POST pour la page de l'emploi du temps
 app.post('/emploidutemps', async (req, res) => {
+    // Redirige vers la page de connexion si l'utilisateur n'est pas connecté
     if (!req.session.user) {
         return res.redirect('/connexion');
     }
+
+    // Récupère le mot de passe Aurion et gère le cas où le mot de passe n'est pas saisi
     const password_mauria = req.body.password_mauria;
     if (!password_mauria) {
         return res.render('emploidutemps', { planning: [], error: "Veuillez saisir votre mot de passe Aurion pour accéder à l'emploi du temps." });
     }
 
+    // Récupère l'email de l'utilisateur depuis la session
     const email = req.session.user.email;
 
-    // Récupère la date de début de semaine depuis le formulaire ou prend la semaine courante
+    // Définit les dates de début et de fin pour la semaine en cours
     let start = req.body.start ? new Date(req.body.start) : new Date();
-    // Si la date n'est pas valide, prend aujourd'hui
     if (isNaN(start)) start = new Date();
-    // Calcule le lundi de la semaine
     start.setDate(start.getDate() - start.getDay() + 1);
     const end = new Date(start);
-    end.setDate(start.getDate() + 5); // Samedi
+    end.setDate(start.getDate() + 5);
 
+    // Formate les dates
     const startStr = start.toISOString().slice(0, 10);
     const endStr = end.toISOString().slice(0, 10);
 
+    // Initialise les variables pour le planning et les erreurs
     let planning = [];
     let error = null;
+    let planningOk = false;
+
+    // Effectue une requête pour récupérer le planning depuis l'API mauria
     try {
         const response = await axios.post(
             `https://mauriaapi.fly.dev/exactPlanning?start=${startStr}&end=${endStr}`,
@@ -418,11 +429,50 @@ app.post('/emploidutemps', async (req, res) => {
             }
         );
         planning = response.data;
+        planningOk = true;
     } catch (err) {
         error = "Mot de passe aurion incorrect.";
     }
 
-    // Passe la date de début à la vue pour la navigation
+    if (!planningOk) {
+        return res.render('emploidutemps', { planning: [], error, start: startStr, password_mauria, user: req.session.user });
+    }
+
+    // Récupère les cours de mentorat dont l'élève est le tuteur
+    let mentoratCours = [];
+    if (mentorat && req.session.user && req.session.user._id) {
+        mentoratCours = await mentorat.find({
+            enseignant_id: new ObjectId(req.session.user._id),
+            date: { $gte: start, $lte: end }
+        }).toArray();
+    }
+
+    // Fonction pour vérifier si deux cours se chevauchent
+    function isOverlapping(ev1, ev2) {
+        const start1 = new Date(ev1.start).getTime();
+        const end1 = new Date(ev1.end).getTime();
+        const start2 = new Date(ev2.start).getTime();
+        const end2 = new Date(ev2.end).getTime();
+        return start1 < end2 && end1 > start2;
+    }
+
+    // Ajoute les cours de mentorat à l'emploi du temps
+    mentoratCours.forEach(mc => {
+        let dateStr = mc.date instanceof Date ? mc.date.toISOString().slice(0,10) : mc.date?.slice(0,10);
+        let startISO = dateStr + 'T' + (mc.heure_debut || '07:00');
+        let endISO = dateStr + 'T' + (mc.heure_fin || '08:00');
+        const mentoratEvent = {
+            title: `[Mentorat] ${mc.matiere || mc.module || 'Cours'}${mc.message ? ' - ' + mc.message : ''}`,
+            start: startISO,
+            end: endISO,
+            location: mc.module || ''
+        };
+        const overlap = planning.some(ev => isOverlapping(ev, mentoratEvent));
+        if (!overlap) {
+            planning.push(mentoratEvent);
+        }
+    });
+
     res.render('emploidutemps', { planning, error, start: startStr, password_mauria, user: req.session.user });
 });
 
@@ -2450,10 +2500,10 @@ http.listen(3000, () => {
     console.log('http://localhost:3000');
 });
 
+// Gère les requêtes GET pour récupérer les événements d'association
 app.get('/api/association-events', async (req, res) => {
     const { start, end } = req.query;
     if (!associationEvents) return res.json([]);
-    // Récupère tous les événements qui touchent la semaine affichée
     const events = await associationEvents.find({
         start: { $lt: end },
         end: { $gt: start }
@@ -2461,14 +2511,22 @@ app.get('/api/association-events', async (req, res) => {
     res.json(events);
 });
 
+// Gère les requêtes POST pour créer un nouvel événement d'association
 app.post('/api/association-events', async (req, res) => {
-    if (!req.session.user || ![1,2].includes(req.session.user.perm)) {
+    // Vérifie si l'utilisateur est connecté et a les permissions nécessaires
+    if (!req.session.user || ![1, 2].includes(req.session.user.perm)) {
         return res.status(403).json({ error: "Non autorisé" });
     }
+
+    // Récupère les données de l'événement
     const { title, organizer, location, description, start, end } = req.body;
+
+    // Vérifie que tous les champs nécessaires sont présents
     if (!title || !organizer || !location || !description || !start || !end) {
         return res.status(400).json({ error: "Champs manquants" });
     }
+
+    // Insère le nouvel événement dans la base de données
     await associationEvents.insertOne({
         title,
         organizer,
@@ -2481,45 +2539,64 @@ app.post('/api/association-events', async (req, res) => {
     res.json({ success: true });
 });
 
-
+// Gère les requêtes DELETE pour supprimer un événement d'association
 app.delete('/api/association-events/:id', async (req, res) => {
+    // Vérifie si l'utilisateur est connecté et a la permission nécessaire
     if (!req.session.user || req.session.user.perm !== 2) {
         return res.status(403).json({ error: "Non autorisé" });
     }
+
+    // Récupère l'ID de l'événement
     const id = req.params.id;
     if (!ObjectId.isValid(id)) {
         return res.status(400).json({ error: "ID invalide" });
     }
+
+    // Recherche l'événement dans la base de données
     const event = await associationEvents.findOne({ _id: new ObjectId(id) });
     if (!event) return res.status(404).json({ error: "Événement introuvable" });
 
+    // Vérifie si l'utilisateur a la permission de supprimer l'événement
     if (req.session.user.perm === 2 ||
         (req.session.user.perm === 1 && event.createdBy === req.session.user.username)) {
+        // Supprime l'événement de la base de données
         await associationEvents.deleteOne({ _id: new ObjectId(id) });
         return res.json({ success: true });
     }
     return res.status(403).json({ error: "Non autorisé à supprimer cet événement" });
 });
 
+// Gère les requêtes PUT pour mettre à jour un événement d'association
 app.put('/api/association-events/:id', async (req, res) => {
+    // Vérifie si l'utilisateur est connecté et a la permission nécessaire
     if (!req.session.user || req.session.user.perm !== 2) {
         return res.status(403).json({ error: "Non autorisé" });
     }
+
+    // Récupère l'ID de l'événement
     const id = req.params.id;
     if (!ObjectId.isValid(id)) {
         return res.status(400).json({ error: "ID invalide" });
     }
+
+    // Recherche l'événement dans la base de données
     const event = await associationEvents.findOne({ _id: new ObjectId(id) });
     if (!event) return res.status(404).json({ error: "Événement introuvable" });
 
+    // Vérifie si l'utilisateur a la permission de modifier l'événement
     if (
         req.session.user.perm === 2 ||
         (req.session.user.perm === 1 && event.createdBy === req.session.user.username)
     ) {
+        // Récupère les données mises à jour de l'événement depuis la requête
         const { title, organizer, location, description, start, end } = req.body;
+
+        // Vérifie que tous les champs nécessaires sont présents
         if (!title || !organizer || !location || !description || !start || !end) {
             return res.status(400).json({ error: "Champs manquants" });
         }
+
+        // Met à jour l'événement dans la base de données
         await associationEvents.updateOne(
             { _id: new ObjectId(id) },
             { $set: { title, organizer, location, description, start, end } }
@@ -2528,23 +2605,30 @@ app.put('/api/association-events/:id', async (req, res) => {
     }
     return res.status(403).json({ error: "Non autorisé à modifier cet événement" });
 });
+
+// Gère les requêtes POST pour récupérer l'emploi du temps sur une période précise
 app.post('/api/custom-planning', async (req, res) => {
-  if (!req.session.user) return res.json({ success: false, error: "Non connecté" });
-  const { start, end, password_mauria } = req.body;
-  if (!start || !end || !password_mauria) return res.json({ success: false, error: "Période ou mot de passe manquant" });
-  try {
-    const response = await axios.post(
-      `https://mauriaapi.fly.dev/exactPlanning?start=${start}&end=${end}`,
-      {
-        username: req.session.user.email,
-        password: password_mauria
-      },
-      {
-        headers: { 'accept': '/', 'Content-Type': 'application/json' }
-      }
-    );
-    res.json({ success: true, planning: response.data });
-  } catch (err) {
-    res.json({ success: false, error: "Erreur d'accès à Aurion ou mot de passe incorrect." });
-  }
+    // Vérifie si l'utilisateur est connecté
+    if (!req.session.user) return res.json({ success: false, error: "Non connecté" });
+    const { start, end, password_mauria } = req.body;
+
+    // Vérifie que tous les champs nécessaires sont présents
+    if (!start || !end || !password_mauria) return res.json({ success: false, error: "Période ou mot de passe manquant" });
+
+    try {
+        // Effectue une requête POST à l'API mauria pour récupérer l'emploi du temps
+        const response = await axios.post(
+            `https://mauriaapi.fly.dev/exactPlanning?start=${start}&end=${end}`,
+            {
+                username: req.session.user.email,
+                password: password_mauria
+            },
+            {
+                headers: { 'accept': '/', 'Content-Type': 'application/json' }
+            }
+        );
+        res.json({ success: true, planning: response.data });
+    } catch (err) {
+        res.json({ success: false, error: "Erreur d'accès à Aurion ou mot de passe incorrect." });
+    }
 });
