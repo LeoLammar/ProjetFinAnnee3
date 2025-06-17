@@ -438,11 +438,14 @@ app.post('/emploidutemps', async (req, res) => {
         return res.render('emploidutemps', { planning: [], error, start: startStr, password_mauria, user: req.session.user });
     }
 
-    // Récupère les cours de mentorat dont l'élève est le tuteur
+    // Récupère les cours de mentorat auquel l'utilisateur participe
     let mentoratCours = [];
     if (mentorat && req.session.user && req.session.user._id) {
         mentoratCours = await mentorat.find({
-            enseignant_id: new ObjectId(req.session.user._id),
+            $or: [
+                { enseignant_id: new ObjectId(req.session.user._id) },
+                { eleve_id: new ObjectId(req.session.user._id) }
+            ],
             date: { $gte: start, $lte: end }
         }).toArray();
     }
