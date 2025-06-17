@@ -104,21 +104,8 @@ app.use((req, res, next) => {
     next();
 });
 
-// Fonction utilitaire pour lister les fichiers PDF d'un dossier
-function getPdfFilesFromDir(dirPath) {
-    try {
-        const files = fs.readdirSync(dirPath);
-        return files
-            .filter(file => file.endsWith('.pdf'))
-            .map(file => ({
-                name: file,
-                link: dirPath.replace(path.join(__dirname, 'public'), '').replace(/\\/g, '/') + '/' + file
-            }));
-    } catch (e) {
-        return [];
-    }
-}
-
+// Fonction utilitaire pour convertir une chaîne en UTF-8
+// Cette fonction gère les caractères mal encodés et les remplace par leur équivalent
 function toUtf8(str) {
     if (!str) return '';
     try {
@@ -198,6 +185,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // Configuration de multer pour l'upload (stockage temporaire)
+// On stocke les fichiers uploadés dans un dossier temporaire
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, path.join(__dirname, 'tmp_uploads'));
@@ -250,6 +238,8 @@ matieres.forEach(matiere => {
 // ===================================
 
 // Téléchargement d'un document PDF depuis la BDD
+// Route pour télécharger un fichier PDF
+// Vérifie si le fichier existe dans la BDD et le renvoie en tant que téléchargement
 app.get('/download/:id', async (req, res) => {
     if (!Ressources) return res.status(500).send('DB non connectée');
     let doc;
@@ -296,6 +286,7 @@ app.get('/download/:id', async (req, res) => {
     }
 });
 
+// Fonction d'affichage d'un document PDF depuis la BDD 
 app.get('/view/:id', async (req, res) => {
     if (!Ressources) return res.status(500).send('DB non connectée');
     let doc;
@@ -340,10 +331,12 @@ app.get('/view/:id', async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
     res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); // 7 jours
+    res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); 
     res.send(fileBuffer);
 });
 
+// Route pour afficher un document PDF depuis la BDD
+// Cette route est utilisée pour afficher le PDF dans le navigateur ainsi que le téléchargement
 app.get('/pdf/:id', async (req, res) => {
     if (!Ressources) return res.status(500).send('DB non connectée');
     let doc;
@@ -620,6 +613,7 @@ app.get('/Ressources-educatives', (req, res) => {
     res.render('Ressources-educatives');
 });
 
+// Route pour afficher le formulaire d'upload de PDF
 app.post('/upload/:matiere', upload.array('pdfFile', 10), async (req, res) => {
     if (!Ressources) {
         return res.status(500).send('DB non connectée');
@@ -1748,7 +1742,8 @@ const io = new Server(http, {
     transports: ['websocket', 'polling']
 });
 
-// Forum : création d'une discussion pour une matière (à placer AVANT http.listen)
+// Forum : création d'une discussion pour une matière 
+// Route pour ajouter une discussion au forum d'une matière
 app.post('/forum/:matiere/add', async (req, res) => {
     const matiere = req.params.matiere;
     const discussionName = req.body.discussionName && req.body.discussionName.trim();
@@ -1769,7 +1764,9 @@ app.post('/forum/:matiere/add', async (req, res) => {
     }
 });
 
-// Forum : ajout d'un message à une discussion (vérification stricte de l'id et du message, sans toucher à la messagerie)
+// Forum : ajout d'un message à une discussion 
+// Route pour ajouter un message à une discussion du forum d'une matière
+// Vérifie que la discussion existe avant d'ajouter le message
 app.post('/forum/:matiere/:discussionId/message', async (req, res) => {
     const matiere = req.params.matiere;
     let discussionId = req.params.discussionId;
@@ -2181,94 +2178,74 @@ socket.on('groupUpdated', (data) => {
 // Exposer io globalement
 global.io = io;
 
+// ========== ROUTE QUIZ À PARTIR D'UN DOCUMENT PDF ==========
 const pdfParse = require('pdf-parse');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// Route pour générer un quiz depuis un PDF
 app.get('/api/quiz-from-doc/:id', async (req, res) => {
     const docId = req.params.id;
     const force = req.query.force === '1' || req.query.force === 'true';
+
+    // Vérifie la validité de l'ID et la présence de la clé API
     if (!docId || !/^[a-fA-F0-9]{24}$/.test(docId)) {
         return res.status(400).json({ error: 'ID invalide' });
     }
     if (!process.env.GEMINI_API_KEY) {
-        return res.status(500).json({ error: "Clé API Gemini manquante. Assurez-vous que GEMINI_API_KEY est définie." });
+        return res.status(500).json({ error: "Clé API Gemini manquante." });
     }
+
     try {
         const doc = await Ressources.findOne({ _id: new ObjectId(docId) });
         if (!doc || !doc.file || !doc.file.buffer) {
             return res.status(404).json({ error: 'Document non trouvé' });
         }
-        // Vérifie si un quiz est déjà sauvegardé et force n'est pas demandé
-        if (
-            !force &&
-            doc.quizIA &&
-            Array.isArray(doc.quizIA) &&
-            doc.quizIA.length > 0 &&
-            doc.quizIA.some(q => q && q.question && q.choices && q.answer)
-        ) {
+
+        // Si un quiz existe déjà et qu'on ne force pas, on le retourne
+        if (!force && doc.quizIA?.length > 0 && doc.quizIA.some(q => q?.question && q?.choices && q?.answer)) {
             return res.json({ quiz: doc.quizIA });
         }
-        // Extraction du texte du PDF
+
+        // Extraction sûre du buffer PDF
         let fileBuffer;
-        if (Buffer.isBuffer(doc.file.buffer)) {
-            fileBuffer = doc.file.buffer;
-        } else if (doc.file.buffer && doc.file.buffer.buffer) {
-            fileBuffer = Buffer.from(doc.file.buffer.buffer);
-        } else if (doc.file.buffer instanceof Uint8Array) {
-            fileBuffer = Buffer.from(doc.file.buffer);
-        } else {
-            fileBuffer = null;
-            try {
+        try {
+            if (Buffer.isBuffer(doc.file.buffer)) {
+                fileBuffer = doc.file.buffer;
+            } else if (doc.file.buffer?.buffer) {
+                fileBuffer = Buffer.from(doc.file.buffer.buffer);
+            } else {
                 fileBuffer = Buffer.from(doc.file.buffer);
-            } catch (e) {
-                fileBuffer = null;
             }
+        } catch {
+            return res.status(500).json({ error: "Fichier PDF invalide." });
         }
-        if (!fileBuffer || !Buffer.isBuffer(fileBuffer) || fileBuffer.length < 100) {
+
+        if (!fileBuffer || fileBuffer.length < 100) {
             return res.status(500).json({ error: "Fichier PDF vide ou corrompu." });
         }
-        // --- Début de l'intégration spécifique à Gemini ---
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // Ou "gemini-1.5-pro"
+        // Préparation de l'objet Gemini
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
+        // Envoi direct du PDF si taille < 20 Mo
+        const MAX_INLINE = 20 * 1024 * 1024;
         let filePart;
-        // Vérifie la taille du fichier pour savoir si un upload via File API est nécessaire
-        const MAX_INLINE_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
-
-        if (fileBuffer.length <= MAX_INLINE_FILE_SIZE_BYTES) {
-            // Pour les petits PDF (< 20MB), on l'envoie directement (inline)
+        if (fileBuffer.length <= MAX_INLINE) {
             filePart = {
                 inlineData: {
                     data: fileBuffer.toString('base64'),
-                    mimeType: doc.file.mimetype || 'application/pdf', // Assure-toi que mimetype est correct
+                    mimeType: doc.file.mimetype || 'application/pdf',
                 },
             };
         } else {
-            // Pour les grands PDF (> 20MB), il faut l'uploader via File API d'abord
-            // L'upload est asynchrone et renvoie un URI
-            // NOTE: Les fichiers uploadés sont disponibles 48h. Pour une utilisation persistante,
-            // tu devras implémenter un mécanisme pour les uploader une fois et stocker l'URI.
-            console.log(`Fichier trop grand (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB), upload via File API...`);
-            try {
-                return res.status(413).json({ error: "Le fichier PDF est trop volumineux (>20MB) pour un traitement direct. " +
-                                                 "Veuillez implémenter l'upload via l'API File de Gemini ou une solution de stockage temporaire." });
-                } catch (uploadErr) {
-                console.error("Erreur lors de l'upload du fichier via l'API File:", uploadErr);
-                return res.status(500).json({ error: "Erreur lors de l'upload du fichier PDF volumineux." });
-            }
+            // Trop volumineux, upload non pris en charge ici
+            return res.status(413).json({ error: "Fichier > 20MB, upload via File API requis." });
         }
 
-
-        // Prompt IA pour générer un quiz (5 questions QCM)
-        // Le prompt est maintenant plus court car le PDF est passé comme contenu.
-        const randomSeed = Math.floor(Math.random() * 1000000); // Ajout d'une seed aléatoire
-        const prompt = `À partir du document PDF ci-joint, génère un quiz de 5 questions à choix multiples avec 4 options par question.
-Indique la bonne réponse pour chaque question. Il faut que le quiz soit en francais.
-Assure-toi que les questions sont pertinentes au contenu du document.
-Indique la bonne réponse pour chaque question. Il faut que le quiz soit en francais. Il faut que les questions soient des questions de cours (concepts, définitions, méthodes, formules, applications, etc).
-Ne pose jamais de questions sur l'organisation du cours, les emplois du temps, les horaires, les jours, la structure des séances, ou la répartition des heures (exemple : "Comment est organisé le temps de cours chaque semaine ?").
-Assure-toi que les questions portent uniquement sur le contenu pédagogique, les notions, les connaissances ou les compétences à acquérir, et non sur la logistique ou l'organisation du module.
-IMPORTANT : Si ce prompt est appelé plusieurs fois, génère des questions différentes à chaque appel, même pour le même document. Utilise la valeur suivante pour varier la génération : seed=${randomSeed}
+        // Prompt IA pour générer un quiz en français
+        const randomSeed = Math.floor(Math.random() * 1000000);
+        const prompt = `À partir du document PDF ci-joint, génère un quiz de 5 questions à choix multiples (4 choix chacune) en français.
+Le contenu doit porter sur des notions de cours (définitions, formules, méthodes, etc), sans jamais inclure d'organisation ou d'emploi du temps.
 Réponds en JSON :
 [
   {
@@ -2277,91 +2254,64 @@ Réponds en JSON :
     "answer": "..."
   }
 ]
-`.trim();
+Utilise la seed suivante pour varier les questions : seed=${randomSeed}`;
 
-        let response;
-        try {
-            // Envoie le prompt et le fichier PDF au modèle Gemini
-            // Le tableau `parts` permet de combiner texte et données binaires
-            response = await model.generateContent({
-                contents: [
-                    {
-                        role: "user",
-                        parts: [
-                            filePart, // Le PDF lui-même
-                            { text: prompt }, // Le prompt textuel
-                        ],
-                    },
-                ],
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    temperature: 0.9, // Augmente la température pour plus de variété
-                    responseSchema: {
-                        type: "array",
-                        items: {
-                            type: "object",
-                            properties: {
-                                question: { type: "string" },
-                                choices: {
-                                    type: "array",
-                                    items: { type: "string" }
-                                },
-                                answer: { type: "string" }
-                            },
-                            required: ["question", "choices", "answer"]
-                        }
+        // Appel à l'API Gemini
+        const response = await model.generateContent({
+            contents: [{ role: "user", parts: [filePart, { text: prompt }] }],
+            generationConfig: {
+                responseMimeType: "application/json",
+                temperature: 0.9,
+                responseSchema: {
+                    type: "array",
+                    items: {
+                        type: "object",
+                        properties: {
+                            question: { type: "string" },
+                            choices: { type: "array", items: { type: "string" } },
+                            answer: { type: "string" }
+                        },
+                        required: ["question", "choices", "answer"]
                     }
                 }
-            });
-            const apiResponse = response.response; // Accède à l'objet réel contenant les candidats
-
-
-            // Vérifie si des candidats sont présents avant d'accéder à l'index 0
-            if (!apiResponse.candidates || apiResponse.candidates.length === 0) {
-                if (apiResponse.promptFeedback && apiResponse.promptFeedback.blockReason) {
-                    const blockReason = apiResponse.promptFeedback.blockReason;
-                    const safetyRatings = apiResponse.promptFeedback.safetyRatings || [];
-                    console.error(`Contenu bloqué par Gemini. Raison: ${blockReason}`);
-                    safetyRatings.forEach(rating => {
-                        console.error(`Catégorie: ${rating.category}, Seuil: ${rating.threshold}, Probabilité: ${rating.probability}`);
-                    });
-                    return res.status(400).json({
-                        error: `La génération du quiz a été bloquée par les filtres de sécurité de l'IA. Raison: ${blockReason}`,
-                        details: safetyRatings
-                    });
-                } else {
-                    return res.status(500).json({ error: "L'IA n'a pas pu générer de contenu (pas de candidats)." });
-                }
             }
+        });
 
-            // Accède au contenu généré
-            const generatedContent = apiResponse.candidates[0].content.parts[0].text;
-            const quiz = JSON.parse(generatedContent);
+        const apiResponse = response.response;
 
-            // Sauvegarde le quiz dans la BDD
-            await Ressources.updateOne(
-                { _id: new ObjectId(docId) },
-                { $set: { quizIA: quiz, quizIAUpdatedAt: new Date() } }
-            );
-            res.json({ quiz });
-
-        } catch (err) {
-            console.error('Erreur lors de l\'appel à l\'API Gemini :', err);
-            // Si l'erreur vient de Gemini, elle peut contenir des détails utiles
-            if (err.response && err.response.data) {
-                console.error('Détails de l\'erreur Gemini:', err.response.data);
-                return res.status(500).json({ error: "Erreur IA: " + JSON.stringify(err.response.data) });
+        // Vérifie si une réponse a été générée
+        if (!apiResponse.candidates?.length) {
+            const fb = apiResponse.promptFeedback;
+            if (fb?.blockReason) {
+                return res.status(400).json({
+                    error: `Contenu bloqué par Gemini : ${fb.blockReason}`,
+                    details: fb.safetyRatings || []
+                });
             }
-            res.status(500).json({ error: "Erreur lors de la génération du quiz avec Gemini." });
+            return res.status(500).json({ error: "Pas de contenu généré par l'IA." });
         }
 
+        // Parse le quiz généré
+        const quiz = JSON.parse(apiResponse.candidates[0].content.parts[0].text);
+
+        // Sauvegarde dans la BDD
+        await Ressources.updateOne(
+            { _id: new ObjectId(docId) },
+            { $set: { quizIA: quiz, quizIAUpdatedAt: new Date() } }
+        );
+
+        res.json({ quiz });
+
     } catch (err) {
-        console.error('Erreur générale dans la route /api/quiz-from-doc :', err);
-        res.status(500).json({ error: "Une erreur interne est survenue." });
+        // Gestion des erreurs générales
+        console.error("Erreur dans /api/quiz-from-doc :", err);
+        res.status(500).json({ error: "Erreur interne ou lors de l'appel à Gemini." });
     }
 });
 
+
 // === API IA Résumé PDF ===
+// Route pour générer un résumé à partir d'un document PDF
 app.get('/api/resume-from-doc/:id', async (req, res) => {
     const docId = req.params.id;
     const force = req.query.force === '1' || req.query.force === 'true';
