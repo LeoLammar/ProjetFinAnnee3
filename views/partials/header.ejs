@@ -1,55 +1,47 @@
-<header class="font-regular">
-    <div class="nav">
-        <input type="checkbox" id="nav-check" />
+<header class="font-regular 
+               h-[8vh] 
+               lg:h-[12vh] 
+               2xl:h-[8vh] 
+               3xl:h-[6vh]
+               fixed top-0 left-0 w-full z-[1000] 
+               flex items-center justify-center 
+               px-4 bg-[#5C83BA]">
+    <div class="nav w-full h-full">
+        <input type="checkbox" id="nav-check" class="hidden" />
         <div class="nav-header">
             <div class="nav-title">
-                <p class="font-wide text-3xl text-white" id="mobile"><a href="/">Argos</a></p>
-                <p class="font-wide text-2xl text-white" id="pc"><a href="/">Argos</a></p>
+                <p class="font-wide text-3xl text-white lg:hidden" id="mobile"><a href="/">Argos</a></p>
+                <p class="font-wide text-2xl text-white hidden lg:block" id="pc"><a href="/">Argos</a></p>
             </div>
         </div>
         <% if (user) { %>
-            <a href="/compte" style="position:absolute;top:50%;right:70px;transform:translateY(-50%);z-index:10;">
-                <img src="<%= user && user.photo ? user.photo : '/default.png' %>" alt="Profil" style="width:40px;height:40px;border-radius:50%;border:2px solid #fff;object-fit:cover;">
+            <a href="/compte" class="absolute top-1/2 right-[70px] transform -translate-y-1/2 z-10">
+                <img src="<%= user && user.photo ? user.photo : '/default.png' %>" alt="Profil" class="w-10 h-10 rounded-full border-2 border-white object-cover">
             </a>
         <% } else { %>
-            <a href="/connexion" style="position:absolute;top:50%;right:70px;transform:translateY(-50%);z-index:10;">
+            <a href="/connexion" class="absolute top-1/2 right-[70px] transform -translate-y-1/2 z-10">
                 <button class="px-4 py-2 rounded-full border-2 border-white text-white bg-[#5C83BA] hover:bg-white hover:text-[#5C83BA] transition-colors duration-200">
                     Connexion
                 </button>
             </a>
         <% } %>
-        <label class="hamburger-menu" for="nav-check">
-            <div class="bar" id="bar1"></div>
-            <div class="bar" id="bar2"></div>
-            <div class="bar" id="bar3"></div>
+        <label class="hamburger-menu flex flex-col justify-between w-[30px] h-[25px] cursor-pointer" for="nav-check">
+            <div class="bar h-[5px] bg-white rounded-[5px] transition-all duration-300 w-full" id="bar1"></div>
+            <div class="bar h-[5px] bg-white rounded-[5px] transition-all duration-300 w-4/5" id="bar2"></div>
+            <div class="bar h-[5px] bg-white rounded-[5px] transition-all duration-300 w-3/5" id="bar3"></div>
         </label>
 
-        <div class="nav-links no-scrollbar 
-                    /* Mobile: comportement normal (pleine largeur) */
-                    w-full
-                    /* Desktop: 1/4 de l'écran à droite */
-                    md:w-1/4 md:right-0 md:left-auto">
-            <table class="mx-auto text-center w-full">
-                <tr class="border-t-2 border-b-2 border-white">
-                <tr class="border-b-2 border-white">
-                    <td><a href="/" id="accueil">Accueil</a></td>
-                </tr>
-                <tr class="border-b-2 border-white">
-                    <td><a href="/emploidutemps" id="emploidutemps">Emploi du temps</a></td>
-                </tr>
-                <tr class="border-b-2 border-white">
-                    <td><a href="/mentorat" id="mentorat">Mentorat</a></td>
-                </tr>
-                <tr class="border-b-2 border-white">
-                    <td><a href="/ressources-educatives" id="ressources">Ressources éducatives</a> </td>
-                </tr>
-                <tr class="border-b-2 border-white">
-                    <td><a href="/messagerie" id="forum">Messagerie </a> </td>
-                </tr>
-                <tr class="border-b-2 border-white">
-                    <td><a href="/classement" id="classement">Classement </a> </td>
-                </tr>
-            </table>
+        <div class="nav-links no-scrollbar absolute top-[8vh] lg:top-[12vh] 2xl:top-[8vh] 3xl:top-[6vh] left-0 w-full bg-[#5C83BA] lg:w-1/4 lg:left-auto lg:right-0">
+            
+            <div class="flex flex-col text-center">
+                <a href="/" id="accueil" class="block p-4 text-white text-lg hover:bg-white hover:bg-opacity-10 transition-colors duration-300 border-t-2 border-b-2 border-white">Accueil</a>
+                <a href="/emploidutemps" id="emploidutemps" class="block p-4 text-white text-lg hover:bg-white hover:bg-opacity-10 transition-colors duration-300 border-b-2 border-white">Emploi du temps</a>
+                <a href="/mentorat" id="mentorat" class="block p-4 text-white text-lg hover:bg-white hover:bg-opacity-10 transition-colors duration-300 border-b-2 border-white">Mentorat</a>
+                <a href="/ressources-educatives" id="ressources" class="block p-4 text-white text-lg hover:bg-white hover:bg-opacity-10 transition-colors duration-300 border-b-2 border-white">Ressources éducatives</a>
+                <a href="/messagerie" id="forum" class="block p-4 text-white text-lg hover:bg-white hover:bg-opacity-10 transition-colors duration-300 border-b-2 border-white">Messagerie</a>
+                <a href="/classement" id="classement" class="block p-4 text-white text-lg hover:bg-white hover:bg-opacity-10 transition-colors duration-300 border-b-2 border-white">Classement</a>
+            </div>
+
         </div>
     </div>
 </header>
