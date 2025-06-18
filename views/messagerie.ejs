@@ -37,22 +37,13 @@
       background: #9ca3af;
     }
     
-    /* CORRECTION: Hauteurs fixes strictes pour éviter l'agrandissement */
-    .desktop-chat-messages {
-      height: calc(100vh - 280px);
-      min-height: calc(100vh - 280px);
-      max-height: calc(100vh - 280px);
-      overflow-y: auto;
-      flex-shrink: 0;
-    }
+   
 
     .mobile-chat-container {
-      height: calc(100vh - 110px);
-      min-height: calc(100vh - 110px);
-      max-height: calc(100vh - 110px);
-      flex-shrink: 0;
-    }
-
+  height: calc(100vh - 80px - 64px - 32px - 40px);
+  min-height: calc(100vh - 80px - 64px - 32px - 40px);
+  max-height: calc(100vh - 80px - 64px - 32px - 40px);
+}
     /* Hauteur fixe pour le conteneur de messages mobile */
     #mobile-chat-messages {
       flex: 1;
@@ -60,11 +51,7 @@
       overflow-y: auto;
     }
 
-    /* Assurer que le conteneur principal de chat ne grandit pas */
-    #chat {
-      min-height: 600px;
-      max-height: calc(100vh - 100px);
-    }
+  
 
     /* Styles pour le modal */
     .modal-overlay {
@@ -81,7 +68,6 @@
         from { opacity: 0; transform: scale(0.95); }
         to { opacity: 1; transform: scale(1); }
     }
-
   </style>
 </head>
 <body class="bg-[#FAF3E5] text-gray-800">
@@ -198,8 +184,8 @@
   </div>
 </div>
 
-  <div class="pt-20 md:pt-24 min-h-screen">
-    <div class="flex flex-col md:flex-row gap-6 p-4 md:p-6 max-w-8xl w-full mx-auto"
+ <div class="pt-20 md:pt-20 flex flex-col" style="height: calc(100vh - 2.5rem);">
+    <div class="flex-1 flex flex-col md:flex-row gap-6 p-4 md:p-6 max-w-8xl w-full mx-auto mt-10 h-screen overflow-y-auto"
          data-conversations='<%- JSON.stringify(typeof conversations !== "undefined" ? conversations : []) %>'
          data-groups='<%- JSON.stringify(typeof groups !== "undefined" ? groups : []) %>'>
 
@@ -307,7 +293,7 @@
         </div>
       </div>
 
-      <main id="mobile-chat" class="hidden md:hidden w-full bg-white rounded-2xl shadow-md border border-gray-200 mobile-chat-container flex flex-col mx-auto p-0">
+      <div id="mobile-chat" class="hidden md:hidden w-full bg-white rounded-2xl shadow-md border border-gray-200 mobile-chat-container flex flex-col mx-auto p-0">
         <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-200 flex-shrink-0 bg-gray-50 rounded-t-2xl">
           <button onclick="closeMobileChat()" class="mr-1 text-gray-600 hover:text-gray-800">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
@@ -337,9 +323,9 @@
             </button>
           </form>
         </div>
-      </main>
+      </div>
 
-      <aside class="hidden md:flex w-full md:w-1/3 lg:w-1/4 flex-col gap-5">
+      <aside class="hidden md:flex md:w-1/3 lg:w-1/4 flex-col gap-5">
         <div class="relative">
           <div class="bg-white rounded-xl shadow-sm px-4 py-3 flex items-center border border-gray-200">
             <svg class="w-5 h-5 mr-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -348,103 +334,102 @@
           <div id="search-results-desktop" class="absolute w-full bg-white shadow-lg rounded-lg mt-1 z-50 hidden max-h-64 overflow-y-auto border border-gray-200 custom-scrollbar"></div>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-1 min-h-0 flex flex-col">
-          <div class="flex-shrink-0">
-            <div class="flex justify-between items-center mb-3">
-              <h2 class="font-bold text-lg text-gray-800">Groupes</h2>
-              <button onclick="openCreateGroupModal()" class="text-blue-600 hover:text-blue-700 p-1 rounded-full hover:bg-blue-50 transition" title="Créer un groupe">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-              </button>
-            </div>
-            <ul id="group-conversations-desktop" class="flex flex-col gap-1 max-h-40 overflow-y-auto custom-scrollbar pr-2">
-              <% if (typeof groups !== 'undefined' && groups.length > 0) { %>
-                <% groups.forEach(group => { 
-                  let lastMessage = "Pas encore de message";
-                  let lastMessageTime = "";
-                  
-                  if (group.lastMessage) {
-                    lastMessage = group.lastMessage.length > 30 ? group.lastMessage.substring(0, 30) + "..." : group.lastMessage;
-                    if (group.lastMessageFrom && group.lastMessageFrom !== currentUser.username) {
-                      lastMessage = `<span class="font-medium text-gray-600">${group.lastMessageFrom}:</span> ${lastMessage}`;
-                    }
-                  }
-                  if (group.lastMessageTime) {
-                    lastMessageTime = new Date(group.lastMessageTime).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
-                  }
-                %>
-                <li onclick="openDesktopGroupConversation('<%= group._id %>')" class="flex items-center justify-between hover:bg-gray-100 rounded-lg p-2 cursor-pointer transition group-result" data-group-id="<%= group._id %>">
-                  <div class="flex items-center gap-3">
-                    <img src="<%= group.avatar || '/group_photos/default.png' %>" class="w-11 h-11 rounded-full object-cover" />
-                    <div class="flex-grow">
-                      <p class="font-semibold text-gray-800"><%= group.name %></p>
-                      <p class="text-xs text-gray-500"><%- lastMessage %></p>
-                    </div>
-                  </div>
-                  <div class="flex flex-col items-end gap-1.5 flex-shrink-0 ml-2">
-                    <span class="text-xs font-medium text-gray-400"><%= lastMessageTime %></span>
-                    <% if (group.unreadCount && group.unreadCount > 0) { %>
-                      <span class="text-xs text-white bg-red-500 min-w-[22px] h-5 rounded-full flex items-center justify-center font-bold px-1.5">
-                        <%= group.unreadCount > 99 ? '99+' : group.unreadCount %>
-                      </span>
-                    <% } else { %>
-                      <div class="w-5 h-5"></div>
-                    <% } %>
-                  </div>
-                </li>
-                <% }); %>
-              <% } else { %>
-                <li class="text-sm text-gray-400 text-center py-6">Aucun groupe.</li>
-              <% } %>
-            </ul>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-1 min-h-0 flex flex-col gap-3">
+          <div class="flex-1 flex flex-col min-h-0">
+              <div class="flex justify-between items-center mb-3 flex-shrink-0">
+                  <h2 class="font-bold text-lg text-gray-800">Groupes</h2>
+                  <button onclick="openCreateGroupModal()" class="text-blue-600 hover:text-blue-700 p-1 rounded-full hover:bg-blue-50 transition" title="Créer un groupe">
+                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                  </button>
+              </div>
+              <ul id="group-conversations-desktop" class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-1 pr-2">
+                  <% if (typeof groups !== 'undefined' && groups.length > 0) { %>
+                      <% groups.forEach(group => { %>
+                          <% let lastMessage = "Pas encore de message"; %>
+                          <% let lastMessageTime = ""; %>
+      
+                          <% if (group.lastMessage) { %>
+                              <% lastMessage = group.lastMessage.length > 30 ? group.lastMessage.substring(0, 30) + "..." : group.lastMessage; %>
+                              <% if (group.lastMessageFrom && group.lastMessageFrom !== currentUser.username) { %>
+                                  <% lastMessage = `<span class="font-medium text-gray-600">${group.lastMessageFrom}:</span> ${lastMessage}`; %>
+                              <% } %>
+                          <% } %>
+                          <% if (group.lastMessageTime) { %>
+                              <% lastMessageTime = new Date(group.lastMessageTime).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}); %>
+                          <% } %>
+                          <li onclick="openDesktopGroupConversation('<%= group._id %>')" class="flex items-center justify-between hover:bg-gray-100 rounded-lg p-2 cursor-pointer transition group-result" data-group-id="<%= group._id %>">
+                              <div class="flex items-center gap-3">
+                                  <img src="<%= group.avatar || '/group_photos/default.png' %>" class="w-11 h-11 rounded-full object-cover" />
+                                  <div class="flex-grow">
+                                      <p class="font-semibold text-gray-800"><%= group.name %></p>
+                                      <p class="text-xs text-gray-500"><%- lastMessage %></p>
+                                  </div>
+                              </div>
+                              <div class="flex flex-col items-end gap-1.5 flex-shrink-0 ml-2">
+                                  <span class="text-xs font-medium text-gray-400"><%= lastMessageTime %></span>
+                                  <% if (group.unreadCount && group.unreadCount > 0) { %>
+                                      <span class="text-xs text-white bg-red-500 min-w-[22px] h-5 rounded-full flex items-center justify-center font-bold px-1.5">
+                                          <%= group.unreadCount > 99 ? '99+' : group.unreadCount %>
+                                      </span>
+                                  <% } else { %>
+                                      <div class="w-5 h-5"></div>
+                                  <% } %>
+                              </div>
+                          </li>
+                      <% }); %>
+                  <% } else { %>
+                      <li class="text-sm text-gray-400 text-center py-6">Aucun groupe.</li>
+                  <% } %>
+              </ul>
           </div>
-          
+      
           <hr class="my-3 border-gray-200">
-          
-          <div class="flex-grow flex flex-col">
-            <h2 class="font-bold text-lg text-gray-800 mb-3">Messages Privés</h2>
-            <ul id="private-conversations-desktop" class="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-2" style="max-height: calc(100vh - 500px); min-height: 200px;">
-               <% if (typeof conversations !== 'undefined' && conversations.length > 0) { %>
-                <% conversations.forEach(conv => { 
-                  const other = conv.participants.find(p => p !== currentUser.username);
-                  let lastMessage = "Démarrez la conversation !";
-                  let lastMessageTime = "";
-                  if (conv.lastMessage) {
-                    lastMessage = conv.lastMessage.length > 35 ? conv.lastMessage.substring(0, 35) + "..." : conv.lastMessage;
-                  }
-                  if (conv.lastMessageTime) {
-                    lastMessageTime = new Date(conv.lastMessageTime).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
-                  }
-                %>
-                <li onclick="openDesktopConversation('<%= other %>')" class="flex items-center justify-between hover:bg-gray-100 rounded-lg p-2 cursor-pointer transition user-result" data-username="<%= other %>">
-                  <div class="flex items-center gap-3">
-                    <img src="<%= conv.photo || '/default.png' %>" class="w-11 h-11 rounded-full object-cover" />
-                    <div>
-                      <p class="font-semibold text-gray-800"><%= other %></p>
-                      <p class="text-xs text-gray-500"><%= lastMessage %></p>
-                    </div>
-                  </div>
-                  <div class="flex flex-col items-end gap-1.5 flex-shrink-0 ml-2">
-                    <span class="text-xs font-medium text-gray-400"><%= lastMessageTime %></span>
-                    <% if (conv.unreadCount && conv.unreadCount > 0) { %>
-                      <span class="text-xs text-white bg-red-500 min-w-[22px] h-5 rounded-full flex items-center justify-center font-bold px-1.5">
-                        <%= conv.unreadCount > 99 ? '99+' : conv.unreadCount %>
-                      </span>
-                    <% } else { %>
-                      <div class="w-5 h-5"></div>
-                    <% } %>
-                  </div>
-                </li>
-                <% }); %>
-              <% } else { %>
-                <li class="text-sm text-gray-400 text-center py-6">Aucune conversation.</li>
-              <% } %>
-            </ul>
+      
+          <div class="flex-1 flex flex-col min-h-0">
+              <h2 class="font-bold text-lg text-gray-800 mb-3 flex-shrink-0">Messages Privés</h2>
+              <ul id="private-conversations-desktop" class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-1 pr-2">
+                  <% if (typeof conversations !== 'undefined' && conversations.length > 0) { %>
+                      <% conversations.forEach(conv => { %>
+                          <% const other = conv.participants.find(p => p !== currentUser.username); %>
+                          <% let lastMessage = "Démarrez la conversation !"; %>
+                          <% let lastMessageTime = ""; %>
+                          <% if (conv.lastMessage) { %>
+                              <% lastMessage = conv.lastMessage.length > 35 ? conv.lastMessage.substring(0, 35) + "..." : conv.lastMessage; %>
+                          <% } %>
+                          <% if (conv.lastMessageTime) { %>
+                              <% lastMessageTime = new Date(conv.lastMessageTime).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}); %>
+                          <% } %>
+                          <li onclick="openDesktopConversation('<%= other %>')" class="flex items-center justify-between hover:bg-gray-100 rounded-lg p-2 cursor-pointer transition user-result" data-username="<%= other %>">
+                              <div class="flex items-center gap-3">
+                                  <img src="<%= conv.photo || '/default.png' %>" class="w-11 h-11 rounded-full object-cover" />
+                                  <div>
+                                      <p class="font-semibold text-gray-800"><%= other %></p>
+                                      <p class="text-xs text-gray-500"><%= lastMessage %></p>
+                                  </div>
+                              </div>
+                              <div class="flex flex-col items-end gap-1.5 flex-shrink-0 ml-2">
+                                  <span class="text-xs font-medium text-gray-400"><%= lastMessageTime %></span>
+                                  <% if (conv.unreadCount && conv.unreadCount > 0) { %>
+                                      <span class="text-xs text-white bg-red-500 min-w-[22px] h-5 rounded-full flex items-center justify-center font-bold px-1.5">
+                                          <%= conv.unreadCount > 99 ? '99+' : conv.unreadCount %>
+                                      </span>
+                                  <% } else { %>
+                                      <div class="w-5 h-5"></div>
+                                  <% } %>
+                              </div>
+                          </li>
+                      <% }); %>
+                  <% } else { %>
+                      <li class="text-sm text-gray-400 text-center py-6">Aucune conversation.</li>
+                  <% } %>
+              </ul>
           </div>
-        </div>
+      </div>
       </aside>
 
-      <main id="chat" class="hidden md:flex w-full md:w-2/3 lg:w-3/4 flex-col bg-white rounded-2xl shadow-md border border-gray-200 p-0 min-h-0 flex-1">
+      <div id="chat" class="hidden md:flex md:w-2/3 lg:w-3/4 flex-col bg-white rounded-2xl shadow-md border border-gray-200 p-0 flex-1 min-h-full">
         <% if (selectedUser) { %>
+          <!-- Header de la conversation - reste fixe en haut -->
           <div class="flex items-center gap-4 p-4 border-b border-gray-200 flex-shrink-0 bg-gray-50 rounded-t-2xl">
             <img src="<%= selectedUser && selectedUser.photo ? selectedUser.photo : '/default.png' %>" class="w-12 h-12 rounded-full object-cover" />
             <div>
@@ -452,8 +437,9 @@
               <p class="text-sm text-gray-500">@<%= selectedUser.username %></p>
             </div>
           </div>
-
-          <div class="desktop-chat-messages overflow-y-auto flex flex-col gap-4 p-6 custom-scrollbar">
+      
+          <!-- Zone des messages - prend tout l'espace disponible -->
+          <div class="desktop-chat-messages flex-1 overflow-y-auto flex flex-col gap-4 p-6 custom-scrollbar min-h-0">
             <% messages.forEach(msg => { %>
               <% if (msg.from === currentUser.username) { %>
                 <div class="flex flex-col items-end">
@@ -472,7 +458,8 @@
               <% } %>
             <% }) %>
           </div>
-
+      
+          <!-- Zone de saisie - reste fixe en bas -->
           <div class="p-4 flex-shrink-0 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
             <form id="desktop-message-form" class="flex items-center gap-4" autocomplete="off">
               <input type="hidden" name="to" value="<%= selectedUser.username %>" />
@@ -484,7 +471,9 @@
             </button>
             </form>
           </div>
+          
         <% } else if (selectedGroup) { %>
+          <!-- Header du groupe - reste fixe en haut -->
           <div class="flex items-center gap-4 p-4 border-b border-gray-200 flex-shrink-0 bg-gray-50 rounded-t-2xl">
             <img src="<%= selectedGroup.avatar || '/group_photos/default.png' %>" class="w-12 h-12 rounded-full object-cover" />
             <div class="flex-1">
@@ -497,8 +486,9 @@
               </button>
             <% } %>
           </div>
-
-          <div class="desktop-chat-messages overflow-y-auto flex flex-col gap-4 p-6 custom-scrollbar">
+      
+          <!-- Zone des messages - prend tout l'espace disponible -->
+          <div class="desktop-chat-messages flex-1 overflow-y-auto flex flex-col gap-4 p-6 custom-scrollbar min-h-0">
             <% messages.forEach(msg => { %>
               <% if (msg.from === currentUser.username) { %>
                 <div class="flex flex-col items-end">
@@ -518,7 +508,8 @@
               <% } %>
             <% }) %>
           </div>
-
+      
+          <!-- Zone de saisie - reste fixe en bas -->
           <div class="p-4 flex-shrink-0 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
             <form id="desktop-group-message-form" class="flex items-center gap-4" autocomplete="off">
               <input type="hidden" name="groupId" value="<%= selectedGroup._id %>" />
@@ -530,20 +521,20 @@
             </button>
             </form>
           </div>
+          
         <% } else { %>
+          <!-- Message de bienvenue - centré dans tout l'espace -->
           <div class="flex-1 flex flex-col items-center justify-center text-center p-8">
             <h3 class="text-xl font-bold text-gray-700">Bienvenue sur votre Messagerie</h3>
             <p class="text-gray-500 mt-2 max-w-sm">Sélectionnez une conversation pour commencer à discuter, ou recherchez un utilisateur pour démarrer une nouvelle conversation.</p>
           </div>
         <% } %>
-      </main>
+      </div>
 
     </div>
   </div>
 
 <script>
-// Le code JavaScript reste inchangé. Vous pouvez coller ici
-// l'intégralité de votre bloc <script> existant.
 
  let currentMobileUser = null;
  let currentMobileGroupId = null;
