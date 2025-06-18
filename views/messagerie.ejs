@@ -184,7 +184,7 @@
   </div>
 </div>
 
- <div class="pt-20 md:pt-24 flex flex-col" style="height: calc(100vh - 5rem);">
+ <div class="pt-20 md:pt-20 flex flex-col" style="height: calc(100vh - 2.5rem);">
     <div class="flex-1 flex flex-col md:flex-row gap-6 p-4 md:p-6 max-w-8xl w-full mx-auto mt-10 h-screen overflow-y-auto"
          data-conversations='<%- JSON.stringify(typeof conversations !== "undefined" ? conversations : []) %>'
          data-groups='<%- JSON.stringify(typeof groups !== "undefined" ? groups : []) %>'>
@@ -535,8 +535,6 @@
   </div>
 
 <script>
-// Le code JavaScript reste inchangé. Vous pouvez coller ici
-// l'intégralité de votre bloc <script> existant.
 
  let currentMobileUser = null;
  let currentMobileGroupId = null;
