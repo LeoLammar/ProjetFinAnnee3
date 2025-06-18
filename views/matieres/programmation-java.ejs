@@ -173,6 +173,7 @@
     </div>
     <p class="text-base sm:text-lg text-center sm:text-left">Bienvenue sur la page de programmation java.</p>
     
+    <!-- Section Cours -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('cours-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Cours
@@ -225,6 +226,7 @@
       </div>
     </section>
     
+    <!-- Section TDs -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('tds-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         TDs
@@ -256,6 +258,7 @@
       </div>
     </section>
     
+    <!-- Section TPs -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('tps-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         TPs
@@ -287,6 +290,7 @@
       </div>
     </section>
     
+    <!-- Section Annales -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('annales-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Annales
@@ -318,6 +322,7 @@
       </div>
     </section>
     
+    <!-- Section Forum -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('forum-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Forum
@@ -344,9 +349,11 @@
           </div>
         </div>
         <script>
+          // Ouvre le modal d'ajout de discussion
           function openAddDiscussionModal() {
             document.getElementById('addDiscussionModal').style.display = 'flex';
           }
+          // Ferme le modal d'ajout de discussion
           function closeAddDiscussionModal() {
             document.getElementById('addDiscussionModal').style.display = 'none';
           }
@@ -482,10 +489,13 @@
     function openModal() {
       document.getElementById('uploadModal').style.display = 'flex';
     }
+    // Ferme le modal d'upload de fichier
     function closeModal() {
       document.getElementById('uploadModal').style.display = 'none';
     }
+    // Affiche ou masque le contenu d'une section (cours, TDs, etc.)
     function toggleContent(id) {
+      // Affiche ou masque dynamiquement une section de la page
       const content = document.getElementById(id);
       if (content.classList.contains('hidden')) {
         content.classList.remove('hidden');
@@ -493,7 +503,9 @@
         content.classList.add('hidden');
       }
     }
+    // Met à jour le nom du/des fichier(s) sélectionné(s)
     function updateFileName(input) {
+      // Met à jour l'affichage du nom des fichiers choisis dans le formulaire d'upload
       const fileChosen = document.getElementById('file-chosen');
       if (input.files && input.files.length > 0) {
         if (input.files.length === 1) {
@@ -507,7 +519,9 @@
         fileChosen.className = 'file-none';
       }
     }
+    // Affiche/masque le PDF dans la section correspondante
     function togglePdfMulti(pdfId, viewerId) {
+      // Affiche ou masque la prévisualisation d'un PDF dans la page
       const viewer = document.getElementById(viewerId);
       if (!viewer) return;
       const frame = viewer.querySelector('iframe');
@@ -542,6 +556,7 @@
     let currentQuizFileId = null;
     let currentQuizFileName = null;
 
+    // Ouvre le modal Quiz IA et lance la génération
     function openQuizModal(fileId, fileName) {
       currentQuizFileId = fileId;
       currentQuizFileName = fileName;
@@ -552,9 +567,11 @@
       document.getElementById('quizContent').innerHTML = '';
       fetchQuizIA(fileId);
     }
+    // Ferme le modal Quiz IA
     function closeQuizModal() {
       document.getElementById('quizModal').style.display = 'none';
     }
+    // Régénère le quiz IA
     function regenerateQuizIA() {
       if (currentQuizFileId && currentQuizFileName) {
         document.getElementById('quizLoading').style.display = '';
@@ -563,7 +580,9 @@
         fetchQuizIA(currentQuizFileId, true); // true pour forcer la régénération
       }
     }
+    // Récupère le quiz IA depuis l'API
     async function fetchQuizIA(fileId, force) {
+      // Appelle l'API pour obtenir ou régénérer le quiz IA pour un fichier donné
       try {
         let url = '/api/quiz-from-doc/' + fileId;
         if (force) url += '?force=1';
@@ -590,7 +609,9 @@
       }
     }
 
+    // Affiche le quiz IA dans le modal
     function renderQuiz(quiz) {
+      // Affiche dynamiquement les questions/réponses du quiz IA dans le modal
       const container = document.getElementById('quizContent');
       container.innerHTML = '';
       quiz.forEach((q, idx) => {
@@ -639,6 +660,7 @@
       container.appendChild(btn);
     }
     // Résumé IA Front
+    // Ouvre le modal Résumé IA et lance la génération
     function openResumeModal(fileId, fileName) {
       document.getElementById('resumeModal').style.display = 'flex';
       document.getElementById('resumeModalTitle').textContent = 'Résumé IA : ' + fileName;
@@ -649,10 +671,13 @@
       window.currentResumeFileId = fileId;
       window.currentResumeFileName = fileName;
     }
+    // Ferme le modal Résumé IA
     function closeResumeModal() {
       document.getElementById('resumeModal').style.display = 'none';
     }
+    // Récupère le résumé IA depuis l'API
     async function fetchResumeIA(fileId, force) {
+      // Appelle l'API pour obtenir ou régénérer le résumé IA pour un fichier donné
       try {
         let url = '/api/resume-from-doc/' + fileId;
         if (force) url += '?force=1';
@@ -678,6 +703,7 @@
         document.getElementById('resumeError').textContent = 'Erreur réseau ou serveur.';
       }
     }
+    // Affiche le résumé IA dans le modal
     function renderResume(resume) {
       // Supprime la première phrase si elle ressemble à une introduction générique
       let cleaned = resume;
@@ -691,7 +717,7 @@
       const container = document.getElementById('resumeContent');
       container.innerHTML = `<div class="text-gray-800 whitespace-pre-line">${cleaned}</div>`;
     }
-    // Ajout : fonction pour régénérer le résumé IA
+    // Régénère le résumé IA
     function regenerateResumeIA() {
       if (window.currentResumeFileId && window.currentResumeFileName) {
         document.getElementById('resumeLoading').style.display = '';

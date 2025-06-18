@@ -2,6 +2,7 @@
 <html lang="fr">
 <%- include('../partials/header.ejs') %>
 <head>
+  <!-- Métadonnées et styles principaux -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <%- include('../partials/head.ejs') %>
@@ -164,7 +165,9 @@
 </head>
 <body class="bg-[#FAF3E5] min-h-screen">
   <main class="p-2 sm:p-4 md:p-8 max-w-4xl mx-auto">
+    <!-- Espacement supérieur pour le header -->
     <div class="mt-16 sm:mt-24"></div>
+    <!-- Titre et bouton d'ajout de fichier -->
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
       <h1 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-4 text-center sm:text-left">Projet d'Informatique</h1>
       <button onclick="openModal()" class="w-full sm:w-auto bg-[#5C83BA] text-white px-4 py-2 rounded hover:bg-[#466a99] transition">
@@ -173,6 +176,7 @@
     </div>
     <p class="text-base sm:text-lg text-center sm:text-left">Bienvenue sur la page de projet d'informatique.</p>
     
+    <!-- Section Cours -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('cours-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Cours
@@ -225,6 +229,111 @@
       </div>
     </section>
     
+    <!-- Section TDs -->
+    <section class="mb-6">
+      <button type="button" onclick="toggleContent('tds-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
+        TDs
+      </button>
+      <div id="tds-content" class="hidden mt-2">
+        <% if (tds && tds.length > 0) { %>
+          <ul style="margin-left: 1.5rem;">
+            <% tds.forEach(function(file, idx) { 
+              var fileId = file.link && file.link.split('/').pop();
+              var safeName = (file.name || '').replace(/'/g, "\'").replace(/"/g, '&quot;');
+            %>
+              <li style="margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                    <a href="javascript:void(0)" onclick="togglePdfMulti('<%= fileId %>', 'tds-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1">
+                      <%= file.name %>
+                    </a>
+                  </span>
+                  <span style="display:flex; gap:0.5rem; align-items:center;">
+                    <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" title="Télécharger">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
+                        <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
+                      </svg>
+                    </a>
+                    <button type="button" class="inline-block px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition mb-1"
+                      onclick="openQuizModal('<%= fileId %>', '<%= safeName %>')"
+                      title="Quiz IA">
+                      Quiz IA
+                    </button>
+                    <button type="button" class="inline-block px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition mb-1"
+                      onclick="openResumeModal('<%= fileId %>', '<%= safeName %>')"
+                      title="Résumé IA">
+                      Résumé IA
+                    </button>
+                  </span>
+                </div>
+                <div id="tds-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none;">
+                  <iframe src="/view/<%= fileId %>#zoom=90" class="pdf-frame" allowfullscreen style="display:none;"></iframe>
+                  <div class="pdf-fallback-message" style="display:none; color:#b91c1c; background:#fff0f0; border:1px solid #fca5a5; border-radius:8px; padding:1em; text-align:center;">
+                    <span>La prévisualisation du PDF n'est pas disponible sur votre appareil.<br>
+                    <a href="<%= file.link.replace('/download/', '/view/') %>" target="_blank" style="color:#5C83BA;text-decoration:underline;">Cliquez ici pour télécharger ou ouvrir le document dans un nouvel onglet</a></span>
+                  </div>
+                </div>
+              </li>
+            <% }); %>
+          </ul>
+        <% } else { %>
+          <p class="text-gray-500" style="margin-left: 2.5rem;">Aucun TD disponible.</p>
+        <% } %>
+      </div>
+    </section>
+    <!-- Section TPs -->
+    <section class="mb-6">
+      <button type="button" onclick="toggleContent('tps-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
+        TPs
+      </button>
+      <div id="tps-content" class="hidden mt-2">
+        <% if (tps && tps.length > 0) { %>
+          <ul style="margin-left: 1.5rem;">
+            <% tps.forEach(function(file, idx) { 
+              var fileId = file.link && file.link.split('/').pop();
+              var safeName = (file.name || '').replace(/'/g, "\'").replace(/"/g, '&quot;');
+            %>
+              <li style="margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                    <a href="javascript:void(0)" onclick="togglePdfMulti('<%= fileId %>', 'tps-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1">
+                      <%= file.name %>
+                    </a>
+                  </span>
+                  <span style="display:flex; gap:0.5rem; align-items:center;">
+                    <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" title="Télécharger">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
+                        <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
+                      </svg>
+                    </a>
+                    <button type="button" class="inline-block px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition mb-1"
+                      onclick="openQuizModal('<%= fileId %>', '<%= safeName %>')"
+                      title="Quiz IA">
+                      Quiz IA
+                    </button>
+                    <button type="button" class="inline-block px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition mb-1"
+                      onclick="openResumeModal('<%= fileId %>', '<%= safeName %>')"
+                      title="Résumé IA">
+                      Résumé IA
+                    </button>
+                  </span>
+                </div>
+                <div id="tps-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none;">
+                  <iframe src="/view/<%= fileId %>#zoom=90" class="pdf-frame" allowfullscreen style="display:none;"></iframe>
+                  <div class="pdf-fallback-message" style="display:none; color:#b91c1c; background:#fff0f0; border:1px solid #fca5a5; border-radius:8px; padding:1em; text-align:center;">
+                    <span>La prévisualisation du PDF n'est pas disponible sur votre appareil.<br>
+                    <a href="<%= file.link.replace('/download/', '/view/') %>" target="_blank" style="color:#5C83BA;text-decoration:underline;">Cliquez ici pour télécharger ou ouvrir le document dans un nouvel onglet</a></span>
+                  </div>
+                </div>
+              </li>
+            <% }); %>
+          </ul>
+        <% } else { %>
+          <p class="text-gray-500" style="margin-left: 2.5rem;">Aucun TP disponible.</p>
+        <% } %>
+      </div>
+    </section>
+    <!-- Section Annales -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('annales-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Annales
@@ -256,6 +365,7 @@
       </div>
     </section>
     
+    <!-- Section Forum -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('forum-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Forum
@@ -281,14 +391,6 @@
             </form>
           </div>
         </div>
-        <script>
-          function openAddDiscussionModal() {
-            document.getElementById('addDiscussionModal').style.display = 'flex';
-          }
-          function closeAddDiscussionModal() {
-            document.getElementById('addDiscussionModal').style.display = 'none';
-          }
-        </script>
         <% if (forum && forum.length > 0) { %>
           <ul style="margin-left: 1.5rem;">
             <% forum.forEach(function(discussion, idx) { 
@@ -352,6 +454,7 @@
     </section>
     
   </main>
+  <!-- Modal d'upload de fichier -->
   <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
     <div class="bg-white custom-modal p-3 sm:p-6 shadow-lg w-full max-w-sm sm:max-w-md md:max-w-lg">
       <button type="button" class="close-btn" onclick="closeModal()" title="Fermer">&times;</button>
@@ -417,12 +520,23 @@
     </div>
   </div>
   <script>
+    // Ouvre le modal d'ajout de discussion
+    function openAddDiscussionModal() {
+      document.getElementById('addDiscussionModal').style.display = 'flex';
+    }
+    // Ferme le modal d'ajout de discussion
+    function closeAddDiscussionModal() {
+      document.getElementById('addDiscussionModal').style.display = 'none';
+    }
+    // Ouvre le modal d'upload de fichier
     function openModal() {
       document.getElementById('uploadModal').style.display = 'flex';
     }
+    // Ferme le modal d'upload de fichier
     function closeModal() {
       document.getElementById('uploadModal').style.display = 'none';
     }
+    // Affiche ou masque le contenu d'une section (cours, TDs, etc.)
     function toggleContent(id) {
       const content = document.getElementById(id);
       if (content.classList.contains('hidden')) {
@@ -431,6 +545,7 @@
         content.classList.add('hidden');
       }
     }
+    // Met à jour le nom du/des fichier(s) sélectionné(s)
     function updateFileName(input) {
       const fileChosen = document.getElementById('file-chosen');
       if (input.files && input.files.length > 0) {
@@ -445,6 +560,7 @@
         fileChosen.className = 'file-none';
       }
     }
+    // Affiche/masque le PDF dans la section correspondante
     function togglePdfMulti(pdfId, viewerId) {
       const viewer = document.getElementById(viewerId);
       if (!viewer) return;
@@ -480,6 +596,7 @@
     let currentQuizFileId = null;
     let currentQuizFileName = null;
 
+    // Ouvre le modal Quiz IA et lance la génération
     function openQuizModal(fileId, fileName) {
       currentQuizFileId = fileId;
       currentQuizFileName = fileName;
@@ -490,9 +607,11 @@
       document.getElementById('quizContent').innerHTML = '';
       fetchQuizIA(fileId);
     }
+    // Ferme le modal Quiz IA
     function closeQuizModal() {
       document.getElementById('quizModal').style.display = 'none';
     }
+    // Régénère le quiz IA
     function regenerateQuizIA() {
       if (currentQuizFileId && currentQuizFileName) {
         document.getElementById('quizLoading').style.display = '';
@@ -501,6 +620,7 @@
         fetchQuizIA(currentQuizFileId, true); // true pour forcer la régénération
       }
     }
+    // Récupère le quiz IA depuis l'API
     async function fetchQuizIA(fileId, force) {
       try {
         let url = '/api/quiz-from-doc/' + fileId;
@@ -528,6 +648,7 @@
       }
     }
 
+    // Affiche le quiz IA dans le modal
     function renderQuiz(quiz) {
       const container = document.getElementById('quizContent');
       container.innerHTML = '';
@@ -577,6 +698,7 @@
       container.appendChild(btn);
     }
     // Résumé IA Front
+    // Ouvre le modal Résumé IA et lance la génération
     function openResumeModal(fileId, fileName) {
       document.getElementById('resumeModal').style.display = 'flex';
       document.getElementById('resumeModalTitle').textContent = 'Résumé IA : ' + fileName;
@@ -587,9 +709,11 @@
       window.currentResumeFileId = fileId;
       window.currentResumeFileName = fileName;
     }
+    // Ferme le modal Résumé IA
     function closeResumeModal() {
       document.getElementById('resumeModal').style.display = 'none';
     }
+    // Récupère le résumé IA depuis l'API
     async function fetchResumeIA(fileId, force) {
       try {
         let url = '/api/resume-from-doc/' + fileId;
@@ -616,6 +740,7 @@
         document.getElementById('resumeError').textContent = 'Erreur réseau ou serveur.';
       }
     }
+    // Affiche le résumé IA dans le modal
     function renderResume(resume) {
       // Supprime la première phrase si elle ressemble à une introduction générique
       let cleaned = resume;
@@ -629,7 +754,7 @@
       const container = document.getElementById('resumeContent');
       container.innerHTML = `<div class="text-gray-800 whitespace-pre-line">${cleaned}</div>`;
     }
-    // Ajout : fonction pour régénérer le résumé IA
+    // Régénère le résumé IA
     function regenerateResumeIA() {
       if (window.currentResumeFileId && window.currentResumeFileName) {
         document.getElementById('resumeLoading').style.display = '';

@@ -2,6 +2,7 @@
 <html lang="fr">
 <%- include('../partials/header.ejs') %>
 <head>
+  <!-- Métadonnées et styles principaux -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <%- include('../partials/head.ejs') %>
@@ -164,7 +165,9 @@
 </head>
 <body class="bg-[#FAF3E5] min-h-screen">
   <main class="p-2 sm:p-4 md:p-8 max-w-4xl mx-auto">
+    <!-- Espacement supérieur pour le header -->
     <div class="mt-16 sm:mt-24"></div>
+    <!-- Titre et bouton d'ajout de fichier -->
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
       <h1 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-4 text-center sm:text-left">Gestion de Projet</h1>
       <button onclick="openModal()" class="w-full sm:w-auto bg-[#5C83BA] text-white px-4 py-2 rounded hover:bg-[#466a99] transition">
@@ -173,6 +176,7 @@
     </div>
     <p class="text-base sm:text-lg text-center sm:text-left">Bienvenue sur la page de gestion de projet.</p>
     
+    <!-- Section Cours -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('cours-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Cours
@@ -256,6 +260,7 @@
       </div>
     </section>
     
+    <!-- Section Forum -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('forum-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Forum
@@ -282,10 +287,14 @@
           </div>
         </div>
         <script>
+          // Ouvre le modal d'ajout de discussion
           function openAddDiscussionModal() {
+            // Affiche le modal pour ajouter une nouvelle discussion au forum
             document.getElementById('addDiscussionModal').style.display = 'flex';
           }
+          // Ferme le modal d'ajout de discussion
           function closeAddDiscussionModal() {
+            // Masque le modal d'ajout de discussion
             document.getElementById('addDiscussionModal').style.display = 'none';
           }
         </script>
@@ -352,6 +361,7 @@
     </section>
     
   </main>
+  <!-- Modal d'upload de fichier -->
   <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
     <div class="bg-white custom-modal p-3 sm:p-6 shadow-lg w-full max-w-sm sm:max-w-md md:max-w-lg">
       <button type="button" class="close-btn" onclick="closeModal()" title="Fermer">&times;</button>
@@ -418,12 +428,17 @@
   </div>
   <script>
     function openModal() {
+      // Affiche le modal pour ajouter un fichier
       document.getElementById('uploadModal').style.display = 'flex';
     }
+    // Ferme le modal d'upload de fichier
     function closeModal() {
+      // Masque le modal d'upload de fichier
       document.getElementById('uploadModal').style.display = 'none';
     }
+    // Affiche ou masque le contenu d'une section (cours, TDs, etc.)
     function toggleContent(id) {
+      // Affiche ou masque dynamiquement une section de la page
       const content = document.getElementById(id);
       if (content.classList.contains('hidden')) {
         content.classList.remove('hidden');
@@ -431,7 +446,9 @@
         content.classList.add('hidden');
       }
     }
+    // Met à jour le nom du/des fichier(s) sélectionné(s)
     function updateFileName(input) {
+      // Met à jour l'affichage du nom des fichiers choisis dans le formulaire d'upload
       const fileChosen = document.getElementById('file-chosen');
       if (input.files && input.files.length > 0) {
         if (input.files.length === 1) {
@@ -445,7 +462,9 @@
         fileChosen.className = 'file-none';
       }
     }
+    // Affiche/masque le PDF dans la section correspondante
     function togglePdfMulti(pdfId, viewerId) {
+      // Affiche ou masque la prévisualisation d'un PDF dans la page
       const viewer = document.getElementById(viewerId);
       if (!viewer) return;
       const frame = viewer.querySelector('iframe');
@@ -480,7 +499,9 @@
     let currentQuizFileId = null;
     let currentQuizFileName = null;
 
+    // Ouvre le modal Quiz IA et lance la génération
     function openQuizModal(fileId, fileName) {
+      // Ouvre le modal Quiz IA et lance la récupération/génération du quiz
       currentQuizFileId = fileId;
       currentQuizFileName = fileName;
       document.getElementById('quizModal').style.display = 'flex';
@@ -490,10 +511,14 @@
       document.getElementById('quizContent').innerHTML = '';
       fetchQuizIA(fileId);
     }
+    // Ferme le modal Quiz IA
     function closeQuizModal() {
+      // Ferme le modal Quiz IA
       document.getElementById('quizModal').style.display = 'none';
     }
+    // Régénère le quiz IA
     function regenerateQuizIA() {
+      // Force la régénération du quiz IA pour le fichier courant
       if (currentQuizFileId && currentQuizFileName) {
         document.getElementById('quizLoading').style.display = '';
         document.getElementById('quizError').style.display = 'none';
@@ -501,7 +526,9 @@
         fetchQuizIA(currentQuizFileId, true); // true pour forcer la régénération
       }
     }
+    // Récupère le quiz IA depuis l'API
     async function fetchQuizIA(fileId, force) {
+      // Appelle l'API pour obtenir ou régénérer le quiz IA pour un fichier donné
       try {
         let url = '/api/quiz-from-doc/' + fileId;
         if (force) url += '?force=1';
@@ -528,7 +555,9 @@
       }
     }
 
+    // Affiche le quiz IA dans le modal
     function renderQuiz(quiz) {
+      // Affiche dynamiquement les questions/réponses du quiz IA dans le modal
       const container = document.getElementById('quizContent');
       container.innerHTML = '';
       quiz.forEach((q, idx) => {
@@ -577,7 +606,9 @@
       container.appendChild(btn);
     }
     // Résumé IA Front
+    // Ouvre le modal Résumé IA et lance la génération
     function openResumeModal(fileId, fileName) {
+      // Ouvre le modal Résumé IA et lance la récupération/génération du résumé
       document.getElementById('resumeModal').style.display = 'flex';
       document.getElementById('resumeModalTitle').textContent = 'Résumé IA : ' + fileName;
       document.getElementById('resumeLoading').style.display = '';
@@ -587,10 +618,14 @@
       window.currentResumeFileId = fileId;
       window.currentResumeFileName = fileName;
     }
+    // Ferme le modal Résumé IA
     function closeResumeModal() {
+      // Ferme le modal Résumé IA
       document.getElementById('resumeModal').style.display = 'none';
     }
+    // Récupère le résumé IA depuis l'API
     async function fetchResumeIA(fileId, force) {
+      // Appelle l'API pour obtenir ou régénérer le résumé IA pour un fichier donné
       try {
         let url = '/api/resume-from-doc/' + fileId;
         if (force) url += '?force=1';
@@ -616,7 +651,9 @@
         document.getElementById('resumeError').textContent = 'Erreur réseau ou serveur.';
       }
     }
+    // Affiche le résumé IA dans le modal
     function renderResume(resume) {
+      // Affiche dynamiquement le résumé IA dans le modal
       // Supprime la première phrase si elle ressemble à une introduction générique
       let cleaned = resume;
       // Expression régulière : phrase d'intro jusqu'au premier point suivie d'une majuscule (début du vrai résumé)
@@ -629,8 +666,9 @@
       const container = document.getElementById('resumeContent');
       container.innerHTML = `<div class="text-gray-800 whitespace-pre-line">${cleaned}</div>`;
     }
-    // Ajout : fonction pour régénérer le résumé IA
+    // Régénère le résumé IA
     function regenerateResumeIA() {
+      // Force la régénération du résumé IA pour le fichier courant
       if (window.currentResumeFileId && window.currentResumeFileName) {
         document.getElementById('resumeLoading').style.display = '';
         document.getElementById('resumeError').style.display = 'none';
@@ -639,6 +677,6 @@
       }
     }
   </script>
+  <%- include("../partials/footer.ejs") %>
 </body>
-<%- include("../partials/footer.ejs") %>
 </html>

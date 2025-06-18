@@ -2,12 +2,14 @@
 <%- include('partials/head.ejs') %>
 <html lang="fr">
 <head>
+  <!-- Métadonnées et styles principaux -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <title>Argos</title>
   <link href="/stylesheets/style.css" rel="stylesheet">
   <style>
+    /* Styles pour la section ressources éducatives */
     .hidden { display: none; }
     .ressources-section {
       background: #fff;
@@ -84,10 +86,12 @@
   <%- include('partials/header.ejs') %>
   <main class="ressources-section">
     <h2>Ressources éducatives</h2>
+    <!-- Section Semestre 1 -->
     <section class="mb-4">
       <h3>Semestre 1</h3>
       <ul class="list-disc pl-5">
         <li>
+          <!-- Bouton pour afficher/masquer les ressources de Signaux, Systèmes -->
           <button type="button" onclick="toggleContent('signaux-systemes')">Signaux, Systèmes</button>
           <div id="signaux-systemes" class="hidden pl-5" style="padding-left: 30px;">
             <p><a href="/transformations-integrales">Transformations intégrales</a></p>
@@ -96,6 +100,7 @@
           </div>
         </li>
         <li>
+          <!-- Bouton pour afficher/masquer les ressources de Physique, Électronique -->
           <button type="button" onclick="toggleContent('physique-electronique')">Physique, Électronique</button>
           <div id="physique-electronique" class="hidden pl-5" style="padding-left: 30px;">
             <p><a href="/electronique-numerique">Electronique Numérique</a></p>
@@ -103,6 +108,7 @@
           </div>
         </li>
         <li>
+          <!-- Bouton pour afficher/masquer les ressources d'Informatique -->
           <button type="button" onclick="toggleContent('informatique')">Informatique</button>
           <div id="informatique" class="hidden pl-5" style="padding-left: 30px;">
             <p><a href="/programmation-java">Programmation Java</a></p>
@@ -110,6 +116,7 @@
           </div>
         </li>
         <li>
+          <!-- Bouton pour afficher/masquer les ressources d'Humanités -->
           <button type="button" onclick="toggleContent('humanites')">Humanités</button>
           <div id="humanites" class="hidden pl-5" style="padding-left: 30px;">
             <p><a href="/anglais">Anglais</a></p>
@@ -117,6 +124,7 @@
           </div>
         </li>
         <li>
+          <!-- Bouton pour afficher/masquer les ressources de Responsabilité Sociale et Environnementale -->
           <button type="button" onclick="toggleContent('rse')">Responsabilité Sociale et Environnementale</button>
           <div id="rse" class="hidden pl-5" style="padding-left: 30px;">
             <p><a href="/ethique-de-lingenieur">Ethique de l'ingénieur</a></p>
@@ -125,6 +133,7 @@
           </div>
         </li>
         <li>
+          <!-- Bouton pour afficher/masquer les ressources d'Interculturel -->
           <button type="button" onclick="toggleContent('interculturel')">Interculturel</button>
           <div id="interculturel" class="hidden pl-5" style="padding-left: 30px;">
             <p><a href="/international-break">International Break</a></p>
@@ -132,10 +141,12 @@
         </li>
       </ul>
     </section>
+    <!-- Section Semestre 2 -->
     <section>
       <h3>Semestre 2</h3>
       <ul class="list-disc pl-5">
         <li>
+          <!-- Bouton pour afficher/masquer les ressources de Signaux, Systèmes S2 -->
           <button type="button" onclick="toggleContent('signaux-systemes1')">Signaux, Systèmes</button>
           <div id="signaux-systemes1" class="hidden pl-5" style="padding-left: 30px;">
             <p><a href="/analyse-des-signaux">Analyse des Signaux</a></p>
@@ -143,6 +154,7 @@
           </div>
         </li>
         <li>
+          <!-- Bouton pour afficher/masquer les ressources de Physique, Électronique S2 -->
           <button type="button" onclick="toggleContent('physique-electronique1')">Physique, Électronique</button>
           <div id="physique-electronique1" class="hidden pl-5" style="padding-left: 30px;">
             <p><a href="/projet-delectronique-numerique">Projet d'électronique numérique</a></p>
@@ -151,6 +163,7 @@
           </div>
         </li>
         <li>
+          <!-- Bouton pour afficher/masquer les ressources d'Informatique S2 -->
           <button type="button" onclick="toggleContent('informatique1')">Informatique</button>
           <div id="informatique1" class="hidden pl-5" style="padding-left: 30px;">
             <p><a href="/projet-dinformatique">Projet d'informatique</a></p>
@@ -160,6 +173,7 @@
           </div>
         </li>
         <li>
+          <!-- Bouton pour afficher/masquer les ressources d'Humanités S2 -->
           <button type="button" onclick="toggleContent('humanites1')">Humanités</button>
           <div id="humanites1" class="hidden pl-5" style="padding-left: 30px;">
             <p><a href="/anglais">Anglais</a></p>
@@ -167,6 +181,7 @@
           </div>
         </li>
         <li>
+          <!-- Bouton pour afficher/masquer les ressources d'Organisation et Management des Entreprises -->
           <button type="button" onclick="toggleContent('organisation-et-management-des-entreprises')">Organisation et Management des Entreprises</button>
           <div id="organisation-et-management-des-entreprises" class="hidden pl-5" style="padding-left: 30px;">
             <p><a href="/comptabilite">Comptabilité</a></p>
@@ -175,6 +190,7 @@
           </div>
         </li>
         <li>
+          <!-- Bouton pour afficher/masquer les ressources de Projet -->
           <button type="button" onclick="toggleContent('projet')">Projet</button>
           <div id="projet" class="hidden pl-5" style="padding-left: 30px;">
             <p><a href="/projet">Projet</a></p>
@@ -185,6 +201,7 @@
   </main>
   <%- include("partials/footer.ejs") %>
   <script>
+    // Fonction pour afficher/masquer le contenu d'une catégorie de ressources
     function toggleContent(id) {
       const content = document.getElementById(id);
       if (content.classList.contains('hidden')) {

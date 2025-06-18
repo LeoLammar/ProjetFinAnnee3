@@ -164,7 +164,9 @@
 </head>
 <body class="bg-[#FAF3E5] min-h-screen">
   <main class="p-2 sm:p-4 md:p-8 max-w-4xl mx-auto">
+    <!-- Espacement supérieur pour le header -->
     <div class="mt-16 sm:mt-24"></div>
+    <!-- Titre et bouton d'ajout de fichier -->
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
       <h1 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-4 text-center sm:text-left">Anglais</h1>
       <button onclick="openModal()" class="w-full sm:w-auto bg-[#5C83BA] text-white px-4 py-2 rounded hover:bg-[#466a99] transition">
@@ -173,6 +175,7 @@
     </div>
     <p class="text-base sm:text-lg text-center sm:text-left">Bienvenue sur la page d'anglais.</p>
     
+    <!-- Section Cours -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('cours-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Cours
@@ -225,6 +228,7 @@
       </div>
     </section>
     
+    <!-- Section TDs -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('tds-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         TDs
@@ -256,6 +260,7 @@
       </div>
     </section>
     
+    <!-- Section Annales -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('annales-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Annales
@@ -287,6 +292,7 @@
       </div>
     </section>
     
+    <!-- Section Forum -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('forum-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Forum
@@ -313,10 +319,14 @@
           </div>
         </div>
         <script>
+          // Ouvre le modal d'ajout de discussion
           function openAddDiscussionModal() {
+            // Affiche le modal pour ajouter une nouvelle discussion au forum
             document.getElementById('addDiscussionModal').style.display = 'flex';
           }
+          // Ferme le modal d'ajout de discussion
           function closeAddDiscussionModal() {
+            // Masque le modal d'ajout de discussion
             document.getElementById('addDiscussionModal').style.display = 'none';
           }
         </script>
@@ -383,6 +393,7 @@
     </section>
     
   </main>
+  <!-- Modal d'upload de fichier -->
   <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
     <div class="bg-white custom-modal p-3 sm:p-6 shadow-lg w-full max-w-sm sm:max-w-md md:max-w-lg">
       <button type="button" class="close-btn" onclick="closeModal()" title="Fermer">&times;</button>
@@ -448,13 +459,19 @@
     </div>
   </div>
   <script>
+    // Ouvre le modal d'upload de fichier
     function openModal() {
+      // Affiche le modal pour ajouter un fichier
       document.getElementById('uploadModal').style.display = 'flex';
     }
+    // Ferme le modal d'upload de fichier
     function closeModal() {
+      // Masque le modal d'upload de fichier
       document.getElementById('uploadModal').style.display = 'none';
     }
+    // Affiche ou masque le contenu d'une section (cours, TDs, etc.)
     function toggleContent(id) {
+      // Affiche ou masque dynamiquement une section de la page
       const content = document.getElementById(id);
       if (content.classList.contains('hidden')) {
         content.classList.remove('hidden');
@@ -462,7 +479,9 @@
         content.classList.add('hidden');
       }
     }
+    // Met à jour le nom du/des fichier(s) sélectionné(s)
     function updateFileName(input) {
+      // Met à jour l'affichage du nom des fichiers choisis dans le formulaire d'upload
       const fileChosen = document.getElementById('file-chosen');
       if (input.files && input.files.length > 0) {
         if (input.files.length === 1) {
@@ -476,7 +495,9 @@
         fileChosen.className = 'file-none';
       }
     }
+    // Affiche/masque le PDF dans la section correspondante
     function togglePdfMulti(pdfId, viewerId) {
+      // Affiche ou masque la prévisualisation d'un PDF dans la page
       const viewer = document.getElementById(viewerId);
       if (!viewer) return;
       const frame = viewer.querySelector('iframe');
@@ -508,10 +529,11 @@
       }
     }
 
+    // Ouvre le modal Quiz IA et lance la génération du quiz
     let currentQuizFileId = null;
     let currentQuizFileName = null;
-
     function openQuizModal(fileId, fileName) {
+      // Ouvre le modal Quiz IA et lance la récupération/génération du quiz
       currentQuizFileId = fileId;
       currentQuizFileName = fileName;
       document.getElementById('quizModal').style.display = 'flex';
@@ -521,10 +543,14 @@
       document.getElementById('quizContent').innerHTML = '';
       fetchQuizIA(fileId);
     }
+    // Ferme le modal Quiz IA
     function closeQuizModal() {
+      // Ferme le modal Quiz IA
       document.getElementById('quizModal').style.display = 'none';
     }
+    // Régénère le quiz IA
     function regenerateQuizIA() {
+      // Force la régénération du quiz IA pour le fichier courant
       if (currentQuizFileId && currentQuizFileName) {
         document.getElementById('quizLoading').style.display = '';
         document.getElementById('quizError').style.display = 'none';
@@ -532,7 +558,9 @@
         fetchQuizIA(currentQuizFileId, true); // true pour forcer la régénération
       }
     }
+    // Récupère le quiz IA depuis l'API
     async function fetchQuizIA(fileId, force) {
+      // Appelle l'API pour obtenir ou régénérer le quiz IA pour un fichier donné
       try {
         let url = '/api/quiz-from-doc/' + fileId;
         if (force) url += '?force=1';
@@ -558,8 +586,9 @@
         document.getElementById('quizError').textContent = 'Erreur réseau ou serveur.';
       }
     }
-
+    // Affiche le quiz IA dans le modal
     function renderQuiz(quiz) {
+      // Affiche dynamiquement les questions/réponses du quiz IA dans le modal
       const container = document.getElementById('quizContent');
       container.innerHTML = '';
       quiz.forEach((q, idx) => {
@@ -579,7 +608,7 @@
         `;
         container.appendChild(qDiv);
       });
-      // Ajout bouton correction
+      // Ajoute le bouton pour afficher les réponses
       const btn = document.createElement('button');
       btn.textContent = 'Voir les réponses';
       btn.className = 'mt-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99]';
@@ -593,11 +622,11 @@
           if (userAnswer === q.answer) {
             ansDiv.textContent = 'Réponse : ' + q.answer + ' ✔️';
             ansDiv.style.display = '';
-            ansDiv.className = 'text-green-700 font-semibold mt-1';
+            ansDiv.className = 'text-green-700 font-semibold';
           } else if (userAnswer) {
             ansDiv.innerHTML = `<span style="color:#b91c1c;">Votre réponse : ${userAnswer} ✗</span><br><span style="color:#15803d;">Bonne réponse : ${q.answer} ✔️</span>`;
             ansDiv.style.display = '';
-            ansDiv.className = 'font-semibold mt-1';
+            ansDiv.className = 'font-semibold';
           } else {
             ansDiv.textContent = 'Réponse : ' + q.answer;
             ansDiv.style.display = '';
@@ -607,8 +636,9 @@
       };
       container.appendChild(btn);
     }
-    // Résumé IA Front
+    // Ouvre le modal Résumé IA et lance la génération du résumé
     function openResumeModal(fileId, fileName) {
+      // Ouvre le modal Résumé IA et lance la récupération/génération du résumé
       document.getElementById('resumeModal').style.display = 'flex';
       document.getElementById('resumeModalTitle').textContent = 'Résumé IA : ' + fileName;
       document.getElementById('resumeLoading').style.display = '';
@@ -618,10 +648,14 @@
       window.currentResumeFileId = fileId;
       window.currentResumeFileName = fileName;
     }
+    // Ferme le modal Résumé IA
     function closeResumeModal() {
+      // Ferme le modal Résumé IA
       document.getElementById('resumeModal').style.display = 'none';
     }
+    // Récupère le résumé IA depuis l'API
     async function fetchResumeIA(fileId, force) {
+      // Appelle l'API pour obtenir ou régénérer le résumé IA pour un fichier donné
       try {
         let url = '/api/resume-from-doc/' + fileId;
         if (force) url += '?force=1';
@@ -647,6 +681,7 @@
         document.getElementById('resumeError').textContent = 'Erreur réseau ou serveur.';
       }
     }
+    // Affiche le résumé IA dans le modal
     function renderResume(resume) {
       // Supprime la première phrase si elle ressemble à une introduction générique
       let cleaned = resume;
@@ -660,8 +695,9 @@
       const container = document.getElementById('resumeContent');
       container.innerHTML = `<div class="text-gray-800 whitespace-pre-line">${cleaned}</div>`;
     }
-    // Ajout : fonction pour régénérer le résumé IA
+    // Régénère le résumé IA (force une nouvelle génération)
     function regenerateResumeIA() {
+      // Force la régénération du résumé IA pour le fichier courant
       if (window.currentResumeFileId && window.currentResumeFileName) {
         document.getElementById('resumeLoading').style.display = '';
         document.getElementById('resumeError').style.display = 'none';

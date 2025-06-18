@@ -2,169 +2,19 @@
 <html lang="fr">
 <%- include('../partials/header.ejs') %>
 <head>
+  <!-- Métadonnées et styles principaux -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <%- include('../partials/head.ejs') %>
   <title>Comptabilité</title>
   <link href="/stylesheets/style.css" rel="stylesheet">
-  <style>
-    .hidden { display: none; }
-    #uploadModal {
-      animation: fadeIn 0.2s;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    .custom-modal {
-      border-top: 6px solid #5C83BA;
-      border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-      position: relative;
-      padding-top: 2.5rem;
-      width: 100%;
-    }
-    .close-btn {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      background: transparent;
-      border: none;
-      font-size: 1.5rem;
-      color: #5C83BA;
-      cursor: pointer;
-      transition: color 0.2s;
-    }
-    .close-btn:hover {
-      color: #466a99;
-    }
-    .custom-modal h2 {
-      margin-top: 0;
-      color: #5C83BA;
-      text-align: center;
-    }
-    .custom-modal form label {
-      color: #1e293b;
-    }
-    .custom-modal form input,
-    .custom-modal form select {
-      border: 1px solid #cbd5e1;
-      margin-bottom: 0.5rem;
-    }
-    .custom-modal form input:focus,
-    .custom-modal form select:focus {
-      border-color: #5C83BA;
-      outline: none;
-    }
-    input[type="file"]::-webkit-file-upload-button {
-      visibility: hidden;
-      display: none;
-    }
-    input[type="file"]::file-selector-button {
-      visibility: hidden;
-      display: none;
-    }
-    input[type="file"] {
-      color: transparent;
-      background: none;
-      border: none;
-      padding: 0;
-      margin: 0;
-      width: 1px;
-      min-width: 0;
-      max-width: 0;
-      height: 1px;
-      overflow: hidden;
-      position: absolute;
-    }
-    .file-label {
-      position: relative;
-    }
-    .custom-file-btn {
-      display: inline-block;
-      background: #5C83BA;
-      color: #fff;
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.95rem;
-      transition: background 0.2s;
-      margin-right: 0.5rem;
-    }
-    .custom-file-btn:hover {
-      background: #466a99;
-    }
-    .file-chosen {
-      font-weight: 500;
-      color: #5C83BA;
-      margin-left: 0.5rem;
-    }
-    .file-none {
-      color: #64748b;
-      font-style: italic;
-      margin-left: 0.5rem;
-    }
-    .pdf-viewer-container {
-      width: 100%;
-      height: 60vh;
-      min-height: 350px;
-      max-height: 80vh;
-      margin-bottom: 1rem;
-    }
-    .pdf-frame {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-    }
-    @media (max-width: 900px) {
-      .pdf-viewer-container {
-        height: 45vh;
-        min-height: 220px;
-      }
-    }
-    @media (max-width: 600px) {
-      .pdf-viewer-container {
-        height: 32vh;
-        min-height: 140px;
-      }
-    }
-    @media (max-width: 400px) {
-      .pdf-viewer-container {
-        height: 22vh;
-        min-height: 90px;
-      }
-    }
-    @media (max-width: 640px) {
-      .custom-modal {
-        padding: 1rem !important;
-        border-radius: 10px;
-        font-size: 0.97rem;
-      }
-      .custom-modal h2 {
-        font-size: 1.1rem;
-      }
-    }
-    /* Ajout pour rendre le quiz scrollable */
-    .quiz-scroll-container {
-      max-height: 60vh;
-      overflow-y: auto;
-      padding-right: 8px;
-      margin-bottom: 1em;
-    }
-    .quiz-scroll-container::-webkit-scrollbar {
-      width: 8px;
-      background: #f1f5f9;
-    }
-    .quiz-scroll-container::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 4px;
-    }
-  </style>
+  <!-- ...autres styles éventuels... -->
 </head>
 <body class="bg-[#FAF3E5] min-h-screen">
   <main class="p-2 sm:p-4 md:p-8 max-w-4xl mx-auto">
+    <!-- Espacement supérieur pour le header -->
     <div class="mt-16 sm:mt-24"></div>
+    <!-- Titre et bouton d'ajout de fichier -->
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
       <h1 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-4 text-center sm:text-left">Comptabilité</h1>
       <button onclick="openModal()" class="w-full sm:w-auto bg-[#5C83BA] text-white px-4 py-2 rounded hover:bg-[#466a99] transition">
@@ -173,6 +23,7 @@
     </div>
     <p class="text-base sm:text-lg text-center sm:text-left">Bienvenue sur la page de comptabilité.</p>
     
+    <!-- Section Cours -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('cours-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Cours
@@ -225,6 +76,7 @@
       </div>
     </section>
     
+    <!-- Section TDs -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('tds-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         TDs
@@ -256,6 +108,39 @@
       </div>
     </section>
     
+    <!-- Section TPs -->
+    <section class="mb-6">
+      <button type="button" onclick="toggleContent('tps-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
+        TPs
+      </button>
+      <div id="tps-content" class="hidden mt-2">
+        <% if (tps && tps.length > 0) { %>
+          <ul style="margin-left: 1.5rem;">
+            <% tps.forEach(function(file, idx) { %>
+              <li style="margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'tps-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
+                    <%= file.name %>
+                  </a>
+                  <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;" title="Télécharger">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
+                      <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
+                    </svg>
+                  </a>
+                </div>
+                <div id="tps-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none; margin-left: 0.5rem;">
+                  <iframe src="" class="pdf-frame" allowfullscreen></iframe>
+                </div>
+              </li>
+            <% }); %>
+          </ul>
+        <% } else { %>
+          <p class="text-gray-500" style="margin-left: 2.5rem;">Aucun TP disponible.</p>
+        <% } %>
+      </div>
+    </section>
+    
+    <!-- Section Annales -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('annales-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Annales
@@ -287,6 +172,7 @@
       </div>
     </section>
     
+    <!-- Section Forum -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('forum-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Forum
@@ -312,14 +198,6 @@
             </form>
           </div>
         </div>
-        <script>
-          function openAddDiscussionModal() {
-            document.getElementById('addDiscussionModal').style.display = 'flex';
-          }
-          function closeAddDiscussionModal() {
-            document.getElementById('addDiscussionModal').style.display = 'none';
-          }
-        </script>
         <% if (forum && forum.length > 0) { %>
           <ul style="margin-left: 1.5rem;">
             <% forum.forEach(function(discussion, idx) { 
@@ -383,6 +261,7 @@
     </section>
     
   </main>
+  <!-- Modal d'upload de fichier -->
   <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
     <div class="bg-white custom-modal p-3 sm:p-6 shadow-lg w-full max-w-sm sm:max-w-md md:max-w-lg">
       <button type="button" class="close-btn" onclick="closeModal()" title="Fermer">&times;</button>
@@ -448,13 +327,29 @@
     </div>
   </div>
   <script>
+    // Ouvre le modal d'ajout de discussion
+    function openAddDiscussionModal() {
+      // Affiche le modal pour ajouter une nouvelle discussion au forum
+      document.getElementById('addDiscussionModal').style.display = 'flex';
+    }
+    // Ferme le modal d'ajout de discussion
+    function closeAddDiscussionModal() {
+      // Masque le modal d'ajout de discussion
+      document.getElementById('addDiscussionModal').style.display = 'none';
+    }
+    // Ouvre le modal d'upload de fichier
     function openModal() {
+      // Affiche le modal pour ajouter un fichier
       document.getElementById('uploadModal').style.display = 'flex';
     }
+    // Ferme le modal d'upload de fichier
     function closeModal() {
+      // Masque le modal d'upload de fichier
       document.getElementById('uploadModal').style.display = 'none';
     }
+    // Affiche ou masque le contenu d'une section (cours, TDs, etc.)
     function toggleContent(id) {
+      // Affiche ou masque dynamiquement une section de la page
       const content = document.getElementById(id);
       if (content.classList.contains('hidden')) {
         content.classList.remove('hidden');
@@ -462,7 +357,9 @@
         content.classList.add('hidden');
       }
     }
+    // Met à jour le nom du/des fichier(s) sélectionné(s)
     function updateFileName(input) {
+      // Met à jour l'affichage du nom des fichiers choisis dans le formulaire d'upload
       const fileChosen = document.getElementById('file-chosen');
       if (input.files && input.files.length > 0) {
         if (input.files.length === 1) {
@@ -476,7 +373,9 @@
         fileChosen.className = 'file-none';
       }
     }
+    // Affiche/masque le PDF dans la section correspondante
     function togglePdfMulti(pdfId, viewerId) {
+      // Affiche ou masque la prévisualisation d'un PDF dans la page
       const viewer = document.getElementById(viewerId);
       if (!viewer) return;
       const frame = viewer.querySelector('iframe');
@@ -511,7 +410,9 @@
     let currentQuizFileId = null;
     let currentQuizFileName = null;
 
+    // Ouvre le modal Quiz IA et lance la génération
     function openQuizModal(fileId, fileName) {
+      // Ouvre le modal Quiz IA et lance la récupération/génération du quiz
       currentQuizFileId = fileId;
       currentQuizFileName = fileName;
       document.getElementById('quizModal').style.display = 'flex';
@@ -521,10 +422,14 @@
       document.getElementById('quizContent').innerHTML = '';
       fetchQuizIA(fileId);
     }
+    // Ferme le modal Quiz IA
     function closeQuizModal() {
+      // Ferme le modal Quiz IA
       document.getElementById('quizModal').style.display = 'none';
     }
+    // Régénère le quiz IA
     function regenerateQuizIA() {
+      // Force la régénération du quiz IA pour le fichier courant
       if (currentQuizFileId && currentQuizFileName) {
         document.getElementById('quizLoading').style.display = '';
         document.getElementById('quizError').style.display = 'none';
@@ -532,7 +437,9 @@
         fetchQuizIA(currentQuizFileId, true); // true pour forcer la régénération
       }
     }
+    // Récupère le quiz IA depuis l'API
     async function fetchQuizIA(fileId, force) {
+      // Appelle l'API pour obtenir ou régénérer le quiz IA pour un fichier donné
       try {
         let url = '/api/quiz-from-doc/' + fileId;
         if (force) url += '?force=1';
@@ -559,7 +466,9 @@
       }
     }
 
+    // Affiche le quiz IA dans le modal
     function renderQuiz(quiz) {
+      // Affiche dynamiquement les questions/réponses du quiz IA dans le modal
       const container = document.getElementById('quizContent');
       container.innerHTML = '';
       quiz.forEach((q, idx) => {
