@@ -643,91 +643,21 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: '7d' }));
 res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
 ```
 
-### Plateformes recommandées
-- **Application** : Heroku, Railway, DigitalOcean App Platform
-- **Base de données** : MongoDB Atlas (gratuit jusqu'à 512MB)
-- **CDN/Assets** : Cloudflare pour les images et documents
-- **Monitoring** : PM2 pour la gestion des processus Node.js
-- **SSL** : Automatique sur la plupart des plateformes cloud
-
-### Checklist pré-déploiement
-- [ ] Compilation et optimisation Tailwind CSS
-- [ ] Configuration variables d'environnement production
-- [ ] Test de toutes les APIs externes (Mauria, Gemini)
-- [ ] Vérification des permissions de fichiers et uploads
-- [ ] Configuration du reverse proxy si nécessaire
-- [ ] Test de charge WebSocket
-- [ ] Sauvegarde base de données
-
-## 📸 Captures d'écran
-
-### Interface principale et navigation
-![Accueil](screenshots/accueil.png)
-*Page d'accueil avec présentation des fonctionnalités et navigation intuitive*
-
-### Emploi du temps intégré Junia
-![Emploi du temps](screenshots/emploi-du-temps.png)
-*Import automatique depuis API Mauria avec événements personnels et sessions de mentorat*
-
-### Système de mentorat collaboratif
-![Mentorat](screenshots/mentorat.png)
-*Interface de création et réservation de sessions de tutorat avec gamification*
-
-### Ressources éducatives par matière
-![Ressources Java](screenshots/ressources-programmation-java.png)
-*Page dédiée Programmation Java avec documents classés et quiz IA*
-
-### Génération de quiz avec IA
-![Quiz IA](screenshots/quiz-ia.png)
-*Interface de génération automatique de quiz depuis documents PDF avec Google Gemini*
-
-### Messagerie temps réel complète
-![Messagerie](screenshots/messagerie.png)
-*Chat privé et groupes avec WebSocket, notifications et statuts de lecture*
-
-### Dashboard administrateur
-![Admin](screenshots/admin-dashboard.png)
-*Interface de gestion des utilisateurs, permissions et modération*
-
-### Forum par matière
-![Forum](screenshots/forum-matiere.png)
-*Discussions intégrées par matière avec messages temps réel*
-
-*Pour ajouter vos captures d'écran, créez un dossier `screenshots/` et placez-y vos images*
-
 ## 🤝 Contributeurs
 
-- **Léo Lammar** - *Développeur principal* - [@LeoLammar](https://github.com/LeoLammar)
+- **Lammar Léo** -- **Hubert Matthieu** -- **Dumas Antonin** -- **Delrue Cyprien** -- **Basset Maxime ** -
 
-### Comment contribuer
-
-Les contributions sont les bienvenues ! Pour contribuer au projet :
-
-1. **Fork** le repository
-2. **Créez** une branche feature (`git checkout -b feature/amelioration-messagerie`)
-3. **Committez** vos changements (`git commit -m 'Ajout: notification push pour mobile'`)
-4. **Pushez** vers la branche (`git push origin feature/amelioration-messagerie`)
-5. **Ouvrez** une Pull Request avec description détaillée
-
-### Standards de développement
-- **Langage** : JavaScript ES6+ avec async/await
-- **Indentation** : 4 espaces (cohérent avec le code existant)
-- **Naming** : camelCase pour variables, PascalCase pour classes
-- **Comments** : Français pour la documentation, anglais pour le code technique
-- **Templates** : EJS avec partials réutilisables
-- **Base de données** : Driver MongoDB natif (pas Mongoose)
-- **WebSocket** : Socket.IO avec gestion d'erreurs complète
 
 ### Architecture des contributions
 - **Backend** : Nouvelles routes dans `app.js` avec middleware approprié
-- **Frontend** : Templates EJS avec Tailwind CSS et JavaScript vanilla
+- **Frontend** : Templates EJS avec Tailwind CSS et JavaScript
 - **Database** : Requêtes MongoDB optimisées avec indexes
 - **WebSocket** : Événements avec logging et gestion d'erreurs
 - **IA** : Intégrations Gemini avec gestion des quotas et erreurs
 
 ## 📝 Licence
 
-Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
+Ce projet est sous licence MIT 
 
 ```
 MIT License
@@ -752,79 +682,19 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-
-## 🙏 Remerciements
-
-- **Junia École d'Ingénieurs** pour le cadre de formation et l'accès à l'API Mauria officielle
-- **Équipe pédagogique** pour l'accompagnement technique et les conseils d'architecture
-- **API Mauria** (mauriaapi.fly.dev) pour l'intégration des emplois du temps en temps réel
-- **Google AI Team** pour les services Gemini 2.0 Flash et la génération intelligente
-- **MongoDB Team** pour la documentation complète et les driver Node.js natifs
-- **Socket.IO Contributors** pour les WebSockets performants et la gestion temps réel
-- **Tailwind CSS** pour le framework utilitaire moderne et la productivité
-- **Communauté Node.js** pour l'écosystème riche et les bonnes pratiques
-
 ## 📞 Contact et support
 
 ### Contact principal
-- **Email du projet** : [leo.lammar@student.junia.com]
-- **LinkedIn** : [Profil LinkedIn de Léo Lammar]
+- **Emails** : [leo.lammar@student.junia.com] [maxime.basset@student.junia.com] [antonin.dumas@student.junia.com] [hubert.matthieu@student.junia.com] [delrue.cyprien@student.junia.com]
 - **Repository GitHub** : [https://github.com/LeoLammar/ProjetFinAnnee3](https://github.com/LeoLammar/ProjetFinAnnee3)
 
 ### Support technique
 - **Documentation** : README.md complet avec exemples
 - **Code source** : Commentaires détaillés en français
 - **Issues GitHub** : Pour signaler bugs et demandes de fonctionnalités
-- **Wiki** : Documentation technique avancée (à venir)
 
-### Présentation du projet
-- **Demo live** : [URL de démo si déployée]
-- **Vidéo de présentation** : [Lien vers présentation vidéo]
-- **Documentation API** : [Lien vers documentation Postman/Swagger]
-
-## 🔮 Roadmap et évolutions futures
-
-### Phase 2 - Court terme (3-6 mois)
-- [ ] **Application mobile native** avec React Native ou Flutter
-- [ ] **Notifications push** pour mobile et desktop via Service Workers
-- [ ] **Mode hors ligne** pour consultation des ressources avec Progressive Web App
-- [ ] **Export PDF** des emplois du temps et planning personnalisé
-- [ ] **Intégration calendrier externe** : Google Calendar, Outlook, Apple Calendar
-- [ ] **Système de badges** et achievements pour gamification avancée
-
-### Phase 3 - Moyen terme (6-12 mois)
-- [ ] **Analytics avancées** avec tableaux de bord et métriques d'utilisation
-- [ ] **API publique REST** pour intégrations tierces avec documentation OpenAPI
-- [ ] **Intelligence artificielle avancée** : recommandations personnalisées de contenu
-- [ ] **Système de notation** et reviews pour les sessions de mentorat
-- [ ] **Partage de screen** et visioconférence intégrée pour mentorat à distance
-- [ ] **Multilinguisme** : Support anglais et autres langues
-
-### Phase 4 - Long terme (1-2 ans)
-- [ ] **Multi-établissements** : Extension à d'autres écoles d'ingénieurs françaises
-- [ ] **Marketplace de compétences** : Échange de services entre étudiants
-- [ ] **IA prédictive** : Analyse des performances et recommandations d'orientation
-- [ ] **Réalité augmentée** : Navigation campus et informations contextuelles
-- [ ] **Blockchain** : Certification des compétences et portfolio numérique
-- [ ] **Écosystème partenaires** : Intégration entreprises pour stages et emplois
-
-### Améliorations techniques prioritaires
-- [ ] **Tests automatisés** : Jest, Mocha ou Cypress pour tests E2E
-- [ ] **CI/CD Pipeline** : GitHub Actions pour déploiement automatique
-- [ ] **Monitoring avancé** : Prometheus, Grafana, ou services cloud
-- [ ] **Sécurité renforcée** : HTTPS, CSP, rate limiting, validation d'entrées
-- [ ] **Performance** : Redis pour cache, CDN pour assets, optimisation MongoDB
-- [ ] **Scalabilité** : Architecture microservices et load balancing
-
-## 📊 Métriques et statistiques
-
-### Développement (1.5 mois)
-- **Lignes de code** : ~1500+ lignes dans app.js principal
-- **Templates EJS** : 30+ pages de matières + 10+ pages système
-- **Collections MongoDB** : 7 collections principales optimisées
-- **APIs intégrées** : 2 services externes (Mauria + Google Gemini)
-- **WebSocket Events** : 15+ événements temps réel
-- **Routes Express** : 50+ endpoints API et pages
+### Démonstration du projet
+- **Demo live** : [LIEN A AJOUTER UNE FOIS DEMO FAITE]
 
 ### Fonctionnalités techniques
 - **Upload de fichiers** : Support PDF jusqu'à 20MB avec stockage MongoDB
@@ -833,6 +703,64 @@ SOFTWARE.
 - **Authentification** : Sessions sécurisées avec bcrypt et MongoDB
 - **Responsive** : Interface optimisée mobile et desktop avec Tailwind
 - **Permissions** : 3 niveaux d'autorisation (étudiant, association, admin)
+
+### Documentation 
+## 📚 Documentation et ressources
+
+### Documentation des technologies principales
+
+#### Socket.IO (Communication temps réel)
+- [Documentation officielle Socket.IO v4](https://socket.io/docs/v4/)
+- [API serveur Node.js](https://socket.io/docs/v4/server-api/)
+- [API client JavaScript](https://socket.io/docs/v4/client-api/)
+- [Gestion des événements](https://socket.io/docs/v4/listening-to-events/)
+- [Rooms et namespaces](https://socket.io/docs/v4/rooms/)
+
+#### MongoDB (Base de données)
+- [Documentation MongoDB](https://docs.mongodb.com/)
+- [Driver Node.js officiel](https://docs.mongodb.com/drivers/node/current/)
+- [Opérations CRUD](https://docs.mongodb.com/manual/crud/)
+- [Pipeline d'agrégation](https://docs.mongodb.com/manual/aggregation/)
+- [Indexation et performance](https://docs.mongodb.com/manual/indexes/)
+
+#### Express.js (Framework backend)
+- [Documentation Express.js](https://expressjs.com/)
+- [Guide des middlewares](https://expressjs.com/en/guide/using-middleware.html)
+- [Système de routage](https://expressjs.com/en/guide/routing.html)
+- [Gestion des erreurs](https://expressjs.com/en/guide/error-handling.html)
+
+#### Frontend et styling
+- [Documentation EJS](https://ejs.co/) - Moteur de templates
+- [Guide de syntaxe EJS](https://github.com/mde/ejs)
+- [Documentation Tailwind CSS](https://tailwindcss.com/docs)
+- [Responsive design avec Tailwind](https://tailwindcss.com/docs/responsive-design)
+- [Configuration Tailwind](https://tailwindcss.com/docs/configuration)
+
+#### Gestion des fichiers et sécurité
+- [Documentation Multer](https://github.com/expressjs/multer) - Upload de fichiers
+- [Guide Multer NPM](https://www.npmjs.com/package/multer)
+- [bcrypt pour Node.js](https://www.npmjs.com/package/bcrypt) - Hachage de mots de passe
+- [express-session](https://www.npmjs.com/package/express-session) - Gestion des sessions
+
+#### Intelligence Artificielle
+- [Google AI SDK](https://ai.google.dev/docs) - Documentation Gemini
+- [Guide Node.js Gemini](https://ai.google.dev/tutorials/node_quickstart)
+- [pdf-parse](https://www.npmjs.com/package/pdf-parse) - Extraction de contenu PDF
+
+### Ressources d'apprentissage complémentaires
+
+#### WebSocket et temps réel
+- [MDN WebSocket API](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
+- [Real-time web applications with Socket.IO](https://socket.io/get-started/chat)
+
+#### MongoDB et NoSQL
+- [MongoDB University](https://university.mongodb.com/) - Cours gratuits
+- [MongoDB Compass](https://docs.mongodb.com/compass/) - Interface graphique
+
+#### Node.js et JavaScript
+- [Documentation Node.js](https://nodejs.org/en/docs/)
+- [MDN JavaScript Guide](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide)
+- [Node.js Best Practices](https://github.com/goldbergyoni/nodebestpractices)
 
 ## 🏷️ Tags et mots-clés
 
