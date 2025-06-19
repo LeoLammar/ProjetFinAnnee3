@@ -693,9 +693,6 @@ SOFTWARE.
 - **Code source** : Commentaires détaillés en français
 - **Issues GitHub** : Pour signaler bugs et demandes de fonctionnalités
 
-### Démonstration du projet
-- **Demo live** : [LIEN A AJOUTER UNE FOIS DEMO FAITE]
-
 ### Fonctionnalités techniques
 - **Upload de fichiers** : Support PDF jusqu'à 20MB avec stockage MongoDB
 - **IA intégrée** : Quiz et résumés automatiques via Google Gemini 2.0
