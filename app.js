@@ -31,7 +31,7 @@ let documents = null;
 let mentorat = null;
 let associationEvents = null;
 
-let groups = null; // NOUVEAU: Collection pour les groupes
+let groups = null; //Collection pour les groupes
 
 // On ne garde plus une seule collection "Documents" mais une collection par matière
 let matiereCollections = {};
@@ -39,7 +39,7 @@ let matiereCollections = {};
 // Utiliser la collection "Ressources" pour tous les documents
 let Ressources = null;
 
-// Correction : attendre que la connexion MongoDB soit prête avant d'accepter les requêtes
+// attendre que la connexion MongoDB soit prête avant d'accepter les requêtes
 let mongoReady = false;
 async function ensureIndexes() {
     if (!Ressources) return;
@@ -214,9 +214,7 @@ const profilePhotoStorage = multer.diskStorage({
 });
 const uploadProfilePhoto = multer({ storage: profilePhotoStorage });
 
-// =======================
-// === PAGES DES MATIERES
-// =======================
+
 // Génération dynamique des routes pour chaque matière (affichage des documents et forum)
 matieres.forEach(matiere => {
     app.get(`/${matiere}`, async (req, res) => {
@@ -232,10 +230,6 @@ matieres.forEach(matiere => {
         res.render(path.join('matieres', matiere), { cours, tds, tps, annales, forum });
     });
 });
-
-// ===================================
-// === GESTION UPLOAD/DOWNLOAD/VIEW ===
-// ===================================
 
 // Téléchargement d'un document PDF depuis la BDD
 // Route pour télécharger un fichier PDF
@@ -472,6 +466,7 @@ app.post('/emploidutemps', async (req, res) => {
     res.render('emploidutemps', { planning, error, start: startStr, password_mauria, user: req.session.user });
 });
 
+// Page de compte utilisateur
 app.get('/compte', (req, res) => {
     if (!req.session.user) {
         return res.redirect('/connexion');
@@ -479,6 +474,7 @@ app.get('/compte', (req, res) => {
     res.render('compte', { user: req.session.user });
 });
 
+//destruction de la session utilisateur
 app.get('/logout', (req, res) => {
     req.session.destroy(() => {
         res.redirect('/');
@@ -641,10 +637,6 @@ app.post('/mentorat/creer', async (req, res) => {
     }
 });
 
-app.get('/salles', (req, res) => {
-    res.render('salleDeClasse');
-});
-
 app.get('/classement', async (req, res) => {
   try {
     const utilisateurs = await compte
@@ -716,7 +708,7 @@ app.get('/modifier', async (req, res) => {
     if (!req.session.user || !req.session.user._id) {
         return res.redirect('/connexion');
     }
-    // Convertit l'id en ObjectId pour la requête MongoDB
+    // Vérifie si l'utilisateur existe dans la base de données
     const user = await compte.findOne({ _id: new ObjectId(req.session.user._id) });
     if (!user) {
         req.session.destroy(() => {
@@ -724,6 +716,7 @@ app.get('/modifier', async (req, res) => {
         });
         return;
     }
+    // Met à jour la session avec les données de l'utilisateur
     req.session.user = {
         _id: user._id,
         nom: user.nom,
@@ -734,6 +727,7 @@ app.get('/modifier', async (req, res) => {
         photo: user.photo,
         perm: user.perm
     };
+    // Affiche le formulaire de modification avec les données de l'utilisateur
     res.render('modifier', { user, error: null, success: null });
 });
 
@@ -746,7 +740,7 @@ app.post('/modifier', uploadProfilePhoto.single('photo'), async (req, res) => {
     if (req.body.nom && req.body.nom.trim() === '/gambling') {
         return res.render('gambling');
     }
-    
+    // Vérifie si l'utilisateur existe
     let updateFields = {};
     if (nom && nom !== userActuel.nom) updateFields.nom = nom;
     if (prenom && prenom !== userActuel.prenom) updateFields.prenom = prenom;
@@ -756,7 +750,7 @@ app.post('/modifier', uploadProfilePhoto.single('photo'), async (req, res) => {
 
     // Gestion de la photo de profil
     if (req.file) {
-        // Supprimer l'ancienne photo si ce n'est pas la photo par défaut
+        // Vérifie si une photo a été uploadée
         if (userActuel.photo && userActuel.photo !== '/default.png') {
             try {
                 const oldPhotoPath = path.join(__dirname, 'public', userActuel.photo.replace(/^\//, ''));
@@ -770,11 +764,11 @@ app.post('/modifier', uploadProfilePhoto.single('photo'), async (req, res) => {
         // Enregistre le chemin de la nouvelle photo (dans public)
         updateFields.photo = '/' + req.file.filename;
     }
-
+    // Vérifie si des modifications ont été apportées
     if (Object.keys(updateFields).length === 0) {
         return res.render('modifier', { user: userActuel, error: "Aucune modification détectée.", success: null });
     }
-
+    // Met à jour l'utilisateur dans la base de données
     await compte.updateOne(
         { _id: new ObjectId(req.session.user._id) },
         { $set: updateFields }
@@ -797,6 +791,7 @@ app.post('/modifier', uploadProfilePhoto.single('photo'), async (req, res) => {
     res.redirect('/compte');
 });
 
+// Middleware pour rediriger les utilisateurs authentifiés vers leur compte
 function redirectIfAuthenticated(req, res, next) {
     if (req.session.user && req.session.user._id) {
         return res.redirect('/compte');
@@ -804,18 +799,20 @@ function redirectIfAuthenticated(req, res, next) {
     next();
 }
 
-// Utilise ce middleware sur les routes concernées
+// Route pour la connexion et l'inscription
 app.get('/connexion', redirectIfAuthenticated, (req, res) => {
     res.render('connexion');
 });
 
+// Route pour l'inscription
 app.get('/inscription', redirectIfAuthenticated, (req, res) => {
     res.render('inscription');
 });
 
+// Route pour la connexion et l'inscription
 app.post('/connexion', redirectIfAuthenticated, async (req, res) => {
     const { username, password } = req.body;
-
+    // Vérification des champs requis
     if (!username || !password) {
         return res.render('connexion', { error: "Tous les champs sont obligatoires." });
     }
@@ -824,17 +821,17 @@ app.post('/connexion', redirectIfAuthenticated, async (req, res) => {
     const user = await compte.findOne({
         $or: [{ username }, { email: username }]
     });
-
+    // Vérification de l'existence de l'utilisateur
     if (!user) {
         return res.render('connexion', { error: "Identifiants incorrects." });
     }
-
+    // Vérification du mot de passe
     const passwordMatch = await bcrypt.compare(password, user.password);
-
+    // Si le mot de passe ne correspond pas
     if (!passwordMatch) {
         return res.render('connexion', { error: "Identifiants incorrects." });
     }
-
+    // Si l'utilisateur est trouvé et le mot de passe correspond, on crée la session
     req.session.user = {
         _id: user._id,
         username: user.username,
@@ -849,20 +846,21 @@ app.post('/connexion', redirectIfAuthenticated, async (req, res) => {
     res.redirect('/');
 });
 
+
+// Route pour l'inscription
 app.post('/inscription', redirectIfAuthenticated, uploadProfilePhoto.single('photo'), async (req, res) => {
     const { nom, prenom, email, username, date_naissance, password, confirm_password } = req.body;
     let photoPath = req.file ? '/' + req.file.filename : '/default.png';
 
-    // ...vérifications comme avant...
+    // Vérification des champs requis
 
     try {
         const existingUser = await compte.findOne({ $or: [{ email }, { username }] });
         if (existingUser) {
             return res.render('inscription', { error: "Email ou pseudo déjà utilisé." });
         }
-
+        // Vérification des mots de passe
         const hashedPassword = await bcrypt.hash(password, 10);
-
         await compte.insertOne({
             nom,
             prenom,
@@ -874,7 +872,7 @@ app.post('/inscription', redirectIfAuthenticated, uploadProfilePhoto.single('pho
             date_inscription: new Date(),
             perm: 0
         });
-
+        // Création de la session utilisateur
         res.render('inscription', { success: "Inscription réussie !" });
     } catch (err) {
         console.error(err);
@@ -882,7 +880,6 @@ app.post('/inscription', redirectIfAuthenticated, uploadProfilePhoto.single('pho
     }
 });
 
-// ========== ROUTES DE RECHERCHE ET MESSAGERIE ==========
 
 app.get('/search-users', async (req, res) => {
     const query = req.query.q;
@@ -897,7 +894,7 @@ app.get('/search-users', async (req, res) => {
                 { nom: { $regex: query, $options: 'i' } }
             ]
         })
-        .project({ username: 1, nom: 1, prenom: 1 }) // Pas d'email ou mot de passe !
+        .project({ username: 1, nom: 1, prenom: 1 }) // Pas d'email ou mot de passe
         .limit(10)
         .toArray();
 
@@ -908,7 +905,6 @@ app.get('/search-users', async (req, res) => {
     }
 });
 
-// ========== NOUVELLES ROUTES POUR LES GROUPES ==========
 
 // Configuration du stockage pour les photos de groupe
 const groupPhotoStorage = multer.diskStorage({
@@ -932,14 +928,14 @@ app.post('/groups/create', uploadGroupPhoto.single('avatar'), async (req, res) =
     try {
         const { name, description } = req.body;
         
-        // Parse les membres - ils peuvent être envoyés comme string JSON
+        // Récupérer le nom du groupe
         let members = [];
         if (req.body.members) {
             if (typeof req.body.members === 'string') {
                 try {
                     members = JSON.parse(req.body.members);
                 } catch (e) {
-                    // Si ce n'est pas du JSON valide, on considère que c'est un tableau vide
+                    // Si la conversion échoue, on initialise members comme un tableau vide
                     members = [];
                 }
             } else if (Array.isArray(req.body.members)) {
@@ -947,15 +943,15 @@ app.post('/groups/create', uploadGroupPhoto.single('avatar'), async (req, res) =
             }
         }
 
-        // Validation - le nom est obligatoire, mais pas les membres
+        // Vérifier que le nom du groupe est fourni
         if (!name || !name.trim()) {
             return res.status(400).json({ success: false, error: 'Le nom du groupe est obligatoire' });
         }
 
-        // Créer la liste des membres (au minimum l'utilisateur actuel)
+        // Créer un tableau de membres avec l'utilisateur actuel
         const memberUsernames = [currentUser.username];
         if (Array.isArray(members) && members.length > 0) {
-            // Ajouter les autres membres s'il y en a
+            // Filtrer les membres pour ne garder que les noms valides
             members.forEach(member => {
                 if (member && typeof member === 'string' && member !== currentUser.username) {
                     memberUsernames.push(member);
@@ -965,7 +961,7 @@ app.post('/groups/create', uploadGroupPhoto.single('avatar'), async (req, res) =
         
         const uniqueMembers = [...new Set(memberUsernames)]; // Supprimer les doublons
 
-        // Vérifier que tous les membres existent (seulement s'il y en a d'autres que l'utilisateur actuel)
+        // Vérifier que l'utilisateur actuel est dans la liste des membres
         if (uniqueMembers.length > 1) {
             const existingUsers = await compte.find({
                 username: { $in: uniqueMembers }
@@ -1028,7 +1024,7 @@ app.get('/groups/:groupId/edit', async (req, res) => {
     }
 });
 
-// Route pour mettre à jour un groupe (CORRIGÉE)
+// Route pour mettre à jour un groupe
 app.post('/groups/:groupId/update', uploadGroupPhoto.single('avatar'), async (req, res) => {
     const currentUser = req.session.user;
     if (!currentUser) {
@@ -1036,7 +1032,7 @@ app.post('/groups/:groupId/update', uploadGroupPhoto.single('avatar'), async (re
     }
 
     try {
-        const { name, description } = req.body; // AJOUT: Extraction des données du body
+        const { name, description } = req.body; // Récupérer les données du formulaire
         
         const group = await groups.findOne({
             _id: new ObjectId(req.params.groupId),
@@ -1092,7 +1088,7 @@ app.post('/groups/:groupId/update', uploadGroupPhoto.single('avatar'), async (re
 });
 
 
-// Route pour ajouter des membres à un groupe (CORRIGÉE)
+// Route pour ajouter des membres à un groupe
 app.post('/groups/:groupId/add-members', async (req, res) => {
     const currentUser = req.session.user;
     if (!currentUser) {
@@ -1145,7 +1141,7 @@ app.post('/groups/:groupId/add-members', async (req, res) => {
         // Notifier via WebSocket
         const updatedGroup = await groups.findOne({ _id: new ObjectId(groupId) });
         
-        // Notifier tous les membres (anciens et nouveaux) du changement
+        // Notifier tous les membres du groupe
         updatedGroup.members.forEach(member => {
             try {
                 const memberSocketId = userSocketMap.get(member);
@@ -1161,7 +1157,7 @@ app.post('/groups/:groupId/add-members', async (req, res) => {
             }
         });
 
-        // IMPORTANT: Retourner une réponse de succès avec les nouveaux membres
+        // Répondre avec le succès et les nouveaux membres
         res.json({ 
             success: true, 
             newMembers: newMembers,
@@ -1174,7 +1170,7 @@ app.post('/groups/:groupId/add-members', async (req, res) => {
     }
 });
 
-// Route pour quitter un groupe (modifiée pour être plus simple)
+// Route pour quitter un groupe
 app.post('/groups/:groupId/leave', async (req, res) => {
     const currentUser = req.session.user;
     const groupId = req.params.groupId;
@@ -1205,7 +1201,7 @@ app.post('/groups/:groupId/leave', async (req, res) => {
             }
         );
 
-        // Notifier les autres membres via WebSocket
+        // Notifier les autres membres
         const remainingMembers = group.members.filter(member => member !== currentUser.username);
         remainingMembers.forEach(member => {
             const memberSocketId = userSocketMap.get(member);
@@ -1389,7 +1385,7 @@ app.get('/api/conversations', async (req, res) => {
                 conv.lastMessageTime = conv.createdAt;
             }
             
-            conv.unreadCount = unreadCount; // NOUVEAU : ajouter le compteur
+            conv.unreadCount = unreadCount; // Ajout du compteur de non lus
         }
 
         res.json(conversations);
@@ -1399,7 +1395,7 @@ app.get('/api/conversations', async (req, res) => {
     }
 });
 
-// Nouvelle route pour créer une conversation (GET avec réponse JSON)
+// Route pour créer une conversation privée
 app.get('/messagerie/create', async (req, res) => {
     const currentUser = req.session.user;
     const targetUsername = req.query.user;
@@ -1450,9 +1446,9 @@ app.get('/messagerie', async (req, res) => {
 
         let selectedUser = null;
         let selectedGroup = null;
-        let messageList = []; // CORRECTION : Nom de variable changé pour éviter le conflit.
+        let messageList = [];
 
-        // --- Récupération des conversations et des groupes en parallèle ---
+        // Récupérer les conversations et les groupes de l'utilisateur actuel
         const [conversationList, userGroups] = await Promise.all([
             // Récupérer et enrichir les conversations privées
             conversations.aggregate([
@@ -1506,7 +1502,7 @@ app.get('/messagerie', async (req, res) => {
                     pipeline: [
                       { $match: {
                           $expr: { $eq: ['$groupId', '$$groupId'] },
-                          'readBy.username': { $ne: currentUser.username } // CORRECTION: Logique de comptage améliorée
+                          'readBy.username': { $ne: currentUser.username } // Messages non lus
                         }
                       },
                       { $count: 'count' }
@@ -1523,13 +1519,13 @@ app.get('/messagerie', async (req, res) => {
             ]).toArray()
         ]);
 
-        // --- Logique pour la conversation ou le groupe sélectionné ---
+        // Vérifier si un utilisateur ou un groupe a été sélectionné
         if (selectedUsername) {
             selectedUser = await compte.findOne({ username: selectedUsername });
             if (selectedUser) {
                 const conv = conversationList.find(c => c.participants.includes(selectedUsername));
+                // Récupérer les messages de la conversation
                 if (conv) {
-                    // CORRECTION : Utilisation de messagesCollection et stockage dans messageList
                     messageList = await messagesCollection.find({ conversationId: conv._id }).sort({ timestamp: 1 }).toArray();
                     await messagesCollection.updateMany(
                         { conversationId: conv._id, to: currentUser.username, read: false },
@@ -1540,7 +1536,7 @@ app.get('/messagerie', async (req, res) => {
         } else if (selectedGroupId) {
             selectedGroup = userGroups.find(g => g._id.toString() === selectedGroupId);
             if (selectedGroup) {
-                // CORRECTION : Utilisation de messagesCollection et stockage dans messageList
+                // Récupérer les messages du groupe
                 messageList = await messagesCollection.find({ groupId: selectedGroup._id }).sort({ timestamp: 1 }).toArray();
                 await messagesCollection.updateMany(
                    { groupId: selectedGroup._id, readBy: { $not: { $elemMatch: { username: currentUser.username } } } },
@@ -1554,14 +1550,14 @@ app.get('/messagerie', async (req, res) => {
             currentUser,
             selectedUser,
             selectedGroup,
-            messages: messageList, // CORRECTION : Passage de la bonne variable
+            messages: messageList, 
             conversations: conversationList,
             groups: userGroups
         });
 
     } catch (error) {
         console.error("ERREUR FATALE DANS LA ROUTE /messagerie :", error);
-        res.status(500).render('error', { message: "Une erreur est survenue lors du chargement de la messagerie.", error }); // Avoir une page d'erreur est une bonne pratique
+        res.status(500).render('error', { message: "Une erreur est survenue lors du chargement de la messagerie.", error });
     }
 });
 
@@ -1744,7 +1740,7 @@ app.get('/api/status', (req, res) => {
     });
 });
 
-// ========== CONFIGURATION WEBSOCKET AVEC NOTIFICATIONS ==========
+// Route pour la page d'administration
 app.get('/admin', async (req, res) => {
     if (!req.session.user || req.session.user.perm !== 2) {
         return res.redirect('/');
@@ -1755,6 +1751,7 @@ app.get('/admin', async (req, res) => {
     res.render('admin', { comptes, success, error });
 });
 
+// Route pour modifier la permission d'un compte
 app.post('/admin/permission/:id', async (req, res) => {
     if (!req.session.user || req.session.user.perm !== 2) {
         return res.redirect('/');
@@ -1768,6 +1765,7 @@ app.post('/admin/permission/:id', async (req, res) => {
     res.redirect('/admin?success=Permission modifiée avec succès');
 });
 
+// Route pour supprimer un compte
 app.post('/admin/delete/:id', async (req, res) => {
     if (!req.session.user || req.session.user.perm !== 2) {
         return res.redirect('/');
@@ -1837,7 +1835,7 @@ app.post('/forum/:matiere/:discussionId/message', async (req, res) => {
         return res.redirect('back');
     }
     try {
-        // Vérifie que la discussion existe bien AVANT d'ajouter le message
+        // Vérifier que la discussion existe dans la collection "Ressources"
         const discussion = await Ressources.findOne({ _id: new ObjectId(discussionId), matiere, categorie: 'forum' });
         if (!discussion) {
             return res.redirect('back');
@@ -1874,7 +1872,7 @@ app.post('/forum/:matiere/:discussionId/message', async (req, res) => {
 
 
 // Map pour stocker les connexions utilisateur
-const userSocketMap = new Map(); // username -> socketId
+const userSocketMap = new Map();
 
 // Fonction de logging pour débugger
 function logWebSocketEvent(event, data) {
@@ -2028,8 +2026,6 @@ socket.on('groupUpdated', (data) => {
                 logWebSocketEvent('sendGroupMessage', { from, groupId, messageId: newMessage._id });
 
             } else {
-                // Message privé (code existant)
-                // Trouver ou créer la conversation
                 let conv = await conversationsCollection.findOne({
                     participants: { $all: [from, to] }
                 });
@@ -2124,7 +2120,6 @@ socket.on('groupUpdated', (data) => {
         }
     });
 
-    // NOUVEAU : Événement pour marquer les messages comme lus
     socket.on('markAsRead', async (data) => {
         const { conversationId, groupId, username } = data;
         
@@ -2231,7 +2226,6 @@ socket.on('groupUpdated', (data) => {
 // Exposer io globalement
 global.io = io;
 
-// ========== ROUTE QUIZ À PARTIR D'UN DOCUMENT PDF ==========
 const pdfParse = require('pdf-parse');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -2363,7 +2357,6 @@ Utilise la seed suivante pour varier les questions : seed=${randomSeed}`;
 });
 
 
-// === API IA Résumé PDF ===
 // Route pour générer un résumé à partir d'un document PDF
 app.get('/api/resume-from-doc/:id', async (req, res) => {
     const docId = req.params.id;
