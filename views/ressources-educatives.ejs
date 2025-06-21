@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<%- include('partials/head.ejs') %>
 <html lang="fr">
+<%- include('partials/header.ejs') %>
 <head>
   <!-- Métadonnées et styles principaux -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
+  <%- include('partials/head.ejs') %>
   <title>Argos</title>
   <link href="/stylesheets/style.css" rel="stylesheet">
   <style>
@@ -27,6 +27,7 @@
       font-weight: bold;
       margin-bottom: 1.5rem;
       text-align: center;
+      margin-top: 2.5rem; /* Ajouté pour descendre le titre */
     }
     .ressources-section h3 {
       color: #466a99;
@@ -83,7 +84,6 @@
   </style>
 </head>
 <body class="bg-[#FAF3E5]">
-  <%- include('partials/header.ejs') %>
   <main class="ressources-section">
     <h2>Ressources éducatives</h2>
     <!-- Section Semestre 1 -->

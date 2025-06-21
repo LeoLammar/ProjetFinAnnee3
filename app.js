@@ -654,8 +654,8 @@ app.get('/classement', async (req, res) => {
 app.use('/icons', express.static(path.join(__dirname, 'icons')));
   
 
-app.get('/Ressources-educatives', (req, res) => {
-    res.render('Ressources-educatives');
+app.get('/ressources-educatives', (req, res) => {
+    res.render('ressources-educatives');
 });
 
 // Route pour afficher le formulaire d'upload de PDF
@@ -1832,30 +1832,42 @@ app.post('/forum/:matiere/:discussionId/message', async (req, res) => {
         !text ||
         text.length === 0
     ) {
+        if (req.xhr || req.headers.accept.indexOf('json') > -1) {
+            return res.status(400).json({ success: false, error: 'Données invalides' });
+        }
         return res.redirect('back');
     }
     try {
         // Vérifier que la discussion existe dans la collection "Ressources"
         const discussion = await Ressources.findOne({ _id: new ObjectId(discussionId), matiere, categorie: 'forum' });
         if (!discussion) {
+            if (req.xhr || req.headers.accept.indexOf('json') > -1) {
+                return res.status(404).json({ success: false, error: 'Discussion non trouvée' });
+            }
             return res.redirect('back');
         }
         // Récupérer les infos du compte depuis la collection "Compte"
         const userDb = await compte.findOne({ username: user.username });
-        if (!userDb) return res.redirect('back');
+        if (!userDb) {
+            if (req.xhr || req.headers.accept.indexOf('json') > -1) {
+                return res.status(404).json({ success: false, error: 'Utilisateur non trouvé' });
+            }
+            return res.redirect('back');
+        }
+        const messageObj = {
+            author: {
+                _id: userDb._id,
+                username: userDb.username,
+                nom: userDb.nom,
+                prenom: userDb.prenom,
+                photo: userDb.photo
+            },
+            text,
+            date: new Date()
+        };
         await Ressources.updateOne(
             { _id: new ObjectId(discussionId) },
-            { $push: { messages: {
-                author: {
-                    _id: userDb._id,
-                    username: userDb.username,
-                    nom: userDb.nom,
-                    prenom: userDb.prenom,
-                    photo: userDb.photo
-                },
-                text,
-                date: new Date()
-            } } }
+            { $push: { messages: messageObj } }
         );
         // Ajout pour le temps réel forum :
         io.emit('forumMessage', {
@@ -1863,8 +1875,14 @@ app.post('/forum/:matiere/:discussionId/message', async (req, res) => {
             author: userDb.username,
             text
         });
+        if (req.xhr || req.headers.accept.indexOf('json') > -1) {
+            return res.json({ success: true, message: messageObj });
+        }
         res.status(200).end();
     } catch (err) {
+        if (req.xhr || req.headers.accept.indexOf('json') > -1) {
+            return res.status(500).json({ success: false, error: 'Erreur serveur' });
+        }
         res.redirect('back');
     }
 });
@@ -2292,7 +2310,7 @@ app.get('/api/quiz-from-doc/:id', async (req, res) => {
         // Prompt IA pour générer un quiz en français
         const randomSeed = Math.floor(Math.random() * 1000000);
         const prompt = `À partir du document PDF ci-joint, génère un quiz de 5 questions à choix multiples (4 choix chacune) en français.
-Le contenu doit porter sur des notions de cours (définitions, formules, méthodes, etc), sans jamais inclure d'organisation ou d'emploi du temps.
+Le contenu doit porter sur des notions de cours (définitions, formules, méthodes, etc), sans jamais inclure d'organisation ou d'emploi du temps. Tu pourrais éviter des étoiles, '*'. 
 Réponds en JSON :
 [
   {
