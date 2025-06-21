@@ -10,7 +10,7 @@
     
 <body class="bg-[#FAF3E5]">
     <%- include('partials/header.ejs') %>
-
+    <!-- Form d'inscription -->
     <div class="flex flex-col items-center justify-center min-h-screen pt-24">
         <h1 class="text-center text-3xl font-bold mb-8">Inscription</h1>
         <form id="inscriptionForm" action="/inscription" method="post" class="flex flex-col items-center bg-[#eaf4fb] p-8 rounded-lg shadow-md max-w-md w-full" enctype="multipart/form-data">
@@ -42,6 +42,7 @@
                 <p class="text-xs text-gray-500 mt-2">Formats acceptés : JPG, PNG, GIF</p>
             </div>
             <div id="passwordError" class="text-red-600 text-sm mb-2 hidden">Les mots de passe ne correspondent pas.</div>
+            <!-- Bouton de validation -->
             <button type="submit"
                     class="px-8 py-3 rounded-full border-2 border-[#5C83BA] text-[#5C83BA] bg-transparent hover:bg-[#5C83BA] hover:text-white transition-colors duration-200">
                 S'inscrire
@@ -63,6 +64,7 @@
             <% } %>
         </form>
     </div>
+    <!-- Script pour la confirmation de mot de passe et pour la photo de profil -->
     <script>
         document.getElementById('inscriptionForm').addEventListener('submit', function(e) {
             const password = document.getElementById('password').value;

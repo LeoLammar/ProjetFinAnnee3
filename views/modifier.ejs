@@ -18,6 +18,7 @@
             <% if (typeof success !== 'undefined' && success) { %>
                 <div class="mb-4 text-green-600"><%= success %></div>
             <% } %>
+            <!-- Form pour modifier ses informations -->
             <form action="/modifier" method="post" enctype="multipart/form-data" class="flex flex-col gap-4">
                 <input type="text" name="nom" placeholder="Nom" value="<%= user ? user.nom : '' %>" class="border border-gray-300 rounded-lg p-2">
                 <input type="text" name="prenom" placeholder="Prénom" value="<%= user ? user.prenom : '' %>" class="border border-gray-300 rounded-lg p-2">
@@ -35,6 +36,7 @@
     </label>
     <p class="text-xs text-gray-500 mt-2">Formats acceptés : JPG, PNG, GIF</p>
 </div>
+<!-- script pour afficher la photo de profil -->
 <script>
 function previewPhoto(event) {
     const [file] = event.target.files;
