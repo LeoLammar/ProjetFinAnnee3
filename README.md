@@ -67,7 +67,7 @@ Créer un écosystème numérique intégré pour optimiser l'expérience étudia
 - **Suivi complet** : Historique des sessions et statistiques
 
 ### 📚 Ressources éducatives avec IA
-- **Bibliothèque complète** : Organisation par 30+ matières Junia spécifiques
+- **Bibliothèque complète** : Organisation par matières
 - **Stockage MongoDB** : Documents PDF stockés directement en base de données
 - **Upload intelligent** : Gestion des noms personnalisés et métadonnées
 - **Catégorisation** : Cours, TD, TP, Annales pour chaque matière
