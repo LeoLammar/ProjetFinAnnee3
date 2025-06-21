@@ -59,7 +59,7 @@ Créer un écosystème numérique intégré pour optimiser l'expérience étudia
 - **Notifications** : Alertes automatiques pour les nouveaux événements
 
 ### 👨‍🏫 Système de mentorat avancé
-- **Création de sessions** : Interface pour proposer du tutorat dans 30+ matières
+- **Création de sessions** : Interface pour proposer du tutorat dans toutes les matières possibles
 - **Inscription simple** : Système de réservation en un clic
 - **Gestion temporelle** : Nettoyage automatique des cours passés
 - **Gamification** : Attribution de points pour participation (+1 point étudiant/tuteur)
