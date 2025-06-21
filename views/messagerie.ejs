@@ -548,7 +548,7 @@
  let unreadCounters = new Map(); // username -> unreadCount
  let groupUnreadCounters = new Map(); // groupId -> unreadCount
 
- // WebSocket avec configuration avancée
+ // WebSocket 
  const socket = io({
    transports: ['websocket', 'polling'],
    timeout: 20000,
@@ -1182,8 +1182,6 @@ function removeEditMember(username) {
  }
 
 // ========== FONCTIONS D'AJOUT DE MESSAGES ==========
-// Note : Le style des bulles de messages est maintenant directement géré dans le HTML.
-// Ces fonctions ajoutent les éléments au DOM.
 
 function addMessageToDesktopChat(messageData, isOwnMessage) {
     const messagesContainer = document.querySelector('.desktop-chat-messages');
@@ -1240,7 +1238,6 @@ function addMessageToDesktopGroupChat(messageData, isOwnMessage) {
     }
     
     if(!isOwnMessage) {
-      // Le nom est déjà dans la bulle
     } else {
       messageDiv.textContent = messageData.text;
     }
@@ -1838,7 +1835,7 @@ async function refreshGroupsList() {
             if (container && Array.isArray(groups)) {
                 container.innerHTML = groups.length > 0 ? groups.map(group => {
                     
-                    // CORRECTION : Initialiser lastMessage avec une valeur par défaut
+                    //Initialiser lastMessage avec une valeur par défaut
                     let lastMessage = "Pas encore de message"; 
                     let lastMessageTime = "";
 
