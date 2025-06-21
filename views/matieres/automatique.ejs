@@ -2,7 +2,6 @@
 <html lang="fr">
 <%- include('../partials/header.ejs') %>
 <head>
-  <!-- Métadonnées et styles principaux -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <%- include('../partials/head.ejs') %>
@@ -751,6 +750,52 @@
         fetchResumeIA(window.currentResumeFileId, true); // true pour forcer la régénération
       }
     }
+    // Script pour l'envoi AJAX des messages forum
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.forum-message-form').forEach(function(form) {
+        form.addEventListener('submit', async function(e) {
+          e.preventDefault();
+          const discussionId = form.getAttribute('data-discussion-id');
+          const input = form.querySelector('input[name="text"]');
+          const text = input.value.trim();
+          if (!text || !discussionId) return;
+          const url = `/forum/automatique/${discussionId}/message`;
+          try {
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+              },
+              body: new URLSearchParams({ text })
+            });
+            if (!res.ok) {
+              alert("Erreur lors de l'envoi du message");
+              return;
+            }
+            const data = await res.json();
+            if (data.success && data.message) {
+              // Ajoute le message dans la liste
+              const ul = document.getElementById('forum-messages-' + discussionId);
+              if (ul) {
+                const li = document.createElement('li');
+                li.style.marginBottom = '0.5rem';
+                li.innerHTML = `<span class='font-bold text-[#5C83BA]'>${data.message.author.username} :</span> <span>${data.message.text}</span>`;
+                ul.appendChild(li);
+                // Cache le message "Aucun message"
+                const noMsg = document.getElementById('no-msg-' + discussionId);
+                if (noMsg) noMsg.style.display = 'none';
+              }
+              input.value = '';
+            } else {
+              alert("Erreur lors de l'envoi du message");
+            }
+          } catch (err) {
+            alert("Erreur réseau ou serveur");
+          }
+        });
+      });
+    });
   </script>
 </body>
 <%- include("../partials/footer.ejs") %>

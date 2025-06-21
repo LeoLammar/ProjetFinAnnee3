@@ -164,7 +164,9 @@
 </head>
 <body class="bg-[#FAF3E5] min-h-screen">
   <main class="p-2 sm:p-4 md:p-8 max-w-4xl mx-auto">
+    <!-- Espace pour décaler le contenu sous le header -->
     <div class="mt-16 sm:mt-24"></div>
+    <!-- Titre et bouton d'ajout de fichier -->
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
       <h1 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-4 text-center sm:text-left">Transformations d'Intégrales</h1>
       <button onclick="openModal()" class="w-full sm:w-auto bg-[#5C83BA] text-white px-4 py-2 rounded hover:bg-[#466a99] transition">
@@ -173,6 +175,7 @@
     </div>
     <p class="text-base sm:text-lg text-center sm:text-left">Bienvenue sur la page de transformations d'intégrales.</p>
     
+    <!-- Section Cours -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('cours-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Cours
@@ -181,27 +184,33 @@
         <% if (cours && cours.length > 0) { %>
           <ul style="margin-left: 1.5rem;">
             <% cours.forEach(function(file, idx) { 
+              // Récupération de l'ID du fichier et sécurisation du nom
               var fileId = file.link && file.link.split('/').pop();
               var safeName = (file.name || '').replace(/'/g, "\'").replace(/"/g, '&quot;');
             %>
               <li style="margin-bottom: 1rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <!-- Lien pour prévisualiser le PDF -->
                   <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                     <a href="javascript:void(0)" onclick="togglePdfMulti('<%= fileId %>', 'cours-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1">
                       <%= file.name %>
                     </a>
                   </span>
                   <span style="display:flex; gap:0.5rem; align-items:center;">
+                    <!-- Bouton téléchargement -->
                     <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" title="Télécharger">
+                      <!-- Icône download -->
                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
                         <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
                       </svg>
                     </a>
+                    <!-- Bouton Quiz IA -->
                     <button type="button" class="inline-block px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition mb-1"
                       onclick="openQuizModal('<%= fileId %>', '<%= safeName %>')"
                       title="Quiz IA">
                       Quiz IA
                     </button>
+                    <!-- Bouton Résumé IA -->
                     <button type="button" class="inline-block px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition mb-1"
                       onclick="openResumeModal('<%= fileId %>', '<%= safeName %>')"
                       title="Résumé IA">
@@ -209,6 +218,7 @@
                     </button>
                   </span>
                 </div>
+                <!-- Zone de prévisualisation PDF -->
                 <div id="cours-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none;">
                   <iframe src="/view/<%= fileId %>#zoom=90" class="pdf-frame" allowfullscreen style="display:none;"></iframe>
                   <div class="pdf-fallback-message" style="display:none; color:#b91c1c; background:#fff0f0; border:1px solid #fca5a5; border-radius:8px; padding:1em; text-align:center;">
@@ -225,6 +235,7 @@
       </div>
     </section>
     
+    <!-- Section TDs -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('tds-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         TDs
@@ -235,15 +246,19 @@
             <% tds.forEach(function(file, idx) { %>
               <li style="margin-bottom: 1rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <!-- Lien pour prévisualiser le PDF TD -->
                   <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'tds-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
                     <%= file.name %>
                   </a>
+                  <!-- Bouton téléchargement TD -->
                   <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;" title="Télécharger">
+                    <!-- Icône download -->
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
                       <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
                     </svg>
                   </a>
                 </div>
+                <!-- Zone de prévisualisation PDF TD -->
                 <div id="tds-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none; margin-left: 0.5rem;">
                   <iframe src="" class="pdf-frame" allowfullscreen></iframe>
                 </div>
@@ -256,6 +271,7 @@
       </div>
     </section>
     
+    <!-- Section TPs -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('tps-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         TPs
@@ -266,15 +282,19 @@
             <% tps.forEach(function(file, idx) { %>
               <li style="margin-bottom: 1rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <!-- Lien pour prévisualiser le PDF TP -->
                   <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'tps-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
                     <%= file.name %>
                   </a>
+                  <!-- Bouton téléchargement TP -->
                   <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;" title="Télécharger">
+                    <!-- Icône download -->
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
                       <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
                     </svg>
                   </a>
                 </div>
+                <!-- Zone de prévisualisation PDF TP -->
                 <div id="tps-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none; margin-left: 0.5rem;">
                   <iframe src="" class="pdf-frame" allowfullscreen></iframe>
                 </div>
@@ -287,6 +307,7 @@
       </div>
     </section>
     
+    <!-- Section Annales -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('annales-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Annales
@@ -297,15 +318,19 @@
             <% annales.forEach(function(file, idx) { %>
               <li style="margin-bottom: 1rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <!-- Lien pour prévisualiser le PDF Annale -->
                   <a href="javascript:void(0)" onclick="togglePdfMulti('<%= file.link.split('/').pop() %>', 'annales-pdf-viewer-<%= idx %>')" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1" style="margin-left: 0.5rem;">
                     <%= file.name %>
                   </a>
+                  <!-- Bouton téléchargement Annale -->
                   <a href="<%= file.link %>" download="<%= file.name %>" class="inline-block px-3 py-1 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition mb-1 ml-2" style="margin-left:0.5rem;" title="Télécharger">
+                    <!-- Icône download -->
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 20 20" style="vertical-align:middle;">
                       <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 1 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>
                     </svg>
                   </a>
                 </div>
+                <!-- Zone de prévisualisation PDF Annale -->
                 <div id="annales-pdf-viewer-<%= idx %>" class="pdf-viewer-container" style="display:none; margin-left: 0.5rem;">
                   <iframe src="" class="pdf-frame" allowfullscreen></iframe>
                 </div>
@@ -318,11 +343,13 @@
       </div>
     </section>
     
+    <!-- Section Forum -->
     <section class="mb-6">
       <button type="button" onclick="toggleContent('forum-content')" class="text-lg font-semibold mb-2 px-4 py-2 bg-[#5C83BA] text-white rounded hover:bg-[#466a99] transition inline-block">
         Forum
       </button>
       <div id="forum-content" class="hidden mt-2">
+        <!-- Bouton pour ouvrir le modal d'ajout de discussion -->
         <button type="button" onclick="openAddDiscussionModal()" class="mb-4 bg-[#5C83BA] text-white px-4 py-2 rounded hover:bg-[#466a99] transition">
           + Ajouter une discussion
         </button>
@@ -344,6 +371,7 @@
           </div>
         </div>
         <script>
+          // Fonctions pour ouvrir/fermer le modal d'ajout de discussion
           function openAddDiscussionModal() {
             document.getElementById('addDiscussionModal').style.display = 'flex';
           }
@@ -354,6 +382,7 @@
         <% if (forum && forum.length > 0) { %>
           <ul style="margin-left: 1.5rem;">
             <% forum.forEach(function(discussion, idx) { 
+              // Gestion de l'ID discussion (string ou ObjectId)
               var discussionId = '';
               if (discussion && discussion._id) {
                 if (typeof discussion._id === 'object' && discussion._id !== null && discussion._id.toHexString) {
@@ -398,6 +427,7 @@
                     <% } %>
                   </div>
                   <% if (discussionId && discussionId.length === 24) { %>
+                  <!-- Formulaire d'ajout de message au forum -->
                   <form class="forum-message-form mt-2 flex flex-col sm:flex-row gap-2" data-discussion-id="<%= discussionId %>">
                     <input type="text" name="text" placeholder="Votre message" required class="border rounded px-2 py-1 flex-1" />
                     <button type="submit" class="bg-[#5C83BA] text-white px-3 py-1 rounded hover:bg-[#466a99]">Envoyer</button>
@@ -414,6 +444,7 @@
     </section>
     
   </main>
+  <!-- Modal d'upload de fichier PDF -->
   <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
     <div class="bg-white custom-modal p-3 sm:p-6 shadow-lg w-full max-w-sm sm:max-w-md md:max-w-lg">
       <button type="button" class="close-btn" onclick="closeModal()" title="Fermer">&times;</button>
@@ -479,6 +510,7 @@
     </div>
   </div>
   <script>
+    // Fonctions modals, preview PDF, gestion quiz/résumé IA, etc.
     function openModal() {
       document.getElementById('uploadModal').style.display = 'flex';
     }
@@ -700,7 +732,53 @@
         fetchResumeIA(window.currentResumeFileId, true); // true pour forcer la régénération
       }
     }
+    // Script pour l'envoi AJAX des messages forum
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.forum-message-form').forEach(function(form) {
+        form.addEventListener('submit', async function(e) {
+          e.preventDefault();
+          const discussionId = form.getAttribute('data-discussion-id');
+          const input = form.querySelector('input[name="text"]');
+          const text = input.value.trim();
+          if (!text || !discussionId) return;
+          const url = `/forum/transformations-integrales/${discussionId}/message`;
+          try {
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+              },
+              body: new URLSearchParams({ text })
+            });
+            if (!res.ok) {
+              alert("Erreur lors de l'envoi du message");
+              return;
+            }
+            const data = await res.json();
+            if (data.success && data.message) {
+              // Ajoute le message dans la liste
+              const ul = document.getElementById('forum-messages-' + discussionId);
+              if (ul) {
+                const li = document.createElement('li');
+                li.style.marginBottom = '0.5rem';
+                li.innerHTML = `<span class='font-bold text-[#5C83BA]'>${data.message.author.username} :</span> <span>${data.message.text}</span>`;
+                ul.appendChild(li);
+                // Cache le message "Aucun message"
+                const noMsg = document.getElementById('no-msg-' + discussionId);
+                if (noMsg) noMsg.style.display = 'none';
+              }
+              input.value = '';
+            } else {
+              alert("Erreur lors de l'envoi du message");
+            }
+          } catch (err) {
+            alert("Erreur réseau ou serveur");
+          }
+        });
+      });
+    });
   </script>
-  <%- include("../partials/footer.ejs") %>
 </body>
+<%- include("../partials/footer.ejs") %>
 </html>
