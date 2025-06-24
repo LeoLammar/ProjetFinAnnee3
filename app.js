@@ -2505,10 +2505,6 @@ app.post('/api/association-events', async (req, res) => {
 
 // Gère les requêtes DELETE pour supprimer un événement d'association
 app.delete('/api/association-events/:id', async (req, res) => {
-    // Vérifie si l'utilisateur est connecté et a la permission nécessaire
-    if (!req.session.user || req.session.user.perm !== 2) {
-        return res.status(403).json({ error: "Non autorisé" });
-    }
 
     // Récupère l'ID de l'événement
     const id = req.params.id;
@@ -2532,10 +2528,6 @@ app.delete('/api/association-events/:id', async (req, res) => {
 
 // Gère les requêtes PUT pour mettre à jour un événement d'association
 app.put('/api/association-events/:id', async (req, res) => {
-    // Vérifie si l'utilisateur est connecté et a la permission nécessaire
-    if (!req.session.user || req.session.user.perm !== 2) {
-        return res.status(403).json({ error: "Non autorisé" });
-    }
 
     // Récupère l'ID de l'événement
     const id = req.params.id;

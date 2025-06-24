@@ -442,7 +442,7 @@
             const evSlideEnd = new Date(evSlide.end);
             const startHourDecimal = evSlideStart.getHours() + evSlideStart.getMinutes() / 60;
             const endHourDecimal = evSlideEnd.getHours() + evSlideEnd.getMinutes() / 60;
-            const top = (startHourDecimal - startHour) * pixelsPerHour;
+            const top = (startHourDecimal - 8) * pixelsPerHour;
             const height = (endHourDecimal - startHourDecimal) * pixelsPerHour;
             div.style.top = `${top}px`;
             div.style.height = `${height}px`;
