@@ -49,6 +49,11 @@
                 <tr class="border-b-2 border-white">
                     <td><a href="/classement" id="classement">Classement </a> </td>
                 </tr>
+                <% if (user && user.perm === 2) { %>
+                <tr class="border-b-2 border-white">
+                    <td><a href="/admin" id="admin">Admin</a></td>
+                </tr>
+                <% } %>
             </table>
         </div>
     </div>
